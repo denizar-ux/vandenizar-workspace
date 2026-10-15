@@ -27,3 +27,18 @@ export const saveMessage = (r, okText) => ({
   unsupported: ['This preview can\'t save that file type. It works once the site runs on its own address.', 'warn'],
   failed: ['Couldn\'t save the file here. It works once the site runs on its own address.', 'warn'],
 }[r] || [okText, '']);
+
+// jsPDF loads on first use from cdnjs (kept out of the main bundle so the app opens faster).
+let jsPdfPromise = null;
+export function loadJsPdf() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (!jsPdfPromise) jsPdfPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.async = true;
+    s.onload = () => (window.jspdf && window.jspdf.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('PDF engine did not load')));
+    s.onerror = () => { jsPdfPromise = null; reject(new Error('Could not load the PDF engine. Check your connection and try again.')); };
+    document.head.appendChild(s);
+  });
+  return jsPdfPromise;
+}

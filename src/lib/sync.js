@@ -123,7 +123,7 @@ export async function initSync() {
   sync.ready = true;
   emit();
   supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') { sync.recovery = true; setTimeout(() => { location.hash = '#/settings'; }, 0); }
+    if (event === 'PASSWORD_RECOVERY') { sync.recovery = true; setTimeout(() => { location.hash = '#/settings/account'; }, 0); }
     const prev = sync.user?.id;
     sync.user = session?.user || null;
     if (!sync.user) { sync.status = 'signed_out'; clearInterval(pollTimer); emit(); return; }

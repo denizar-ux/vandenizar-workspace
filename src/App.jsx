@@ -39,7 +39,7 @@ export function App() {
   if (!p0) { page = <TodayPage />; sub = 'today'; }
   else if (p0 === 'tasks') { page = <TasksPage query={r.query} />; sub = 'tasks'; }
   else if (p0 === 'goals') { page = <GoalsPage />; sub = 'goals'; }
-  else if (p0 === 'review') { page = <ReviewPage mode={p1 === 'weekly' ? 'weekly' : 'daily'} date={r.query.d} />; sub = 'review'; }
+  else if (p0 === 'review') { page = <ReviewPage mode={p1 === 'weekly' || p1 === 'monthly' ? p1 : 'daily'} date={r.query.d} />; sub = 'review'; }
   else if (p0 === 'content') {
     section = 'content';
     if (!p1) { page = <ContentOverview />; sub = 'overview'; }
@@ -56,7 +56,7 @@ export function App() {
     else if (p1 === 'invoices') { page = p2 ? <InvoiceEditor id={p2} key={p2} /> : <InvoicesPage query={r.query} />; sub = 'invoices'; }
     else if (p1 === 'finance') { page = <FinancePage />; sub = 'finance'; }
     else if (p1 === 'templates') { page = <TemplatesPage />; sub = 'templates'; }
-  } else if (p0 === 'settings') { section = 'settings'; page = <SettingsPage />; }
+  } else if (p0 === 'settings') { section = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { section = 'settings'; page = <TrashPage />; }
   if (!page) page = <NotFound />;
 
@@ -154,7 +154,7 @@ function Sidebar({ section, sub }) {
 }
 function SaveState() {
   const s = useSync();
-  if (s.user) return <a href="#/settings" class={'save-state ' + (s.status === 'error' ? 'error' : s.status === 'syncing' ? 'saving' : '')} style={{ textDecoration: 'none' }}><span class="save-dot" />{syncLabel(s)}</a>;
+  if (s.user) return <a href="#/settings/account" class={'save-state ' + (s.status === 'error' ? 'error' : s.status === 'syncing' ? 'saving' : '')} style={{ textDecoration: 'none' }}><span class="save-dot" />{syncLabel(s)}</a>;
   const label = persist.status === 'error' ? 'Not saved' : persist.status === 'saving' ? 'Saving…' : persist.mode === 'idb' ? 'Saved on this device' : persist.mode === 'local' ? 'Saved (basic storage)' : 'Not saving';
   return <div class={'save-state ' + persist.status}><span class="save-dot" />{label}</div>;
 }
@@ -166,16 +166,18 @@ function BottomNav({ section, sub }) {
     { id: 'content', label: 'Content', icon: 'video', path: '/content', on: section === 'content' },
     { id: 'freelance', label: 'Freelance', icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
   ];
+  const Tab = (t) => (
+    <button class={'tab ' + (t.on ? 'on' : '')} aria-label={t.label} aria-current={t.on ? 'page' : undefined} onClick={() => (t.action ? t.action() : navigate(t.path))}>
+      <Icon name={t.icon} size={25} stroke={t.on ? 2.1 : 1.8} /><span>{t.label}</span>
+    </button>
+  );
   return (
     <nav class="bottom" aria-label="Main navigation">
       <div class="tabbar">
-        {tabs.map((t) => (
-          <button class={'tab ' + (t.on ? 'on' : '')} aria-label={t.label} aria-current={t.on ? 'page' : undefined} onClick={() => (t.action ? t.action() : navigate(t.path))}>
-            <Icon name={t.icon} size={21} /><span>{t.label}</span>
-          </button>
-        ))}
+        {Tab(tabs[0])}{Tab(tabs[1])}
+        <button class="tab-new" onClick={openQuickAdd} aria-label="Create new"><Icon name="plus" size={24} stroke={2.2} /></button>
+        {Tab(tabs[2])}{Tab(tabs[3])}
       </div>
-      <button class="fab" onClick={openQuickAdd} aria-label="Create new"><Icon name="plus" size={24} /></button>
     </nav>
   );
 }

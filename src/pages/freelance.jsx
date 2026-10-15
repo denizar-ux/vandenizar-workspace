@@ -9,7 +9,7 @@ import { today, addDays, diffDays, relDay, fmtDay, fmtShort, fmtFull, fmtMonth, 
 import { fmtMoney, CURRENCIES } from '../lib/money.js';
 import { dragHandlers, orderBetween } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
-import { saveFile, saveMessage } from '../lib/files.js';
+import { loadJsPdf, saveFile, saveMessage } from '../lib/files.js';
 
 const CUR_OPTS = Object.keys(CURRENCIES);
 function loadPref(k, d) { try { const v = localStorage.getItem('vz:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }
@@ -875,20 +875,7 @@ function PreviewSheet({ id, close }) {
   );
 }
 
-// jsPDF loads on first use from cdnjs (kept out of the main bundle so the app opens faster).
-let jsPdfPromise = null;
-export function loadJsPdf() {
-  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
-  if (!jsPdfPromise) jsPdfPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s.async = true;
-    s.onload = () => (window.jspdf && window.jspdf.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error('PDF engine did not load')));
-    s.onerror = () => { jsPdfPromise = null; reject(new Error('Could not load the PDF engine. Check your connection and try again.')); };
-    document.head.appendChild(s);
-  });
-  return jsPdfPromise;
-}
+export { loadJsPdf };
 export async function buildInvoicePdf(inv) {
   const jsPDF = await loadJsPdf();
   const c = M.calcInvoice(inv);

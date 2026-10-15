@@ -11,6 +11,10 @@ import { dragHandlers, orderBetween } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
 import { openSearch, openQuickAdd, recentRow } from '../App.jsx';
 import { reminderState, dismissReminder, loadSampleData, useSync } from './settings.jsx';
+import { monthData, buildMonthlyPdf, ENERGY } from '../lib/reviewpdf.js';
+import { uploadMonthlyReview, monthLabel } from '../lib/drive.js';
+import { saveFile, saveMessage } from '../lib/files.js';
+import { sync } from '../lib/sync.js';
 
 // =====================================================================
 // TODAY
@@ -58,7 +62,7 @@ export function TodayPage() {
         <div class="nudge blue">
           <Icon name="info" size={20} />
           <div class="grow" style={{ fontSize: 14 }}>You're looking at <b>sample data</b>. Remove it any time in Settings, your own entries stay.</div>
-          <button class="btn sm" onClick={() => navigate('/settings')}>Settings</button>
+          <button class="btn sm" onClick={() => navigate('/settings/data')}>Settings</button>
         </div>
       )}
       {rem.morning && <MorningBrief openToday={openToday} contentActs={contentActs} />}
@@ -671,8 +675,8 @@ export function ReviewPage({ mode, date }) {
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="review" />
-      <PageHeader title={mode === 'weekly' ? 'Weekly review' : 'Daily review'} actions={<Segmented options={[{ id: 'daily', label: 'Daily' }, { id: 'weekly', label: 'Weekly' }]} value={mode} onChange={(v) => navigate(v === 'weekly' ? '/review/weekly' : '/review')} />} />
-      {mode === 'weekly' ? <WeeklyReview start={date} /> : <DailyReview date={date} />}
+      <PageHeader title={mode === 'weekly' ? 'Weekly review' : mode === 'monthly' ? 'Monthly journal' : 'Daily review'} actions={<Segmented options={[{ id: 'daily', label: 'Daily' }, { id: 'weekly', label: 'Weekly' }, { id: 'monthly', label: 'Monthly' }]} value={mode} onChange={(v) => navigate(v === 'daily' ? '/review' : '/review/' + v)} />} />
+      {mode === 'weekly' ? <WeeklyReview start={date} /> : mode === 'monthly' ? <MonthlyReview month={date} /> : <DailyReview date={date} />}
     </div>
   );
 }
@@ -773,6 +777,71 @@ function DailyReview({ date }) {
   );
 }
 
+const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+export function MonthlyReview({ month }) {
+  useSync();
+  const cur = today().slice(0, 7);
+  const ym = month && /^\d{4}-\d{2}$/.test(month) ? month : cur;
+  const d = monthData(ym);
+  const saved = (M.meta('driveExports', {}).months || {})[ym];
+  const [busy, setBusy] = useState('');
+  const go = (v) => navigate('/review/monthly?d=' + v);
+  const download = async () => {
+    setBusy('pdf');
+    try { const pdf = await buildMonthlyPdf(ym); const r = await saveFile(pdf.name, pdf.blob, 'application/pdf'); const [msg, tone] = saveMessage(r, 'Saved ' + pdf.name); toast(msg, { tone }); }
+    catch (e) { toast(e.message || 'Could not make the PDF.', { tone: 'warn' }); }
+    setBusy('');
+  };
+  const toDrive = async () => {
+    setBusy('drive');
+    try {
+      const pdf = await buildMonthlyPdf(ym);
+      const r = await uploadMonthlyReview(ym, pdf.base64);
+      const ex = M.meta('driveExports', { id: 'driveExports', months: {} });
+      put('meta', { ...ex, id: 'driveExports', months: { ...(ex.months || {}), [ym]: { at: Date.now(), url: r.url, path: r.path } } });
+      toast('Saved to Google Drive · ' + r.path);
+    } catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); }
+    setBusy('');
+  };
+  return (
+    <>
+      <div class="row gap-8">
+        <button class="icon-btn" aria-label="Previous month" onClick={() => go(addMonths(ym, -1))}><Icon name="chevronLeft" /></button>
+        <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{monthLabel(ym)}</div><div class="muted" style={{ fontSize: 13 }}>{ym === cur ? 'This month' : ym === addMonths(cur, -1) ? 'Last month' : ''}</div></div>
+        <button class="icon-btn" aria-label="Next month" disabled={ym >= cur} onClick={() => go(addMonths(ym, 1))}><Icon name="chevronRight" /></button>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Days reviewed</div><div class="stat-value">{d.days.length}</div></div>
+        <div class="stat"><div class="stat-label">Tasks done</div><div class="stat-value">{d.doneCount}</div></div>
+        <div class="stat"><div class="stat-label">Uploads</div><div class="stat-value">{d.uploads}</div></div>
+        <div class="stat"><div class="stat-label">Avg energy</div><div class="stat-value" style={{ fontSize: d.avgEnergy ? 22 : undefined }}>{d.avgEnergy ? ENERGY[Math.round(d.avgEnergy) - 1] : '–'}</div></div>
+      </div>
+      <div class="card export-card">
+        <div class="export-icon"><Icon name="file" size={22} /></div>
+        <div class="grow" style={{ minWidth: 0 }}>
+          <div class="row-title">Daily Review - {monthLabel(ym)}.pdf</div>
+          <div class="row-meta">{saved ? <>Saved to Drive {fmtAgo(saved.at)}{saved.url && <> · <a href={saved.url} target="_blank" rel="noopener">Open</a></>}</> : (d.days.length ? `${d.days.length} daily review${d.days.length === 1 ? '' : 's'} in one PDF` : 'No reviews yet') + ` · Saves to Daily Review / ${ym.slice(0, 4)} / ${monthLabel(ym).split(' ')[0]}`}</div>
+        </div>
+        <div class="export-actions">
+          <button class="btn sm ghost" disabled={!!busy} onClick={download}><Icon name="download" size={15} />{busy === 'pdf' ? 'Making…' : 'PDF'}</button>
+          <button class="btn sm primary" disabled={!!busy || !d.days.length} onClick={() => (sync.user ? toDrive() : navigate('/settings/account'))}><Icon name="upload" size={15} />{busy === 'drive' ? 'Saving…' : saved ? 'Save again' : 'Save to Drive'}</button>
+        </div>
+      </div>
+      {d.days.length ? (
+        <div class="col gap-12">{d.days.map((x) => (
+          <a class="card journal-day" href={'#/review?d=' + x.date}>
+            <div class="row between gap-8"><div class="card-title">{fmtDay(x.date)}</div>{x.review.energy ? <span class="badge sm t-orange">{ENERGY[x.review.energy - 1]}</span> : null}</div>
+            {x.done.length > 0 && <div class="jd-line"><span class="jd-label">Done</span>{x.done.map((t) => t.title).join(', ')}</div>}
+            {x.review.wins && <div class="jd-line"><span class="jd-label">Wins</span>{x.review.wins}</div>}
+            {x.review.blockers && <div class="jd-line"><span class="jd-label">Blockers</span>{x.review.blockers}</div>}
+            {x.review.lesson && <div class="jd-line"><span class="jd-label">Lesson</span>{x.review.lesson}</div>}
+          </a>
+        ))}</div>
+      ) : <div class="card"><Empty icon="review" title="No daily reviews this month">Write one in Daily review. Every review this month lands here and in the PDF.</Empty></div>}
+    </>
+  );
+}
+
 function WeeklyReview({ start }) {
   const s = M.settings();
   const t0 = today();
@@ -838,7 +907,7 @@ function SyncNudge() {
     <div class="nudge blue">
       <Icon name="restore" size={20} />
       <div class="grow" style={{ fontSize: 14 }}><b>Turn on sync.</b> <span class="muted">Sign in once so your data is backed up and shows on every device.</span></div>
-      <button class="btn sm primary" onClick={() => navigate('/settings')}>Sign in</button>
+      <button class="btn sm primary" onClick={() => navigate('/settings/account')}>Sign in</button>
       <button class="icon-btn ghost sm" aria-label="Hide" onClick={() => { setHidden(true); try { localStorage.setItem('vz:hideSyncNudge', '1'); } catch {} }}><Icon name="x" size={16} /></button>
     </div>
   );

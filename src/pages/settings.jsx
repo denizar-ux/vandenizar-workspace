@@ -10,6 +10,7 @@ import { CURRENCIES } from '../lib/money.js';
 import * as M from '../lib/model.js';
 import { saveFile, saveMessage } from '../lib/files.js';
 import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
+import { driveStatus, monthLabel } from '../lib/drive.js';
 import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
 
 // ---------- theme ----------
@@ -127,94 +128,208 @@ function PushRow({ lead, onLead }) {
         <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label="Notifications on this device" disabled={!!blocked || busy} onClick={toggle} />
       </div>
       {on && (
-        <div class="set-row wrap">
-          <div class="grow"><div>Alert me</div></div>
-          <Segmented options={[{ id: 0, label: 'On time' }, { id: 5, label: '5m early' }, { id: 15, label: '15m early' }, { id: 30, label: '30m early' }]} value={lead} onChange={(v) => onLead(+v)} />
-          <button class="btn sm ghost" onClick={async () => { try { const n = await testPush(); toast(n ? 'Test sent' : 'No device is subscribed yet', { tone: n ? '' : 'warn' }); } catch (e) { toast(e.message, { tone: 'warn' }); } }}>Send test</button>
-        </div>
+        <>
+          <Field label="Alert me"><Segmented class="full" options={[{ id: 0, label: 'On time' }, { id: 5, label: '5m early' }, { id: 15, label: '15m early' }, { id: 30, label: '30m early' }]} value={lead} onChange={(v) => onLead(+v)} /></Field>
+          <div><button class="btn sm" onClick={async () => { try { const n = await testPush(); toast(n ? 'Test sent' : 'No device is subscribed yet', { tone: n ? '' : 'warn' }); } catch (e) { toast(e.message, { tone: 'warn' }); } }}><Icon name="bell" size={15} />Send test</button></div>
+        </>
       )}
     </>
   );
 }
 
-export function SettingsPage() {
-  useStore();
-  const s = M.settings();
-  const [theme, setTheme] = useState(getTheme());
-  const fileRef = useRef();
-  const set = (ch) => M.setSettings(ch);
-  const setBiz = (ch) => M.setSettings({ business: { ...s.business, ...ch } });
-  const setRem = (kind, ch) => M.setSettings({ reminders: { ...s.reminders, [kind]: { ...s.reminders[kind], ...ch } } });
-  const c = counts();
-  const hasSample = M.liveTasks().some((t) => t.sample) || all('contents').some((x) => x.sample) || all('clients').some((x) => x.sample);
-  const standalone = typeof matchMedia !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
-  const preview = M.formatInvoiceNumber(s.invoiceFormat, (M.meta('counters', {}).seq ? 1 : 1));
-  const doExport = () => {
-    const name = `vandenizar-backup-${today()}.json`;
-    downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', 'Backup saved: ' + name);
-  };
-  const doImport = async (file) => {
-    try {
-      const json = JSON.parse(await file.text());
-      if (!(await confirmDialog({ title: 'Replace everything with this backup?', body: `Backup from ${json.exportedAt ? fmtShort(isoOf(Date.parse(json.exportedAt))) : 'unknown date'}. Data on this device that isn't in the backup will be removed. Export first if you're unsure.`, confirmLabel: 'Restore backup', danger: true }))) return;
-      const ok = await importAll(json);
-      toast(ok ? 'Backup restored' : 'Restored in memory, but saving failed. Try again.', { tone: ok ? '' : 'warn' });
-    } catch (e) { toast(e.message || 'That file could not be read.', { tone: 'warn' }); }
-  };
-  return (
-    <div class="page narrow">
-      <PageHeader eyebrow="Workspace" title="Settings" />
-      <AccountCard />
+// ---------- Settings: section hub ----------
+const SECTIONS = [
+  { id: 'account', label: 'Account & sync', icon: 'restore', tone: 't-blue' },
+  { id: 'notifications', label: 'Notifications', icon: 'bell', tone: 't-orange' },
+  { id: 'general', label: 'Profile & appearance', icon: 'sun', tone: 't-yellow' },
+  { id: 'daily', label: 'Daily system', icon: 'tasks', tone: 't-green' },
+  { id: 'content', label: 'Content OS', icon: 'video', tone: 't-violet' },
+  { id: 'freelance', label: 'Freelance & invoices', icon: 'briefcase', tone: 't-pink' },
+  { id: 'drive', label: 'Google Drive', icon: 'upload', tone: 't-blue' },
+  { id: 'data', label: 'Backup & data', icon: 'archive', tone: 't-grey' },
+];
 
-      <div class="card"><div class="set-group">
-        <div class="card-title">You</div>
+function sectionSummary(id, s) {
+  const sy = sync;
+  switch (id) {
+    case 'account': return sy.user ? syncLabel(sy) : 'Not signed in';
+    case 'notifications': return pushFlag() ? 'On for this device' : 'Off on this device';
+    case 'general': return (s.name || 'You') + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
+    case 'daily': return s.categories.length + ' categories';
+    case 'content': return s.platforms.join(', ');
+    case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
+    case 'drive': return M.meta('driveStatus', {}).connected ? 'Connected' : 'Monthly review PDFs';
+    case 'data': return 'Export, import, trash';
+    default: return '';
+  }
+}
+
+export function SettingsPage({ section }) {
+  useStore();
+  useSync();
+  const s = M.settings();
+  const valid = SECTIONS.some((x) => x.id === section);
+  const cur = valid ? section : 'account';
+  const meta = SECTIONS.find((x) => x.id === cur);
+  return (
+    <div class={'page settings-page ' + (valid ? 'has-section' : 'no-section')}>
+      <div class="set-layout">
+        <div class="set-hub">
+          <PageHeader eyebrow="Workspace" title="Settings" />
+          <div class="set-nav">
+            {SECTIONS.map((x) => (
+              <a href={'#/settings/' + x.id} class={'set-nav-item ' + (x.id === cur ? 'on' : '')}>
+                <span class={'set-ico ' + x.tone}><Icon name={x.icon} size={18} /></span>
+                <span class="grow"><span class="set-nav-label">{x.label}</span><span class="set-nav-sub">{sectionSummary(x.id, s)}</span></span>
+                <Icon name="chevronRight" size={16} class="set-chev" />
+              </a>
+            ))}
+          </div>
+          <div class="set-foot">Vandenizar Creator Workspace · times in WIB (Asia/Jakarta)</div>
+        </div>
+        <div class="set-panel">
+          <a href="#/settings" class="set-back"><Icon name="chevronLeft" size={18} />Settings</a>
+          <h2 class="set-title">{meta.label}</h2>
+          {cur === 'account' && <AccountCard />}
+          {cur === 'notifications' && <NotificationsSection s={s} />}
+          {cur === 'general' && <GeneralSection s={s} />}
+          {cur === 'daily' && <DailySection s={s} />}
+          {cur === 'content' && <ContentSection s={s} />}
+          {cur === 'freelance' && <FreelanceSection s={s} />}
+          {cur === 'drive' && <DriveSection />}
+          {cur === 'data' && <DataSection />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const set = (ch) => M.setSettings(ch);
+const Group = ({ title, hint, children }) => (
+  <div class="card set-card">
+    {title && <div class="set-card-head"><div class="card-title">{title}</div>{hint && <div class="set-card-hint">{hint}</div>}</div>}
+    <div class="set-group">{children}</div>
+  </div>
+);
+
+// Chips you can tap to rename, x to remove, and + to add
+function ChipsEditor({ items, onChange, placeholder = 'Add', min = 0 }) {
+  const [edit, setEdit] = useState(-1);
+  const [val, setVal] = useState('');
+  const [adding, setAdding] = useState(false);
+  const commitEdit = () => { const v = val.trim(); if (v && edit >= 0 && v !== items[edit] && !items.includes(v)) { const n = [...items]; n[edit] = v; onChange(n); } setEdit(-1); };
+  const commitAdd = (keepOpen) => { const v = val.trim(); if (v && !items.includes(v)) onChange([...items, v]); setVal(''); if (!keepOpen) setAdding(false); };
+  return (
+    <div class="chip-editor">
+      {items.map((t, i) => edit === i ? (
+        <input class="chip-input" autoFocus value={val} onInput={(e) => setVal(e.currentTarget.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } if (e.key === 'Escape') setEdit(-1); }} aria-label={'Rename ' + t} />
+      ) : (
+        <span class="chip ed">
+          <button type="button" class="chip-name" onClick={() => { setEdit(i); setVal(t); }} title="Tap to rename">{t}</button>
+          <button type="button" class="chip-x" aria-label={'Remove ' + t} disabled={items.length <= min} onClick={() => onChange(items.filter((_, j) => j !== i))}><Icon name="x" size={13} /></button>
+        </span>
+      ))}
+      {adding ? (
+        <input class="chip-input" autoFocus value={val} placeholder={placeholder} onInput={(e) => setVal(e.currentTarget.value)} onBlur={() => commitAdd(false)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitAdd(true); } if (e.key === 'Escape') { setVal(''); setAdding(false); } }} />
+      ) : <button type="button" class="chip add" onClick={() => { setVal(''); setEdit(-1); setAdding(true); }}><Icon name="plus" size={14} />{placeholder}</button>}
+    </div>
+  );
+}
+
+const Row = ({ label, hint, children }) => (
+  <div class="set-row"><div class="grow"><div>{label}</div>{hint && <div class="hint">{hint}</div>}</div>{children}</div>
+);
+
+function NotificationsSection({ s }) {
+  const setRem = (kind, ch) => M.setSettings({ reminders: { ...s.reminders, [kind]: { ...s.reminders[kind], ...ch } } });
+  return (
+    <>
+      <Group title="Push notifications" hint="Alerts for anything scheduled with a time, even when the app is closed. Turn on per device.">
+        <PushRow lead={s.pushLead ?? 0} onLead={(v) => set({ pushLead: v })} />
+      </Group>
+      <Group title="Daily reminders">
+        {[['morning', 'Morning brief', "Today's tasks and planned uploads"], ['evening', 'Daily review', 'Review the day, plan tomorrow']].map(([k, label, hint]) => (
+          <Row label={label} hint={hint}>
+            <div class="set-time"><TimeInput id={'s-rem-' + k} value={s.reminders[k].time} onChange={(v) => v && setRem(k, { time: v })} /></div>
+            <button class={'toggle ' + (s.reminders[k].enabled ? 'on' : '')} role="switch" aria-checked={s.reminders[k].enabled} aria-label={label} onClick={() => setRem(k, { enabled: !s.reminders[k].enabled })} />
+          </Row>
+        ))}
+        {!pushFlag() && <div class="field-hint">With notifications off, reminders show as a card on Today when you open the app. <button class="link-btn" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}>Add them to your calendar instead</button>.</div>}
+      </Group>
+    </>
+  );
+}
+
+function GeneralSection({ s }) {
+  const [theme, setTheme] = useState(getTheme());
+  const standalone = typeof matchMedia !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+  return (
+    <>
+      <Group title="Profile">
         <Field label="Your name" htmlFor="s-name"><TextInput id="s-name" value={s.name} onInput={(v) => set({ name: v })} /></Field>
         <Field label="Appearance"><Segmented options={[{ id: 'system', label: 'Match device' }, { id: 'light', label: 'Light' }, { id: 'dark', label: 'Dark' }]} value={theme} onChange={(v) => { setTheme(v); try { localStorage.setItem('vz:theme', v); } catch {} if (v === 'system') document.documentElement.removeAttribute('data-theme'); applyTheme(v); }} /></Field>
-      </div></div>
+      </Group>
+      <Group title="iPhone home screen">
+        {standalone ? <div class="row gap-8" style={{ fontSize: 14 }}><Icon name="check" size={18} style={{ color: 'var(--good)' }} /><span>You're using the installed app.</span></div> : (
+          <ol class="install-steps">
+            <li>Open this site in <b>Safari</b> on your iPhone.</li>
+            <li>Tap <b>Share</b> <Icon name="share" size={15} style={{ display: 'inline', verticalAlign: '-2px' }} />, then <b>Add to Home Screen</b>.</li>
+            <li>Open Vandenizar from the new icon and sign in.</li>
+          </ol>
+        )}
+      </Group>
+    </>
+  );
+}
 
-      <div class="card"><div class="set-group">
-        <div class="card-title">Daily system</div>
-        <Field label="Task categories" hint="Renaming a category updates existing tasks. Removing one keeps it on old tasks."><ListEditor items={s.categories} min={1} idPrefix="s-cat" placeholder="Add category" onChange={(v) => renameAware('categories', s.categories, v, (a, b) => all('tasks').filter((t) => t.category === a).forEach((t) => patch('tasks', t.id, { category: b })))} /></Field>
+function DailySection({ s }) {
+  return (
+    <>
+      <Group title="Task categories" hint="Tap a category to rename it. Renaming updates existing tasks.">
+        <ChipsEditor items={s.categories} min={1} placeholder="Add category" onChange={(v) => renameAware('categories', s.categories, v, (a, b) => all('tasks').filter((t) => t.category === a).forEach((t) => patch('tasks', t.id, { category: b })))} />
+      </Group>
+      <Group title="Defaults">
         <div class="form-row">
           <Field label="Default category" htmlFor="s-dcat"><Select id="s-dcat" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} options={s.categories} /></Field>
           <Field label="Default priority" htmlFor="s-dprio"><Select id="s-dprio" value={s.defaultPriority} onChange={(v) => set({ defaultPriority: v })} options={M.PRIORITIES} /></Field>
         </div>
         <div class="form-row">
           <Field label="Week starts on" htmlFor="s-ws"><Select id="s-ws" value={String(s.weekStart)} onChange={(v) => set({ weekStart: +v })} options={[{ id: '1', label: 'Monday' }, { id: '0', label: 'Sunday' }, { id: '6', label: 'Saturday' }]} /></Field>
-          <Field label="Weekly goal limit" htmlFor="s-gl" hint="A gentle nudge, not a hard cap"><NumberInput id="s-gl" value={s.weeklyGoalLimit} min={1} onChange={(v) => set({ weeklyGoalLimit: Math.max(1, +v || 1) })} /></Field>
+          <Field label="Weekly goal limit" htmlFor="s-gl"><NumberInput id="s-gl" value={s.weeklyGoalLimit} min={1} onChange={(v) => set({ weeklyGoalLimit: Math.max(1, +v || 1) })} /></Field>
         </div>
-      </div></div>
+      </Group>
+    </>
+  );
+}
 
-      <div class="card"><div class="set-group">
-        <div class="card-title">Reminders</div>
-        <PushRow lead={s.pushLead ?? 0} onLead={(v) => set({ pushLead: v })} />
-        {[['morning', 'Morning brief', "Today's tasks, planned uploads and weekly goals"], ['evening', 'Daily review', 'Review the day and plan tomorrow']].map(([k, label, hint]) => (
-          <div class="set-row">
-            <div class="grow"><div>{label}</div><div class="hint">{hint}</div></div>
-            <div style={{ width: 128 }}><TimeInput id={'s-rem-' + k} value={s.reminders[k].time} onChange={(v) => v && setRem(k, { time: v })} /></div>
-            <button class={'toggle ' + (s.reminders[k].enabled ? 'on' : '')} role="switch" aria-checked={s.reminders[k].enabled} aria-label={label} onClick={() => setRem(k, { enabled: !s.reminders[k].enabled })} />
-          </div>
-        ))}
-        {!pushFlag() && <div class="banner info"><Icon name="info" size={18} /><div>
-          <b>Notifications are off on this device.</b> Reminders still show as a card on Today when you open the app. Turn on notifications above for alerts when the app is closed, or add the two daily reminders to your calendar.
-          <div class="row gap-8 wrap" style={{ marginTop: 10 }}>
-                        <button class="btn sm" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}><Icon name="calendar" size={15} />Add to calendar (.ics)</button>
-          </div>
-        </div></div>}
-      </div></div>
+function ContentSection({ s }) {
+  return (
+    <>
+      <Group title="Platforms" hint="Tap to rename. Renaming updates existing content.">
+        <ChipsEditor items={s.platforms} min={1} placeholder="Add platform" onChange={(v) => renameAware('platforms', s.platforms, v, (a, b) => all('contents').filter((x) => (x.platforms || []).includes(a)).forEach((x) => patch('contents', x.id, { platforms: x.platforms.map((p) => (p === a ? b : p)) })))} />
+      </Group>
+      <Group title="Content pillars">
+        <ChipsEditor items={s.pillars} placeholder="Add pillar" onChange={(v) => renameAware('pillars', s.pillars, v, (a, b) => all('contents').filter((x) => x.pillar === a).forEach((x) => patch('contents', x.id, { pillar: b })))} />
+      </Group>
+      <Group title="Formats">
+        <ChipsEditor items={s.formats} placeholder="Add format" onChange={(v) => renameAware('formats', s.formats, v, (a, b) => all('contents').filter((x) => x.format === a).forEach((x) => patch('contents', x.id, { format: b })))} />
+      </Group>
+      <Group>
+        <Row label="Weekly upload target" hint="Shown on Content overview">
+          <div class="set-num"><NumberInput id="s-wt" value={s.weeklyTarget} min={0} onChange={(v) => set({ weeklyTarget: Math.max(0, +v || 0) })} /></div>
+        </Row>
+      </Group>
+    </>
+  );
+}
 
-      <div class="card"><div class="set-group">
-        <div class="card-title">Content OS</div>
-        <Field label="Platforms" hint="Renaming updates existing content."><ListEditor items={s.platforms} min={1} idPrefix="s-plat" placeholder="Add platform" onChange={(v) => renameAware('platforms', s.platforms, v, (a, b) => all('contents').filter((x) => (x.platforms || []).includes(a)).forEach((x) => patch('contents', x.id, { platforms: x.platforms.map((p) => (p === a ? b : p)) })))} /></Field>
-        <Field label="Content pillars" hint="Removing a pillar keeps it on existing content."><ListEditor items={s.pillars} idPrefix="s-pil" placeholder="Add pillar" onChange={(v) => renameAware('pillars', s.pillars, v, (a, b) => all('contents').filter((x) => x.pillar === a).forEach((x) => patch('contents', x.id, { pillar: b })))} /></Field>
-        <Field label="Formats"><ListEditor items={s.formats} idPrefix="s-fmt" placeholder="Add format" onChange={(v) => renameAware('formats', s.formats, v, (a, b) => all('contents').filter((x) => x.format === a).forEach((x) => patch('contents', x.id, { format: b })))} /></Field>
-        <Field label="Weekly publishing target" htmlFor="s-wt"><NumberInput id="s-wt" value={s.weeklyTarget} min={0} onChange={(v) => set({ weeklyTarget: Math.max(0, +v || 0) })} /></Field>
-      </div></div>
-
-      <div class="card"><div class="set-group">
-        <div class="card-title">Freelance & invoices</div>
+function FreelanceSection({ s }) {
+  const setBiz = (ch) => M.setSettings({ business: { ...s.business, ...ch } });
+  return (
+    <>
+      <Group title="Business details" hint="Printed on your invoices">
         <div class="form-row">
-          <Field label="Business name on invoices" htmlFor="s-biz"><TextInput id="s-biz" value={s.business.name} onInput={(v) => setBiz({ name: v })} /></Field>
+          <Field label="Business name" htmlFor="s-biz"><TextInput id="s-biz" value={s.business.name} onInput={(v) => setBiz({ name: v })} /></Field>
           <Field label="Your name" htmlFor="s-owner"><TextInput id="s-owner" value={s.business.owner} onInput={(v) => setBiz({ owner: v })} /></Field>
         </div>
         <div class="form-row">
@@ -225,53 +340,101 @@ export function SettingsPage() {
           <Field label="Address" htmlFor="s-baddr"><TextInput id="s-baddr" value={s.business.address} onInput={(v) => setBiz({ address: v })} /></Field>
           <Field label="Website / portfolio" htmlFor="s-bweb"><TextInput id="s-bweb" value={s.business.website} onInput={(v) => setBiz({ website: v })} /></Field>
         </div>
-        <Field label="Invoice number format" htmlFor="s-ifmt" hint={<>Use {'{YYYY}'}, {'{YY}'}, {'{MM}'} and {'{####}'} for the counter. Next number: <b>{M.nextInvoiceNumber().num}</b>. Numbers are never reused.</>}><TextInput id="s-ifmt" value={s.invoiceFormat} onInput={(v) => set({ invoiceFormat: v })} /></Field>
+      </Group>
+      <Group title="Invoices">
+        <Field label="Number format" htmlFor="s-ifmt" hint={<>Next number: <b>{M.nextInvoiceNumber().num}</b>. Use {'{YYYY}'}, {'{MM}'} and {'{####}'}.</>}><TextInput id="s-ifmt" value={s.invoiceFormat} onInput={(v) => set({ invoiceFormat: v })} /></Field>
         <div class="form-row">
           <Field label="Default currency" htmlFor="s-cur"><Select id="s-cur" value={s.defaultCurrency} onChange={(v) => set({ defaultCurrency: v })} options={Object.keys(CURRENCIES)} /></Field>
           <Field label="Payment terms (days)" htmlFor="s-terms"><NumberInput id="s-terms" value={s.defaultTermsDays} onChange={(v) => set({ defaultTermsDays: Math.max(0, +v || 0) })} /></Field>
         </div>
-        <Field label="Default terms text" htmlFor="s-ttext"><TextArea id="s-ttext" value={s.defaultTermsText} onInput={(v) => set({ defaultTermsText: v })} /></Field>
-        <Field label="Payment instructions" htmlFor="s-payi" hint="Printed on new invoices. Sent invoices keep what they had."><TextArea id="s-payi" value={s.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder={'Bank BCA\nAccount name\nAccount number'} /></Field>
-        <Field label="Project types"><ListEditor items={s.projectTypes} idPrefix="s-pt" placeholder="Add project type" onChange={(v) => renameAware('projectTypes', s.projectTypes, v, (a, b) => all('projects').filter((x) => x.type === a).forEach((x) => patch('projects', x.id, { type: b })))} /></Field>
-        <Field label="Default deliverables for new projects"><ListEditor items={s.defaultDeliverables} idPrefix="s-dd" placeholder="Add deliverable" onChange={(v) => set({ defaultDeliverables: v })} /></Field>
-      </div></div>
+        <Field label="Payment instructions" htmlFor="s-payi" hint="Printed on new invoices."><TextArea id="s-payi" value={s.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder={'Bank BCA\nAccount name\nAccount number'} /></Field>
+        <Field label="Terms text" htmlFor="s-ttext"><TextArea id="s-ttext" value={s.defaultTermsText} onInput={(v) => set({ defaultTermsText: v })} /></Field>
+      </Group>
+      <Group title="Project types">
+        <ChipsEditor items={s.projectTypes} placeholder="Add type" onChange={(v) => renameAware('projectTypes', s.projectTypes, v, (a, b) => all('projects').filter((x) => x.type === a).forEach((x) => patch('projects', x.id, { type: b })))} />
+      </Group>
+      <Group title="Default deliverables" hint="Added to every new project">
+        <ChipsEditor items={s.defaultDeliverables} placeholder="Add deliverable" onChange={(v) => set({ defaultDeliverables: v })} />
+      </Group>
+    </>
+  );
+}
 
-      <div class="card"><div class="set-group">
-        <div class="card-title">Add to iPhone home screen</div>
-        {standalone ? <div class="row gap-8"><Icon name="check" size={18} style={{ color: 'var(--good)' }} /><span>You're using the installed app.</span></div> : (
-          <ol class="install-steps">
-            <li>Open this site in <b>Safari</b> on your iPhone.</li>
-            <li>Tap the <b>Share</b> button <Icon name="share" size={15} style={{ display: 'inline', verticalAlign: '-2px' }} /> at the bottom.</li>
-            <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
-            <li>Open Vandenizar from the new icon. It runs full screen, like an app.</li>
-          </ol>
-        )}
-        <div class="field-hint">The home screen app keeps its own storage, separate from Safari tabs. If you started in Safari, export a backup there and import it inside the installed app.</div>
-      </div></div>
-
-      <div class="card"><div class="set-group">
-        <div class="card-title">Your data</div>
-        <div class="row gap-10" style={{ fontSize: 14 }}>
-          <span class={'save-state ' + persist.status} style={{ padding: 0 }}><span class="save-dot" /></span>
-          <div class="grow">{persist.mode === 'idb' ? 'Saved in this browser\'s database on this device.' : persist.mode === 'local' ? 'Saved in basic browser storage on this device.' : 'This browser blocks storage. Changes are lost when you close the page.'} {persist.lastSaved ? `Last save ${fmtAgo(persist.lastSaved)}.` : ''}</div>
-        </div>
-        <div class="muted" style={{ fontSize: 13 }}>{c.tasks} tasks · {c.contents} content · {c.projects} projects · {c.clients} clients · {c.invoices} invoices · {c.payments} payments · {c.goals} goals</div>
-        <div class="banner info"><Icon name="info" size={18} /><div>Nothing is uploaded anywhere yet. Data lives only on this device and browser, so export a backup now and then until cloud sync is set up.</div></div>
+function DriveSection() {
+  const [st, setSt] = useState(M.meta('driveStatus', {}));
+  const [busy, setBusy] = useState(false);
+  const check = async () => {
+    setBusy(true);
+    try { const r = await driveStatus(); setSt(r); put('meta', { id: 'driveStatus', ...r }, { silent: true }); }
+    catch (e) { setSt({ connected: false, error: e.message }); }
+    setBusy(false);
+  };
+  useEffect(() => { if (sync.user) check(); }, []);
+  const exports = Object.entries(M.meta('driveExports', {}).months || {}).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+  return (
+    <>
+      <Group title="Connection">
+        <Row label={st.connected ? 'Connected' : busy ? 'Checking…' : 'Not connected'} hint={st.connected ? <>Monthly reviews are saved to <b>Daily Review / year / month</b> in {st.email || 'your'} Google Drive.</> : !sync.user ? 'Sign in first.' : (st.error || 'Google Drive is not connected yet.')}>
+          <span class={'badge sm ' + (st.connected ? 't-green' : 't-grey')}>{st.connected ? 'On' : 'Off'}</span>
+        </Row>
         <div class="row gap-8 wrap">
-          <a class="btn" href="#/trash"><Icon name="trash" size={16} />Trash</a>
-          <button class="btn" onClick={doExport}><Icon name="download" size={16} />Export backup</button>
-          <button class="btn" onClick={() => fileRef.current.click()}><Icon name="upload" size={16} />Import backup</button>
+          <button class="btn sm" disabled={busy || !sync.user} onClick={check}><Icon name="restore" size={15} />Check connection</button>
+          <a class="btn sm soft" href="#/review/monthly">Open monthly review</a>
+        </div>
+      </Group>
+      {exports.length > 0 && (
+        <Group title="Saved to Drive">
+          <div class="list">{exports.map(([m, x]) => (
+            <a class="list-row clickable" href={x.url || '#/review/monthly?m=' + m} target={x.url ? '_blank' : undefined} rel="noopener">
+              <div class="row-main"><div class="row-title">{monthLabel(m)}</div><div class="row-meta">Saved {fmtAgo(x.at)}</div></div>
+              <Icon name="external" size={15} class="muted" />
+            </a>
+          ))}</div>
+        </Group>
+      )}
+    </>
+  );
+}
+
+function DataSection() {
+  const fileRef = useRef();
+  const c = counts();
+  const sy = sync;
+  const hasSample = M.liveTasks().some((t) => t.sample) || all('contents').some((x) => x.sample) || all('clients').some((x) => x.sample);
+  const doExport = () => {
+    const name = `vandenizar-backup-${today()}.json`;
+    downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', 'Backup saved: ' + name);
+  };
+  const doImport = async (file) => {
+    try {
+      const json = JSON.parse(await file.text());
+      if (!(await confirmDialog({ title: 'Replace everything with this backup?', body: `Backup from ${json.exportedAt ? fmtShort(isoOf(Date.parse(json.exportedAt))) : 'unknown date'}. Data that isn't in the backup will be removed. Export first if you're unsure.`, confirmLabel: 'Restore backup', danger: true }))) return;
+      const ok = await importAll(json);
+      toast(ok ? 'Backup restored' : 'Restored in memory, but saving failed. Try again.', { tone: ok ? '' : 'warn' });
+    } catch (e) { toast(e.message || 'That file could not be read.', { tone: 'warn' }); }
+  };
+  return (
+    <>
+      <Group title="Where your data lives">
+        <div style={{ fontSize: 14 }}>{sy.user ? <>Saved on this device and synced to <b>{sy.user.email}</b>.</> : 'Saved on this device only. Sign in to back it up.'}</div>
+        <div class="muted" style={{ fontSize: 13 }}>{c.tasks} tasks · {c.contents} content · {c.projects} projects · {c.clients} clients · {c.invoices} invoices · {c.dailyReviews} daily reviews</div>
+      </Group>
+      <Group title="Backup file" hint="A JSON copy of everything, for safekeeping">
+        <div class="row gap-8 wrap">
+          <button class="btn sm" onClick={doExport}><Icon name="download" size={15} />Export</button>
+          <button class="btn sm" onClick={() => fileRef.current.click()}><Icon name="upload" size={15} />Import</button>
+          <a class="btn sm" href="#/trash"><Icon name="trash" size={15} />Trash</a>
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; e.currentTarget.value = ''; if (f) doImport(f); }} />
         </div>
-        <hr class="div" />
+      </Group>
+      <Group title="Reset">
         <div class="row gap-8 wrap">
-          {hasSample ? <button class="btn soft" onClick={async () => { if (await confirmDialog({ title: 'Remove sample data?', body: 'Only records created by "Load sample data" are removed. Your own entries stay.', confirmLabel: 'Remove sample data' })) { removeSampleData(); toast('Sample data removed'); } }}>Remove sample data</button>
-            : <button class="btn soft" onClick={() => { loadSampleData(); toast('Sample data loaded'); }}>Load sample data</button>}
-          <button class="btn danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase everything on this device?', body: 'All tasks, content, projects, clients, invoices, payments, reviews and settings are deleted, on this device and, if you are signed in, in your account too. Export a backup first if you might need them.', confirmLabel: 'Erase all data', danger: true })) { await wipeAll(); toast('All data erased'); navigate('/'); } }}>Erase all data</button>
+          {hasSample ? <button class="btn sm soft" onClick={async () => { if (await confirmDialog({ title: 'Remove sample data?', body: 'Only records created by "Load sample data" are removed. Your own entries stay.', confirmLabel: 'Remove sample data' })) { removeSampleData(); toast('Sample data removed'); } }}>Remove sample data</button>
+            : <button class="btn sm soft" onClick={() => { loadSampleData(); toast('Sample data loaded'); }}>Load sample data</button>}
+          <button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase everything?', body: 'All tasks, content, projects, clients, invoices, payments, reviews and settings are deleted on this device and, if you are signed in, in your account too. Export a backup first if you might need them.', confirmLabel: 'Erase all data', danger: true })) { await wipeAll(); toast('All data erased'); navigate('/'); } }}>Erase all data</button>
         </div>
-      </div></div>
-      <div class="muted" style={{ fontSize: 12, textAlign: 'center', paddingBottom: 12 }}>Vandenizar Creator Workspace · local build · times in WIB (Asia/Jakarta)</div>
-    </div>
+      </Group>
+    </>
   );
 }
 
@@ -413,9 +576,9 @@ function AccountCard() {
   const [newPw, setNewPw] = useState('');
   const run = async (fn) => { setBusy(true); setMsg(''); try { await fn(); } catch (e) { setMsg(friendly(e)); } finally { setBusy(false); } };
   if (s.user) return (
-    <div class="card" id="account"><div class="set-group">
-      <div class="row between"><div class="card-title">Account & sync</div><span class={'badge sm ' + (s.status === 'error' ? 't-red' : s.status === 'synced' ? 't-green' : 't-grey')}>{syncLabel(s)}</span></div>
-      <div style={{ fontSize: 14 }}>Signed in as <b>{s.user.email}</b>. Everything you change here is saved on this device first, then synced to your account so your iPhone and laptop show the same data.</div>
+    <div class="card set-card" id="account"><div class="set-group">
+      <div class="row between gap-8"><div style={{ fontSize: 14, minWidth: 0 }}>Signed in as <b class="ellipsis">{s.user.email}</b></div><span class={'badge sm ' + (s.status === 'error' ? 't-red' : s.status === 'synced' ? 't-green' : 't-grey')}>{syncLabel(s)}</span></div>
+      <div class="muted" style={{ fontSize: 13.5 }}>Changes save on this device first, then sync so your iPhone and laptop show the same data.</div>
       {s.status === 'error' && <div class="banner"><Icon name="alert" size={18} /><div>{s.error}. Your changes are safe on this device and will sync when this clears.</div></div>}
       {s.recovery && (
         <div class="form">
@@ -431,10 +594,8 @@ function AccountCard() {
     </div></div>
   );
   return (
-    <div class="card" id="account"><div class="set-group">
-      <div class="card-title">Account & sync</div>
-      <div class="muted" style={{ fontSize: 14 }}>Sign in to back up your data and use the same workspace on your iPhone and laptop. Without an account, everything stays on this device only.</div>
-      <Segmented options={[{ id: 'signin', label: 'Sign in' }, { id: 'signup', label: 'Create account' }]} value={mode} onChange={(v) => { setMode(v); setMsg(''); }} />
+    <div class="card set-card" id="account"><div class="set-group">
+      <div class="muted" style={{ fontSize: 14 }}>Sign in to sync your workspace between your iPhone and laptop.</div>
       <form class="form" onSubmit={(e) => { e.preventDefault(); run(async () => {
         if (mode === 'signin') { await signIn(email, pw); toast('Signed in. Syncing your data…'); }
         else { const r = await signUp(email, pw); if (r.needsConfirm) setMsg('Check your email and tap the confirmation link, then sign in here.'); else toast('Account created. Syncing your data…'); }
@@ -454,6 +615,7 @@ function friendly(e) {
   const m = (e && e.message) || String(e);
   if (/Invalid login/i.test(m)) return 'Email or password is wrong.';
   if (/Email not confirmed/i.test(m)) return 'Confirm your email first: open the link we sent, then sign in.';
+  if (/signups? not allowed|Signups not allowed/i.test(m)) return 'New accounts are turned off for this workspace.';
   if (/already registered/i.test(m)) return 'That email already has an account. Sign in instead.';
   if (/Failed to fetch|NetworkError/i.test(m)) return 'No connection. Try again when you are online.';
   return m;

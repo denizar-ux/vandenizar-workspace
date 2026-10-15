@@ -77,7 +77,7 @@ export function ContentOverview() {
         </div>
         <div class="stack">
           <div class="card">
-            <div class="card-head"><div class="card-title">This week's target</div><a class="section-link" href="#/settings">Edit target</a></div>
+            <div class="card-head"><div class="card-title">This week's target</div><a class="section-link" href="#/settings/content">Edit target</a></div>
             <div class="row gap-16">
               <Ring pct={pct} size={78} stroke={7} label={<span style={{ fontSize: 18 }}>{pubWeek.length}<span class="muted" style={{ fontSize: 12 }}>/{s.weeklyTarget}</span></span>} />
               <div class="grow" style={{ fontSize: 14 }}>
