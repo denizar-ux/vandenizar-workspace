@@ -15,6 +15,7 @@ import { monthData, buildMonthlyPdf, ENERGY } from '../lib/reviewpdf.js';
 import { uploadMonthlyReview, monthLabel } from '../lib/drive.js';
 import { saveFile, saveMessage } from '../lib/files.js';
 import { sync } from '../lib/sync.js';
+import { pendingJournal, saveJournal } from '../lib/journal.js';
 
 // =====================================================================
 // TODAY
@@ -58,6 +59,7 @@ export function TodayPage() {
 
       {empty && <Welcome />}
       <SyncNudge />
+      <JournalNudge />
       {hasSample && (
         <div class="nudge blue">
           <Icon name="info" size={20} />
@@ -794,15 +796,11 @@ export function MonthlyReview({ month }) {
   };
   const toDrive = async () => {
     setBusy('drive');
-    try {
-      const pdf = await buildMonthlyPdf(ym);
-      const r = await uploadMonthlyReview(ym, pdf.base64);
-      const ex = M.meta('driveExports', { id: 'driveExports', months: {} });
-      put('meta', { ...ex, id: 'driveExports', months: { ...(ex.months || {}), [ym]: { at: Date.now(), url: r.url, path: r.path } } });
-      toast('Saved to Google Drive · ' + r.path);
-    } catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); }
+    try { const r = await saveJournal(ym); toast('Saved to Google Drive · ' + r.path); }
+    catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); }
     setBusy('');
   };
+
   return (
     <>
       <div class="row gap-8">
@@ -896,6 +894,20 @@ function WeeklyReview({ start }) {
       </div>
       <button class="btn soft" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/goals?new=1')}><Icon name="target" size={16} />Set next week's goals</button>
     </>
+  );
+}
+
+function JournalNudge() {
+  useSync();
+  const ym = pendingJournal();
+  const [busy, setBusy] = useState(false);
+  if (!ym || !sync.user) return null;
+  return (
+    <div class="nudge blue">
+      <Icon name="file" size={20} />
+      <div class="grow" style={{ fontSize: 14 }}><b>{monthLabel(ym)} journal is ready.</b> <span class="muted">Save all of last month's daily reviews to Google Drive as one PDF.</span></div>
+      <button class="btn sm primary" disabled={busy} onClick={async () => { setBusy(true); try { await saveJournal(ym); toast(monthLabel(ym) + ' journal saved to Google Drive'); } catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); } setBusy(false); }}>{busy ? 'Saving…' : 'Save to Drive'}</button>
+    </div>
   );
 }
 

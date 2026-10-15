@@ -5,6 +5,7 @@ import { initDb, get, put, all } from './lib/db.js';
 import { DEFAULT_SETTINGS } from './lib/model.js';
 import { App } from './App.jsx';
 import { initSync } from './lib/sync.js';
+import { startJournalAutoSave } from './lib/journal.js';
 import { applyTheme, getTheme } from './pages/settings.jsx';
 
 applyTheme(getTheme());
@@ -16,6 +17,7 @@ async function boot() {
   for (const c of all('contents')) if (c.status === 'in_progress') put('contents', { ...c, status: 'scripting' }, { silent: true });
   render(<App />, document.getElementById('app'));
   initSync().catch(() => {});
+  startJournalAutoSave();
 }
 boot();
 

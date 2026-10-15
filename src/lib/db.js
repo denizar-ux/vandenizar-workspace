@@ -3,9 +3,9 @@
 // Failures are surfaced (status = 'error') and the pending writes are kept and retried.
 import { useEffect, useReducer } from 'preact/hooks';
 
-export const COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'clients', 'projects', 'invoices', 'payments', 'templates', 'activity', 'meta'];
+export const COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'clients', 'projects', 'invoices', 'payments', 'templates', 'activity', 'meta', 'threads'];
 const DB_NAME = 'vandenizar-workspace';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const data = Object.fromEntries(COLLECTIONS.map((c) => [c, new Map()]));
 let version = 0;
@@ -157,16 +157,29 @@ export const COLLS = COLLECTIONS;
 function openIdb() {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new Error('IndexedDB unavailable'));
-    let req;
+    let req, blocked = false, note = null;
     try { req = indexedDB.open(DB_NAME, DB_VERSION); } catch (e) { return reject(e); }
     req.onupgradeneeded = () => {
       const db = req.result;
       for (const c of COLLECTIONS) if (!db.objectStoreNames.contains(c)) db.createObjectStore(c, { keyPath: 'id' });
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      if (note) note.remove();
+      const db = req.result;
+      // another tab opened a newer version: step aside so it can upgrade
+      db.onversionchange = () => { try { db.close(); } catch {} location.reload(); };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error || new Error('Could not open database'));
-    req.onblocked = () => reject(new Error('Database blocked by another tab'));
-    setTimeout(() => reject(new Error('Database open timed out')), 6000);
+    // An older tab still holds the database. Wait for it instead of falling back to empty storage.
+    req.onblocked = () => {
+      blocked = true;
+      note = document.createElement('div');
+      note.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font:600 15px/1.5 -apple-system,system-ui,sans-serif;color:#3a475a;background:#f4f5f8;z-index:99999';
+      note.textContent = 'Updating Vandenizar… Close other Vandenizar tabs or windows to finish.';
+      document.body.appendChild(note);
+    };
+    setTimeout(() => { if (!blocked) reject(new Error('Database open timed out')); }, 6000);
   });
 }
 async function readAllIdb() {

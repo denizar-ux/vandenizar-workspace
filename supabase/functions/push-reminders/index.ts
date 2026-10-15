@@ -62,13 +62,24 @@ async function claim(userId: string, key: string) {
 async function runForUser(userId: string) {
   const now = wib();
   const tomorrow = addDays(now.date, 1);
-  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['tasks', 'contents', 'meta']);
+  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['tasks', 'contents', 'meta', 'threads', 'dailyReviews']);
   const recs = rows || [];
   const settings = recs.find((r) => r.coll === 'meta' && r.id === 'settings')?.data || {};
   const lead = Number(settings.pushLead ?? 0) || 0;
   const tasks = recs.filter((r) => r.coll === 'tasks').map((r) => r.data).filter((t) => t && !t.deletedAt && !t.archived && (t.status === 'todo' || t.status === 'in_progress'));
   const contents = recs.filter((r) => r.coll === 'contents').map((r) => r.data).filter((c) => c && !c.deletedAt && c.status !== 'published');
+  const threads = recs.filter((r) => r.coll === 'threads').map((r) => r.data).filter((t) => t && !t.deletedAt && t.status !== 'posted' && t.date && t.time);
   const out: { key: string; title: string; body: string; url: string }[] = [];
+
+  // Threads posts with a time
+  for (const t of threads) {
+    if (t.date !== now.date && t.date !== tomorrow) continue;
+    const m = minutesUntil(t.date, t.time, now); if (m == null) continue;
+    if (m <= lead && m > lead - WINDOW) {
+      const text = String(t.text || '').replace(/\s+/g, ' ').trim();
+      out.push({ key: `threads:${t.id}:${t.date}:${t.time}`, title: `Threads · ${fmtTime(t.time)}`, body: text.length > 110 ? text.slice(0, 107) + '…' : text || 'Time to post', url: `#/content/threads?d=${t.date}` });
+    }
+  }
 
   // Tasks with a time
   for (const t of tasks) {
@@ -111,6 +122,20 @@ async function runForUser(userId: string) {
     }
   }
 
+  // Monthly journal: remind on the 1st-3rd if last month's reviews aren't in Drive yet
+  const day = Number(now.date.slice(8, 10));
+  const mt = toMin(rem.morning?.time || '07:00') ?? 420;
+  if (day <= 3 && now.min >= mt && now.min < mt + WINDOW) {
+    const [yy, mm] = now.date.split('-').map(Number);
+    const prev = new Date(Date.UTC(yy, mm - 2, 1)).toISOString().slice(0, 7);
+    const reviewed = recs.filter((r) => r.coll === 'dailyReviews' && String(r.id).startsWith(prev)).length;
+    const saved = recs.find((r) => r.coll === 'meta' && r.id === 'driveExports')?.data?.months?.[prev];
+    if (reviewed && !saved) {
+      const name = new Date(Date.UTC(yy, mm - 2, 1)).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+      out.push({ key: `journal:${prev}`, title: `${name} journal is ready`, body: `${reviewed} daily review${reviewed > 1 ? 's' : ''}. Open the app to save it to Google Drive.`, url: `#/review/monthly?d=${prev}` });
+    }
+  }
+
   let sent = 0;
   for (const n of out) {
     if (!(await claim(userId, n.key))) continue;
@@ -138,7 +163,7 @@ Deno.serve(async (req) => {
     const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
     const { data: u } = await sb.auth.getUser(jwt);
     if (!u?.user) return json({ error: 'not signed in' }, 401);
-    const sent = await sendTo(u.user.id, { title: 'Notifications are on', body: 'Scheduled tasks will show up here.', tag: 'vz-test', url: '#/settings' });
+    const sent = await sendTo(u.user.id, { title: 'Notifications are on', body: 'Scheduled tasks will show up here.', tag: 'vz-test', url: '#/settings/notifications' });
     return json({ ok: true, sent });
   } catch (e) {
     console.error(e);

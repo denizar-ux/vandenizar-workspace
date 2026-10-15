@@ -34,7 +34,7 @@ export async function buildMonthlyPdf(ym) {
   const title = `${MONTHS[m - 1]} ${y}`;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210, H = 297, L = 20, R = W - 20, TW = R - L, BOTTOM = H - 18;
-  const ORANGE = [242, 74, 20], INK = [20, 22, 28], MUTED = [116, 130, 151], LINE = [227, 231, 238];
+  const ACCENT = [47, 107, 255], INK = [20, 22, 28], MUTED = [116, 130, 151], LINE = [227, 231, 238];
   let yy = 0;
   const footer = () => {
     const n = doc.getNumberOfPages();
@@ -53,7 +53,7 @@ export async function buildMonthlyPdf(ym) {
 
   // Cover header
   yy = 26;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...ORANGE); doc.text('DAILY REVIEW', L, yy);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...ACCENT); doc.text('DAILY REVIEW', L, yy);
   yy += 11; doc.setFont('times', 'normal'); doc.setFontSize(30); doc.setTextColor(...INK); doc.text(title, L, yy);
   yy += 9;
   const stats = [`${d.days.length} day${d.days.length === 1 ? '' : 's'} reviewed`, `${d.doneCount} task${d.doneCount === 1 ? '' : 's'} done`, `${d.uploads} upload${d.uploads === 1 ? '' : 's'}`];
@@ -67,7 +67,7 @@ export async function buildMonthlyPdf(ym) {
     const r = day.review;
     need(22);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...INK); doc.text(dayTitle(day.date), L, yy);
-    if (r.energy) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...ORANGE); doc.text('Energy: ' + ENERGY[r.energy - 1], R, yy, { align: 'right' }); }
+    if (r.energy) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...ACCENT); doc.text('Energy: ' + ENERGY[r.energy - 1], R, yy, { align: 'right' }); }
     yy += 7;
     const section = (label, body) => {
       if (!body || !String(body).trim()) return;

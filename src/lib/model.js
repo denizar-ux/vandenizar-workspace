@@ -47,6 +47,8 @@ export const DEFAULT_SETTINGS = {
   formats: ['Voice Over', 'Talking Head', 'Photo', 'Music + Text'],
   checklistTemplate: ['Idea & script ready', 'Footage recorded', 'Edit video', 'Select cover', 'Add music', 'Final review', 'Upload / publish'],
   weeklyTarget: 4,
+  threadsDaily: 7,
+  threadsPillars: ['Fashion videographer', 'WFH desk setup', 'Affiliate desk'],
   boardView: 'kanban',
   pipelineView: 'kanban',
   business: { name: 'Vandenizar', owner: 'Denizar', email: '', phone: '', address: 'Bekasi, Indonesia', website: '' },
@@ -444,3 +446,13 @@ export function applyProjectTemplate(tpl) {
 
 // ---------- weekly ----------
 export const weekStartOf = (iso = today()) => startOfWeek(iso, settings().weekStart);
+
+// ---------- Threads queue ----------
+export const THREADS_LIMIT = 500;
+export const liveThreads = () => all('threads').filter((t) => !t.deletedAt);
+export const threadsOn = (iso) => liveThreads().filter((t) => t.date === iso).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99') || (a.order || 0) - (b.order || 0));
+export const threadIdeas = () => liveThreads().filter((t) => !t.date && t.status !== 'posted').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+export function newThread(p = {}) {
+  return put('threads', { id: uid(), text: '', date: '', time: '', pillar: '', status: 'draft', postedAt: null, order: Date.now(), ...p });
+}
+export const markThreadPosted = (id, on = true) => patch('threads', id, { status: on ? 'posted' : 'draft', postedAt: on ? Date.now() : null });

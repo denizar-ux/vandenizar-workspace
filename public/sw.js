@@ -1,5 +1,5 @@
 // Vandenizar offline cache. Bump VERSION when deploying a new build.
-const VERSION = 'vz-v5';
+const VERSION = 'vz-v6';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -11,6 +11,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (url.pathname.endsWith('/version.json')) return; // always ask the network
   // App pages: network first so updates arrive, cache as fallback for offline use.
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('./index.html', copy)); return res; }).catch(() => caches.match('./index.html')));

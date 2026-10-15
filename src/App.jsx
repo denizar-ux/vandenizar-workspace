@@ -10,6 +10,8 @@ import { openTaskSheet, catTone, Dot, ContentBadge, InvoiceBadge, StageBadge } f
 import { TodayPage, TasksPage, GoalsPage, ReviewPage } from './pages/daily.jsx';
 import { ContentOverview, ContentBoard, ContentEditor, ContentCalendar, ResourcesPage, createContentAndOpen } from './pages/content.jsx';
 import { FreelanceOverview, PipelinePage, ProjectsPage, ProjectDetail, ClientsPage, ClientDetail, InvoicesPage, InvoiceEditor, FinancePage, TemplatesPage, openProjectSheet, openClientSheet, createInvoiceAndOpen } from './pages/freelance.jsx';
+import { useUpdateAvailable, applyUpdate } from './lib/update.js';
+import { ThreadsPage } from './pages/threads.jsx';
 import { SettingsPage, TrashPage, useReminders, useTheme, useSync, syncLabel } from './pages/settings.jsx';
 import { htmlToText } from './ui/kit.jsx';
 
@@ -46,6 +48,7 @@ export function App() {
     else if (p1 === 'board') { page = <ContentBoard query={r.query} />; sub = 'board'; }
     else if (p1 === 'calendar') { page = <ContentCalendar query={r.query} />; sub = 'calendar'; }
     else if (p1 === 'resources') { page = <ResourcesPage />; sub = 'resources'; }
+    else if (p1 === 'threads') { page = <ThreadsPage query={r.query} />; sub = 'threads'; }
     else if (p1 === 'item') { page = <ContentEditor id={p2} key={p2} />; sub = 'board'; }
   } else if (p0 === 'freelance') {
     section = 'freelance';
@@ -73,6 +76,7 @@ export function App() {
       </main>
       {!desktop && <BottomNav section={section} sub={sub} />}
       <Overlays />
+      <UpdateBanner />
       <Toasts />
     </div>
   );
@@ -115,7 +119,7 @@ function FocusBar() {
 
 const SIDE = [
   { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
-  { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
+  { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', icon: 'at', path: '/content/threads' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
   { group: 'Freelance OS', key: 'freelance', items: [{ id: 'overview', label: 'Overview', icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', icon: 'video', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', icon: 'users', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', icon: 'file', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', icon: 'template', path: '/freelance/templates' }] },
 ];
 
@@ -157,6 +161,18 @@ function SaveState() {
   if (s.user) return <a href="#/settings/account" class={'save-state ' + (s.status === 'error' ? 'error' : s.status === 'syncing' ? 'saving' : '')} style={{ textDecoration: 'none' }}><span class="save-dot" />{syncLabel(s)}</a>;
   const label = persist.status === 'error' ? 'Not saved' : persist.status === 'saving' ? 'Saving…' : persist.mode === 'idb' ? 'Saved on this device' : persist.mode === 'local' ? 'Saved (basic storage)' : 'Not saving';
   return <div class={'save-state ' + persist.status}><span class="save-dot" />{label}</div>;
+}
+
+function UpdateBanner() {
+  const v = useUpdateAvailable();
+  const [busy, setBusy] = useState(false);
+  if (!v) return null;
+  return (
+    <div class="update-pill" role="status">
+      <Icon name="spark" size={16} /><span>New version ready</span>
+      <button class="btn xs primary" disabled={busy} onClick={() => { setBusy(true); applyUpdate(); }}>{busy ? 'Updating…' : 'Update'}</button>
+    </div>
+  );
 }
 
 function BottomNav({ section, sub }) {

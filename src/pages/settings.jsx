@@ -314,6 +314,12 @@ function ContentSection({ s }) {
       <Group title="Formats">
         <ChipsEditor items={s.formats} placeholder="Add format" onChange={(v) => renameAware('formats', s.formats, v, (a, b) => all('contents').filter((x) => x.format === a).forEach((x) => patch('contents', x.id, { format: b })))} />
       </Group>
+      <Group title="Threads" hint="Pillars for your Threads posts and how many you aim to post a day">
+        <ChipsEditor items={s.threadsPillars} placeholder="Add pillar" onChange={(v) => renameAware('threadsPillars', s.threadsPillars, v, (x, y) => all('threads').filter((t) => t.pillar === x).forEach((t) => patch('threads', t.id, { pillar: y })))} />
+        <Row label="Posts per day">
+          <div class="set-num"><NumberInput id="s-thd" value={s.threadsDaily} min={1} onChange={(v) => set({ threadsDaily: Math.max(1, +v || 1) })} /></div>
+        </Row>
+      </Group>
       <Group>
         <Row label="Weekly upload target" hint="Shown on Content overview">
           <div class="set-num"><NumberInput id="s-wt" value={s.weeklyTarget} min={0} onChange={(v) => set({ weeklyTarget: Math.max(0, +v || 0) })} /></div>

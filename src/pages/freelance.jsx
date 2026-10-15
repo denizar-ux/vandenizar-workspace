@@ -847,7 +847,7 @@ function PreviewSheet({ id, close }) {
       <SheetHead title="Preview" sub="This is what the PDF contains" onClose={close} right={<button class="btn sm primary" onClick={() => downloadPdf(inv)}><Icon name="download" size={15} />PDF</button>} />
       <SheetBody>
         <div class="paper">
-          <div style={{ height: 4, background: '#ff5924', borderRadius: 2, margin: '-14px 0 22px' }} />
+          <div style={{ height: 4, background: '#2f6bff', borderRadius: 2, margin: '-14px 0 22px' }} />
           <div class="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
             <div><div style={{ fontWeight: 800, fontSize: 18 }}>{from.name}</div><div class="muted" style={{ whiteSpace: 'pre-wrap' }}>{[from.owner, from.address, from.email, from.phone, from.website].filter(Boolean).join('\n')}</div></div>
             <div style={{ textAlign: 'right' }}><h1>Invoice</h1><div style={{ fontWeight: 800 }}>{inv.number}</div><div class="muted">Date: {fmtFull(inv.date)}</div><div class="muted">Due: {fmtFull(inv.dueDate)}</div></div>
@@ -885,7 +885,7 @@ export async function buildInvoicePdf(inv) {
   const m = (v) => fmtMoney(v, inv.currency);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210, L = 18, R = W - 18;
-  const ink = [20, 22, 28], muted = [116, 130, 151], line = [227, 231, 238], accent = [255, 89, 36];
+  const ink = [20, 22, 28], muted = [116, 130, 151], line = [227, 231, 238], accent = [47, 107, 255];
   let y = 18;
   doc.setFillColor(...accent); doc.rect(L, 12, R - L, 1.2, 'F');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...ink);

@@ -8,6 +8,7 @@ import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
 import { today, addDays, diffDays, relDay, fmtDay, fmtShort, fmtMonth, startOfWeek, startOfMonth, addMonths, daysInMonth, dayNum, fmtWeekdayShort, isoOf, fmtFull } from '../lib/date.js';
 import { dragHandlers, orderBetween } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
+import { ThreadsTodayCard } from './threads.jsx';
 
 export function createContentAndOpen(preset = {}) {
   const c = M.newContent(preset);
@@ -76,6 +77,7 @@ export function ContentOverview() {
           )}
         </div>
         <div class="stack">
+          <ThreadsTodayCard />
           <div class="card">
             <div class="card-head"><div class="card-title">This week's target</div><a class="section-link" href="#/settings/content">Edit target</a></div>
             <div class="row gap-16">
