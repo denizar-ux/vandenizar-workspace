@@ -1,0 +1,4 @@
+node_modules
+dist
+artifact
+make-artifact.py
