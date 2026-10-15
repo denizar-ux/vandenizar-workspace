@@ -141,7 +141,6 @@ export function SettingsPage() {
   useStore();
   const s = M.settings();
   const [theme, setTheme] = useState(getTheme());
-  const [perm, setPerm] = useState(notifySupported() ? Notification.permission : 'unsupported');
   const fileRef = useRef();
   const set = (ch) => M.setSettings(ch);
   const setBiz = (ch) => M.setSettings({ business: { ...s.business, ...ch } });
@@ -197,10 +196,9 @@ export function SettingsPage() {
           </div>
         ))}
         {!pushFlag() && <div class="banner info"><Icon name="info" size={18} /><div>
-          <b>How reminders work here.</b> When you open the app after a reminder time, a card shows on Today. {perm === 'granted' ? 'This browser will also pop a notification if the app is open at that time.' : perm === 'unsupported' ? 'This browser can\'t show notifications from a website without a server, so nothing is sent to your lock screen.' : 'You can also allow notifications while the app is open.'} For a reliable phone alert, add both reminders to your calendar.
+          <b>Notifications are off on this device.</b> Reminders still show as a card on Today when you open the app. Turn on notifications above for alerts when the app is closed, or add the two daily reminders to your calendar.
           <div class="row gap-8 wrap" style={{ marginTop: 10 }}>
-            {perm === 'default' && <button class="btn sm" onClick={async () => { try { const p = await Notification.requestPermission(); setPerm(p); toast(p === 'granted' ? 'Notifications allowed while the app is open' : 'Notifications not allowed'); } catch { toast('This browser blocked the request.', { tone: 'warn' }); } }}>Allow notifications</button>}
-            <button class="btn sm" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}><Icon name="calendar" size={15} />Add to calendar (.ics)</button>
+                        <button class="btn sm" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}><Icon name="calendar" size={15} />Add to calendar (.ics)</button>
           </div>
         </div></div>}
       </div></div>
