@@ -708,3 +708,4 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .clinks { display: flex; flex-direction: column; gap: 8px; }
 .clinks-head { display: flex; align-items: center; justify-content: space-between; }
 .icon-btn.del { background: var(--bad-soft); color: var(--bad); box-shadow: none; }
+.toggle:disabled { opacity: .45; cursor: not-allowed; }

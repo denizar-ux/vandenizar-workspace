@@ -1,5 +1,5 @@
 // Vandenizar offline cache. Bump VERSION when deploying a new build.
-const VERSION = 'vz-v3';
+const VERSION = 'vz-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -21,7 +21,20 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; })));
   }
 });
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'Vandenizar', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Vandenizar', {
+    body: d.body || '', tag: d.tag || undefined, icon: './icon-192.png', badge: './icon-192.png', data: { url: d.url || '#/' },
+  }));
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window' }).then((list) => (list[0] ? list[0].focus() : self.clients.openWindow('./#/'))));
+  const hash = (e.notification.data && e.notification.data.url) || '#/';
+  const target = new URL('./' + hash, self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const w = list[0];
+    if (w) return w.navigate ? w.navigate(target).then((c) => (c || w).focus()).catch(() => w.focus()) : w.focus();
+    return self.clients.openWindow(target);
+  }));
 });

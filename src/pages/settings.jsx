@@ -10,6 +10,7 @@ import { CURRENCIES } from '../lib/money.js';
 import * as M from '../lib/model.js';
 import { saveFile, saveMessage } from '../lib/files.js';
 import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
+import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
 
 // ---------- theme ----------
 export function getTheme() { try { return localStorage.getItem('vz:theme') || 'system'; } catch { return 'system'; } }
@@ -51,7 +52,8 @@ export function useReminders() {
         const r = s.reminders[kind];
         if (!r.enabled || fired['fired_' + kind] === n.date || now < toMin(r.time) || now > toMin(r.time) + 30) continue;
         put('meta', { ...M.meta('reminders', { id: 'reminders' }), id: 'reminders', ['fired_' + kind]: n.date }, { silent: true });
-        if (notifySupported() && Notification.permission === 'granted') {
+        // When this device gets server push, the server sends the brief; don't double up.
+        if (notifySupported() && Notification.permission === 'granted' && !pushFlag()) {
           const openToday = M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate === n.date).length;
           const uploads = M.contentActions(n.date).filter((a) => a.stage.id === 'upload').length;
           const body = kind === 'morning' ? `${openToday} task(s) today${uploads ? `, ${uploads} upload(s) planned` : ''}. Pick your main priority.` : 'Two-minute review: wins, what is left, and tomorrow\'s main priority.';
@@ -97,6 +99,42 @@ function renameAware(key, oldList, newList, migrate) {
     if (diffs.length === 1 && !oldList.includes(diffs[0][1])) migrate(diffs[0][0], diffs[0][1]);
   }
   M.setSettings({ [key]: newList });
+}
+
+function PushRow({ lead, onLead }) {
+  const [on, setOn] = useState(pushFlag());
+  const [busy, setBusy] = useState(false);
+  const [, force] = useState(0);
+  useEffect(() => { pushStatus().then(setOn); return onSync(() => force((x) => x + 1)); }, []);
+  const needsHome = isIOS() && !isStandalone();
+  const blocked = !sync.user ? 'Sign in above to turn on notifications.' : needsHome ? 'On iPhone, open Vandenizar from your Home Screen, then turn this on there.' : !pushSupported() ? 'This browser does not support notifications.' : '';
+  const toggle = async () => {
+    if (busy || blocked) return;
+    setBusy(true);
+    try {
+      if (on) { await disablePush(); setOn(false); toast('Notifications off on this device'); }
+      else { await enablePush(); setOn(true); toast('Notifications on. Sending a test…'); testPush().catch(() => {}); }
+    } catch (e) { toast(e.message || 'Could not change notifications.', { tone: 'warn', duration: 5000 }); }
+    setBusy(false);
+  };
+  return (
+    <>
+      <div class="set-row">
+        <div class="grow">
+          <div>Notifications on this device</div>
+          <div class="hint">{blocked || (on ? 'Tasks and content steps with a time, plus the morning brief and daily review. Works with the app closed.' : 'Get an alert for anything scheduled with a time, even when the app is closed.')}</div>
+        </div>
+        <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label="Notifications on this device" disabled={!!blocked || busy} onClick={toggle} />
+      </div>
+      {on && (
+        <div class="set-row wrap">
+          <div class="grow"><div>Alert me</div></div>
+          <Segmented options={[{ id: 0, label: 'On time' }, { id: 5, label: '5m early' }, { id: 15, label: '15m early' }, { id: 30, label: '30m early' }]} value={lead} onChange={(v) => onLead(+v)} />
+          <button class="btn sm ghost" onClick={async () => { try { const n = await testPush(); toast(n ? 'Test sent' : 'No device is subscribed yet', { tone: n ? '' : 'warn' }); } catch (e) { toast(e.message, { tone: 'warn' }); } }}>Send test</button>
+        </div>
+      )}
+    </>
+  );
 }
 
 export function SettingsPage() {
@@ -150,6 +188,7 @@ export function SettingsPage() {
 
       <div class="card"><div class="set-group">
         <div class="card-title">Reminders</div>
+        <PushRow lead={s.pushLead ?? 0} onLead={(v) => set({ pushLead: v })} />
         {[['morning', 'Morning brief', "Today's tasks, planned uploads and weekly goals"], ['evening', 'Daily review', 'Review the day and plan tomorrow']].map(([k, label, hint]) => (
           <div class="set-row">
             <div class="grow"><div>{label}</div><div class="hint">{hint}</div></div>
@@ -157,13 +196,13 @@ export function SettingsPage() {
             <button class={'toggle ' + (s.reminders[k].enabled ? 'on' : '')} role="switch" aria-checked={s.reminders[k].enabled} aria-label={label} onClick={() => setRem(k, { enabled: !s.reminders[k].enabled })} />
           </div>
         ))}
-        <div class="banner info"><Icon name="info" size={18} /><div>
+        {!pushFlag() && <div class="banner info"><Icon name="info" size={18} /><div>
           <b>How reminders work here.</b> When you open the app after a reminder time, a card shows on Today. {perm === 'granted' ? 'This browser will also pop a notification if the app is open at that time.' : perm === 'unsupported' ? 'This browser can\'t show notifications from a website without a server, so nothing is sent to your lock screen.' : 'You can also allow notifications while the app is open.'} For a reliable phone alert, add both reminders to your calendar.
           <div class="row gap-8 wrap" style={{ marginTop: 10 }}>
             {perm === 'default' && <button class="btn sm" onClick={async () => { try { const p = await Notification.requestPermission(); setPerm(p); toast(p === 'granted' ? 'Notifications allowed while the app is open' : 'Notifications not allowed'); } catch { toast('This browser blocked the request.', { tone: 'warn' }); } }}>Allow notifications</button>}
             <button class="btn sm" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}><Icon name="calendar" size={15} />Add to calendar (.ics)</button>
           </div>
-        </div></div>
+        </div></div>}
       </div></div>
 
       <div class="card"><div class="set-group">
