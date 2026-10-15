@@ -206,7 +206,7 @@ export function duplicateContent(id) {
   const c = get('contents', id);
   if (!c) return null;
   const copy = JSON.parse(JSON.stringify(c));
-  delete copy.createdAt; delete copy.deletedAt;
+  delete copy.createdAt; delete copy.deletedAt; delete copy.versions;
   copy.id = uid();
   copy.title = c.title + ' (copy)';
   copy.order = (c.order || 0) + 0.5;

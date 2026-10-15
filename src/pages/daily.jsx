@@ -51,7 +51,6 @@ export function TodayPage() {
           <div class="hello">{greeting()}, {s.name}</div>
           <div class="hello-sub">{fmtDay(t0)} · {remaining ? `${remaining} thing${remaining === 1 ? '' : 's'} today` : 'Nothing scheduled'}</div>
         </div>
-        <button class="icon-btn glass hide-desktop" aria-label="Search" onClick={openSearch}><Icon name="search" /></button>
         <button class="icon-btn glass" aria-label="Attention and reminders" onClick={() => openAttention()}>
           <Icon name="bell" />{(attention > 0 || rem.morning || rem.evening) && <span class="notif-dot" />}
         </button>

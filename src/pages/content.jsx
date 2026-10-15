@@ -323,9 +323,21 @@ export function ContentEditor({ id }) {
   const desktop = useMedia(DESKTOP_Q);
   const isNew = location.hash.includes('new=1');
   const fileRef = useRef();
+  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('vz:ce-tab') || 'write'; } catch { return 'write'; } });
   useEffect(() => { if (c && !c.deletedAt) M.touchRecent('content', id); if (isNew) navigate('/content/item/' + id, { replace: true }); }, [id]);
   if (!c) return <div class="page narrow"><BackBar onBack={() => back('/content/board')} /><div class="card"><Empty icon="video" title="This content item doesn't exist" action={<a class="btn primary sm" href="#/content/board">Go to board</a>}>It may have been deleted permanently.</Empty></div></div>;
   const set = (ch) => patch('contents', id, ch);
+  // Writing fields keep a history: before the first edit of an editing session (10 min gap), save what was there.
+  const setText = (ch) => {
+    const vs = c.versions || [];
+    const last = vs[0];
+    const has = (c.hook || '').trim() || htmlToText(c.script || '').trim() || (c.caption || '').trim();
+    const same = last && last.hook === (c.hook || '') && last.script === (c.script || '') && last.caption === (c.caption || '');
+    if (has && !same && (!last || Date.now() - last.at > 10 * 60 * 1000)) {
+      set({ ...ch, versions: [{ at: Date.now(), hook: c.hook || '', script: c.script || '', caption: c.caption || '' }, ...vs].slice(0, 30) });
+    } else set(ch);
+  };
+  const pickTab = (t) => { setTab(t); try { sessionStorage.setItem('vz:ce-tab', t); } catch {} window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const setSched = (stage, ch) => set({ schedule: { ...(c.schedule || {}), [stage]: { ...(c.schedule?.[stage] || {}), ...ch } } });
   const next = M.CONTENT_NEXT[c.status];
   const idx = M.CONTENT_STATUSES.findIndex((x) => x.id === c.status);
@@ -416,37 +428,107 @@ export function ContentEditor({ id }) {
           onInput={(e) => set({ title: e.currentTarget.value.replace(/\n/g, ' ') })} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} style={{ resize: 'none', overflow: 'hidden' }} />
         <TextArea id="ce-desc" value={c.description} onInput={(v) => set({ description: v })} placeholder="Short description" minRows={1} class="" />
       </div>
-      <div class="two-col">
-        <div class="stack">
-          {!desktop && Details}
+      {(() => {
+        const Hook = (
           <div class="card">
             <div class="card-head"><div class="card-title">Hook / angle</div></div>
-            <TextArea id="ce-hook" value={c.hook} onInput={(v) => set({ hook: v })} placeholder="The opening line or idea that stops the scroll" />
+            <TextArea id="ce-hook" value={c.hook} onInput={(v) => setText({ hook: v })} placeholder="The opening line or idea that stops the scroll" />
           </div>
+        );
+        const Script = (
           <div class="card">
-            <div class="card-head"><div class="card-title">Script / voice over</div><span class="muted tnum" style={{ fontSize: 12 }}>{(htmlToText(c.script).trim().split(/\s+/).filter(Boolean).length)} words</span></div>
-            <RichText id="ce-script" value={c.script} onChange={(v) => set({ script: v })} placeholder="Write the script or VO here" minHeight={160} />
+            <div class="card-head">
+              <div class="card-title">Script / voice over</div>
+              <div class="row gap-8">
+                <span class="muted tnum" style={{ fontSize: 12 }}>{(htmlToText(c.script).trim().split(/\s+/).filter(Boolean).length)} words</span>
+                <button class="btn xs soft" onClick={() => openVersions(c)}><Icon name="restore" size={14} />History{(c.versions || []).length ? ` · ${(c.versions || []).length}` : ''}</button>
+              </div>
+            </div>
+            <RichText id="ce-script" value={c.script} onChange={(v) => setText({ script: v })} placeholder="Write the script or VO here" minHeight={160} />
           </div>
+        );
+        const Shotlist = (
           <div class="card">
             <div class="card-head"><div class="card-title">Shotlist</div></div>
             <ChecklistEditor items={c.shotlist || []} onChange={(v) => set({ shotlist: v })} placeholder="Add a shot, e.g. close-up hands on keyboard" idPrefix="ce-sl" withImages />
           </div>
+        );
+        const Caption = (
           <div class="card">
             <div class="card-head"><div class="card-title">Caption</div><button class="btn xs soft" disabled={!c.caption} onClick={() => copyText(c.caption, 'Caption copied')}><Icon name="copy" size={14} />Copy</button></div>
-            <div class="caption-box"><TextArea id="ce-caption" value={c.caption} onInput={(v) => set({ caption: v })} placeholder="Final caption" minRows={3} /><span class="caption-count">{(c.caption || '').length} chars</span></div>
+            <div class="caption-box"><TextArea id="ce-caption" value={c.caption} onInput={(v) => setText({ caption: v })} placeholder="Final caption" minRows={3} /><span class="caption-count">{(c.caption || '').length} chars</span></div>
           </div>
-          {!desktop && Links}
-          {!desktop && Schedule}
+        );
+        const Notes = (
           <div class="card">
             <div class="card-head"><div class="card-title">Notes</div></div>
             <RichText id="ce-notes" value={c.notes} onChange={(v) => set({ notes: v })} placeholder="Ideas, references, reminders" tools={['bold', 'checkbox']} minHeight={90} />
           </div>
-          {!desktop && Tasks}
-        </div>
-        {desktop && <div class="stack">{Details}{Links}{Schedule}{Tasks}</div>}
-      </div>
+        );
+        if (desktop) return (
+          <div class="two-col">
+            <div class="stack">{Hook}{Script}{Shotlist}{Caption}{Notes}</div>
+            <div class="stack">{Details}{Links}{Schedule}{Tasks}</div>
+          </div>
+        );
+        const shots = (c.shotlist || []).length;
+        return (
+          <>
+            <div class="ce-tabs"><Segmented class="full" value={tab} onChange={pickTab} options={[{ id: 'write', label: 'Write' }, { id: 'prod', label: 'Production', count: shots || undefined }, { id: 'details', label: 'Details' }]} /></div>
+            <div class="stack">
+              {tab === 'write' && <>{Hook}{Script}{Caption}</>}
+              {tab === 'prod' && <>{Shotlist}{Schedule}{Links}{Tasks}</>}
+              {tab === 'details' && <>{Details}{Notes}</>}
+            </div>
+          </>
+        );
+      })()}
       <div class="muted" style={{ fontSize: 12, textAlign: 'center' }}>Created {fmtFull(isoOf(c.createdAt))} · Last change {fmtAgo(c.updatedAt)} · Saved automatically</div>
     </div>
+  );
+}
+
+// ---------- script history ----------
+function openVersions(c) { openOverlay((close) => <VersionsSheet id={c.id} close={close} />, { kind: 'sheet' }); }
+function VersionsSheet({ id, close }) {
+  useStore();
+  const c = get('contents', id);
+  const [pick, setPick] = useState(null);
+  if (!c) return null;
+  const vs = c.versions || [];
+  const words = (h) => htmlToText(h || '').trim().split(/\s+/).filter(Boolean).length;
+  const when = (t) => { const d = isoOf(t); const hm = new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }); return `${relDay(d)} · ${hm}`; };
+  const restore = (v) => {
+    const cur = { at: Date.now(), hook: c.hook || '', script: c.script || '', caption: c.caption || '' };
+    patch('contents', id, { hook: v.hook, script: v.script, caption: v.caption, versions: [cur, ...vs].slice(0, 30) });
+    toast('Version restored. The text you had is saved in History too.');
+    close();
+  };
+  if (pick) return (
+    <>
+      <SheetHead title={when(pick.at)} sub={`${words(pick.script)} words`} onClose={close} />
+      <SheetBody>
+        <div class="col gap-12">
+          {pick.hook && <div><div class="eyebrow">Hook</div><div class="ver-text">{pick.hook}</div></div>}
+          <div><div class="eyebrow">Script</div><div class="ver-text rich" dangerouslySetInnerHTML={{ __html: pick.script || '<p class="muted">Empty</p>' }} /></div>
+          {pick.caption && <div><div class="eyebrow">Caption</div><div class="ver-text">{pick.caption}</div></div>}
+        </div>
+      </SheetBody>
+      <SheetFoot><button class="btn ghost" onClick={() => setPick(null)}>Back</button><button class="btn primary" onClick={() => restore(pick)}><Icon name="restore" size={16} />Restore this version</button></SheetFoot>
+    </>
+  );
+  return (
+    <>
+      <SheetHead title="History" sub="Hook, script and caption are saved before each editing session" onClose={close} />
+      <SheetBody>
+        {vs.length ? <div class="list">{vs.map((v) => (
+          <button class="list-row clickable" style={{ width: '100%', textAlign: 'left' }} onClick={() => setPick(v)}>
+            <div class="row-main"><div class="row-title">{when(v.at)}</div><div class="row-meta ellipsis">{words(v.script)} words · {htmlToText(v.script || '').trim().slice(0, 80) || v.hook || v.caption || 'Empty'}</div></div>
+            <Icon name="chevronRight" size={16} class="muted" />
+          </button>
+        ))}</div> : <Empty icon="restore" title="No earlier versions yet">Once you edit this script again later, the previous text is kept here.</Empty>}
+      </SheetBody>
+    </>
   );
 }
 

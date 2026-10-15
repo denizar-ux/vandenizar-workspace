@@ -62,7 +62,7 @@ async function claim(userId: string, key: string) {
 async function runForUser(userId: string) {
   const now = wib();
   const tomorrow = addDays(now.date, 1);
-  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['tasks', 'contents', 'meta', 'threads', 'dailyReviews']);
+  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['tasks', 'contents', 'meta', 'threads', 'dailyReviews', 'invoices', 'payments', 'clients']);
   const recs = rows || [];
   const settings = recs.find((r) => r.coll === 'meta' && r.id === 'settings')?.data || {};
   const lead = Number(settings.pushLead ?? 0) || 0;
@@ -133,6 +133,30 @@ async function runForUser(userId: string) {
     if (reviewed && !saved) {
       const name = new Date(Date.UTC(yy, mm - 2, 1)).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
       out.push({ key: `journal:${prev}`, title: `${name} journal is ready`, body: `${reviewed} daily review${reviewed > 1 ? 's' : ''}. Open the app to save it to Google Drive.`, url: `#/review/monthly?d=${prev}` });
+    }
+  }
+
+  // Invoices: due today, then 1 day overdue and every 7 days after, at the morning brief time
+  if (now.min >= mt && now.min < mt + WINDOW) {
+    const pays = recs.filter((r) => r.coll === 'payments').map((r) => r.data).filter((p) => p && !p.voided);
+    const clients = new Map(recs.filter((r) => r.coll === 'clients').map((r) => [r.id, r.data]));
+    for (const inv of recs.filter((r) => r.coll === 'invoices').map((r) => r.data)) {
+      if (!inv || inv.deletedAt || inv.archived || !inv.sentAt || !inv.dueDate) continue;
+      const items = (inv.items || []).reduce((sum: number, it: any) => sum + Math.round((+it.qty || 0) * (+it.rate || 0)), 0);
+      let disc = 0;
+      if (inv.discountType === 'percent') disc = Math.round(items * Math.min(100, Math.max(0, +inv.discountValue || 0)) / 100);
+      else if (inv.discountType === 'amount') disc = Math.min(items, Math.max(0, Math.round(+inv.discountValue || 0)));
+      const paid = pays.filter((p) => p.invoiceId === inv.id).reduce((sum: number, p: any) => sum + (Math.round(+p.amount) || 0), 0);
+      const balance = items - disc - paid;
+      if (balance <= 0) continue;
+      const late = Math.round((Date.parse(now.date + 'T00:00:00Z') - Date.parse(inv.dueDate + 'T00:00:00Z')) / 864e5);
+      const who = inv.clientSnapshot?.name || clients.get(inv.clientId)?.name || '';
+      const cur = inv.currency || 'IDR';
+      const dec = cur === 'IDR' ? 0 : 2;
+      const amount = (cur === 'IDR' ? 'Rp ' : cur + ' ') + (balance / 10 ** dec).toLocaleString(cur === 'IDR' ? 'id-ID' : 'en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      const num = inv.number || 'Invoice';
+      if (late === 0) out.push({ key: `invdue:${inv.id}:${now.date}`, title: `${num} is due today`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/freelance/invoices/${inv.id}` });
+      else if (late === 1 || (late > 1 && late % 7 === 0)) out.push({ key: `invlate:${inv.id}:${now.date}`, title: `${num} is ${late} day${late > 1 ? 's' : ''} overdue`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/freelance/invoices/${inv.id}` });
     }
   }
 
