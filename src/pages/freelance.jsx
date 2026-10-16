@@ -541,7 +541,7 @@ export function ClientsPage() {
     <div class="page narrow">
       <SubNav items={FREELANCE_NAV} active="clients" />
       <PageHeader title="Clients" actions={<button class="btn primary" onClick={() => openClientSheet()}><Icon name="plus" size={18} />New client</button>} />
-      <div class="row gap-8">
+      <div class="row gap-8 search-row">
         <div class="search-box grow" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-1)' }}><Icon name="search" size={17} class="muted" /><input id="cl-q" value={q} placeholder="Search name, PIC, email, phone" onInput={(e) => setQ(e.currentTarget.value)} /></div>
         <Segmented options={[{ id: false, label: 'Active' }, { id: true, label: 'Archived' }]} value={arch} onChange={setArch} />
       </div>
@@ -651,7 +651,7 @@ export function InvoicesPage({ query }) {
       <div class="chips scroll">
         {[['all', 'All'], ['draft', 'Draft'], ['sent', 'Sent'], ['partial', 'Partial'], ['paid', 'Paid'], ['overdue', 'Overdue'], ['open', 'Unpaid']].map(([id, label]) => <button class={'chip ' + (filter === id ? 'on' : '')} onClick={() => setFilter(id)}>{label}{id !== 'all' && <span class="chip-count">{count(id)}</span>}</button>)}
       </div>
-      <div class="row gap-8">
+      <div class="row gap-8 search-row">
         <div class="search-box grow" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-1)' }}><Icon name="search" size={17} class="muted" /><input id="inv-q" value={q} placeholder="Search number, client, project" onInput={(e) => setQ(e.currentTarget.value)} /></div>
         <Segmented options={[{ id: false, label: 'Current' }, { id: true, label: 'Archived' }]} value={arch} onChange={setArch} />
       </div>

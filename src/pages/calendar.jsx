@@ -1,28 +1,32 @@
-// Daily calendar: everything with a time on one grid. Tasks can be dragged to move and stretched to change duration.
+// Daily calendar: everything with a date or time, as a day, week or month.
+// Tasks can be dragged to move and stretched to change duration in Day and Week.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { Segmented } from '../ui/kit.jsx';
+import { Segmented, Check } from '../ui/kit.jsx';
 import { toast, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
 import { SubNav, DAILY_NAV, openTaskSheet, catTone } from '../ui/parts.jsx';
 import { navigate } from '../lib/router.js';
-import { all, patch, useStore } from '../lib/db.js';
-import { today, addDays, startOfWeek, fmtDay, fmtShort, fmtWeekdayShort, dayNum, relDay, nowParts } from '../lib/date.js';
+import { patch, useStore } from '../lib/db.js';
+import { today, addDays, diffDays, startOfWeek, startOfMonth, addMonths, daysInMonth, fmtDay, fmtShort, fmtMonth, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes } from '../lib/date.js';
 import * as M from '../lib/model.js';
 
 const H = 56; // px per hour
 const SNAP = 15;
-const toMin = (t) => { if (!t || !/^\d{1,2}:\d{2}/.test(t)) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-const toHHMM = (min) => { const m = Math.max(0, Math.min(23 * 60 + 45, Math.round(min))); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
-const loadView = () => { try { return localStorage.getItem('vz:cal-view'); } catch { return null; } };
+const VIEWS = ['day', 'week', 'month'];
+export const toMin = (t) => { if (!t || !/^\d{1,2}:\d{2}/.test(t)) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+export const toHHMM = (min) => { const m = Math.max(0, Math.min(23 * 60 + 45, Math.round(min))); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+const loadView = () => { try { const v = localStorage.getItem('vz:cal-view'); return VIEWS.includes(v) ? v : null; } catch { return null; } };
+const saveView = (v) => { try { localStorage.setItem('vz:cal-view', v); } catch {} };
+const nowMinutes = () => { const n = nowParts(); return n.hour * 60 + n.minute; };
 
 // Everything on a given day, split into timed blocks and all-day items
-function dayItems(d) {
+export function dayItems(d) {
   const timed = [], allDay = [];
   for (const t of M.liveTasks()) {
-    if (t.dueDate !== d || t.status === 'cancelled') continue;
+    if (t.dueDate !== d || t.status === 'cancelled' || t.status === 'deferred') continue;
     const s = toMin(t.dueTime);
     const done = t.status === 'done' || M.taskDoneOn(t, d);
-    if (s == null) { if (!done) allDay.push({ kind: 'task', id: t.id, title: t.title, tone: catTone(t.category), t }); continue; }
+    if (s == null) { if (!done) allDay.push({ kind: 'task', id: t.id, title: t.title, tone: catTone(t.category), t, sub: t.category }); continue; }
     timed.push({ kind: 'task', id: t.id, title: t.title, start: s, dur: Math.max(SNAP, +t.estimate || 30), tone: catTone(t.category), done, t, sub: t.category });
   }
   for (const c of M.liveContents()) {
@@ -31,7 +35,7 @@ function dayItems(d) {
       if (!v?.date || v.date !== d) continue;
       const done = M.stageIsDone(c, st.id);
       const s = toMin(v.time);
-      const item = { kind: 'content', id: c.id + ':' + st.id, title: `${st.verb}: ${c.title}`, tone: 't-violet', done, c, sub: 'Content' };
+      const item = { kind: 'content', id: c.id + ':' + st.id, title: `${st.verb}: ${c.title}`, tone: 't-violet', done, c, stage: st.id, sub: 'Content' + (c.pillar ? ' · ' + c.pillar : '') };
       if (s == null) { if (!done) allDay.push(item); } else timed.push({ ...item, start: s, dur: 60 });
     }
   }
@@ -43,9 +47,18 @@ function dayItems(d) {
   }
   for (const f of M.freelanceAgenda(d, d)) {
     const name = f.project ? f.project.name : f.invoice?.number;
-    allDay.push({ kind: 'freelance', id: f.kind + ':' + (f.project?.id || f.invoice?.id), title: `${f.label}: ${name}`, tone: 't-pink', f });
+    allDay.push({ kind: 'freelance', id: f.kind + ':' + (f.project?.id || f.invoice?.id), title: `${f.label}: ${name}`, tone: 't-pink', f, sub: M.clientName(f.project?.clientId || f.invoice?.clientId) });
   }
   return { timed: layout(timed), allDay };
+}
+
+// Items for a list view of one day. Threads posts and untimed tasks can be left out.
+export function agendaItems(d, { threads = false, untimedTasks = true } = {}) {
+  const { timed, allDay } = dayItems(d);
+  return {
+    allDay: allDay.filter((i) => untimedTasks || i.kind !== 'task'),
+    timed: timed.filter((i) => threads || i.kind !== 'threads').sort((a, b) => a.start - b.start),
+  };
 }
 
 // Side-by-side columns for overlapping blocks
@@ -71,45 +84,152 @@ function layout(items) {
   return out;
 }
 
-function openItem(it) {
+export function openItem(it) {
   if (it.kind === 'task') openTaskSheet(it.t.id);
   else if (it.kind === 'content') navigate('/content/item/' + it.c.id);
-  else if (it.kind === 'threads') navigate('/content/threads?d=' + it.th.date);
+  else if (it.kind === 'threads') navigate('/content/threads' + (it.th?.date ? '?d=' + it.th.date : ''));
   else if (it.f?.project) navigate('/freelance/projects/' + it.f.project.id);
   else if (it.f?.invoice) navigate('/freelance/invoices/' + it.f.invoice.id);
 }
 
+function toggleItem(it, on) {
+  if (it.kind === 'task') { if (on) { M.completeTask(it.t.id); toast('Done'); } else M.reopenTask(it.t.id); }
+  else if (it.kind === 'content') { if (on) { M.completeStage(it.c, it.stage); toast(it.stage === 'upload' ? 'Marked uploaded' : 'Step done'); } else M.uncompleteStage(it.c, it.stage); }
+  else if (it.kind === 'threads') M.markThreadPosted(it.th.id, on);
+}
+
+// ---------- list view of a day (used on Today and under the month grid) ----------
+export function AgendaList({ d, allDay = [], timed = [] }) {
+  const t0 = today();
+  const nowMin = nowMinutes();
+  const rows = allDay.map((it) => <AgendaRow it={it} />);
+  let shown = d !== t0 || !timed.length;
+  for (const it of timed) {
+    if (!shown && it.start >= nowMin) { rows.push(<NowLine min={nowMin} />); shown = true; }
+    rows.push(<AgendaRow it={it} past={d < t0 || (d === t0 && it.start + it.dur <= nowMin)} />);
+  }
+  if (!shown) rows.push(<NowLine min={nowMin} />);
+  return <div class="agenda">{rows}</div>;
+}
+function NowLine({ min }) {
+  return <div class="ag-now" aria-label={'Now, ' + toHHMM(min)}><span>{toHHMM(min)}</span></div>;
+}
+function AgendaRow({ it, past }) {
+  const timed = it.start != null;
+  const checkable = it.kind === 'task' || it.kind === 'content' || (it.kind === 'threads' && it.th);
+  const sub = it.kind === 'task' ? [it.t.category, timed ? fmtMinutes(it.dur) : ''].filter(Boolean).join(' · ') : it.sub;
+  return (
+    <div class={'ag-row' + (it.done ? ' done' : '') + (past ? ' past' : '')}>
+      <div class={'ag-time' + (it.overdue ? ' bad' : '')}>{it.timeLabel || (timed ? toHHMM(it.start) : 'All day')}</div>
+      <button class={'ag-card ' + it.tone} onClick={() => openItem(it)}>
+        <span class="ag-title">{it.title}</span>
+        {sub && <span class="ag-sub">{sub}</span>}
+      </button>
+      {checkable ? <Check checked={!!it.done} onChange={(v) => toggleItem(it, v)} label={(it.done ? 'Mark not done: ' : 'Mark done: ') + it.title} /> : <span class="ag-go" aria-hidden="true"><Icon name="chevronRight" size={16} /></span>}
+    </div>
+  );
+}
+
+// ---------- page ----------
 export function CalendarPage({ query }) {
   useStore();
   const desktop = useMedia(DESKTOP_Q);
-  const [view, setView] = useState(() => loadView() || (desktop ? 'week' : 'day'));
+  const [view, setView] = useState(() => (VIEWS.includes(query.v) ? query.v : null) || loadView() || (desktop ? 'week' : 'day'));
+  useEffect(() => { if (VIEWS.includes(query.v) && query.v !== view) { setView(query.v); saveView(query.v); } }, [query.v]);
   const t0 = today();
   const d = query.d && /^\d{4}-\d{2}-\d{2}$/.test(query.d) ? query.d : t0;
   const s = M.settings();
   const days = view === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(d, s.weekStart), i)) : [d];
-  const go = (iso) => navigate('/calendar?d=' + iso, { replace: true });
-  const step = view === 'week' ? 7 : 1;
-  const pickView = (v) => { setView(v); try { localStorage.setItem('vz:cal-view', v); } catch {} };
-  const label = view === 'week' ? `${fmtShort(days[0])} – ${fmtShort(days[6])}` : `${relDay(d) !== fmtDay(d) ? relDay(d) + ' · ' : ''}${fmtDay(d)}`;
+  const go = (iso, v = view) => navigate('/calendar?d=' + iso + (v !== view ? '&v=' + v : ''), { replace: true });
+  const pickView = (v) => { setView(v); saveView(v); navigate('/calendar?d=' + d, { replace: true }); };
+  const openDay = (iso) => { setView('day'); saveView('day'); navigate('/calendar?d=' + iso, { replace: true }); };
+  const shift = (n) => go(view === 'month' ? addMonths(startOfMonth(d), n) : addDays(d, view === 'week' ? 7 * n : n));
+  const label = view === 'month' ? fmtMonth(d) : view === 'week' ? `${fmtShort(days[0])} – ${fmtShort(days[6])}` : `${relDay(d) !== fmtDay(d) ? relDay(d) + ' · ' : ''}${fmtDay(d)}`;
+  const onToday = view === 'month' ? d.slice(0, 7) === t0.slice(0, 7) && d === t0 : days.includes(t0);
   return (
     <div class="page cal-page">
       <SubNav items={DAILY_NAV} active="calendar" />
       <div class="cal-head">
         <h1 class="ph-title">Calendar</h1>
-        <Segmented value={view} onChange={pickView} options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} />
+        <Segmented value={view} onChange={pickView} options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} />
       </div>
       <div class="cal-nav">
-        <button class="icon-btn sm" aria-label="Previous" onClick={() => go(addDays(d, -step))}><Icon name="chevronLeft" size={18} /></button>
+        <button class="icon-btn sm" aria-label="Previous" onClick={() => shift(-1)}><Icon name="chevronLeft" size={18} /></button>
         <div class="cal-label">{label}</div>
-        <button class="icon-btn sm" aria-label="Next" onClick={() => go(addDays(d, step))}><Icon name="chevronRight" size={18} /></button>
-        {!days.includes(t0) && <button class="btn sm soft" onClick={() => go(t0)}>Today</button>}
+        <button class="icon-btn sm" aria-label="Next" onClick={() => shift(1)}><Icon name="chevronRight" size={18} /></button>
+        <span class="grow" />
+        {!onToday && <button class="btn sm soft" onClick={() => go(t0)}>Today</button>}
+        <button class="btn sm primary cal-add" onClick={() => openTaskSheet(null, { dueDate: d })}><Icon name="plus" size={15} />Task</button>
       </div>
-      <Grid days={days} week={view === 'week'} onPickDay={(iso) => { pickView('day'); go(iso); }} />
-      <div class="cal-hint">Tap an empty slot to add a task. Drag a task to move it{desktop ? '' : ' (hold first)'}, drag its bottom edge to change how long it takes.</div>
+      {view === 'month'
+        ? <MonthView d={d} desktop={desktop} onSelect={(iso) => go(iso)} onOpenDay={openDay} />
+        : <Grid days={days} week={view === 'week'} onPickDay={openDay} />}
+      <div class="cal-hint">{view === 'month'
+        ? (desktop ? 'Click a day to open it. Click an item to edit it.' : 'Tap a day to see its plan below.')
+        : `Tap an empty slot to add a task. Drag a task to move it${desktop ? '' : ' (hold first)'}, drag its bottom edge to change how long it takes.`}</div>
     </div>
   );
 }
 
+// ---------- month ----------
+function MonthView({ d, desktop, onSelect, onOpenDay }) {
+  const s = M.settings();
+  const t0 = today();
+  const month = startOfMonth(d);
+  const gridStart = startOfWeek(month, s.weekStart);
+  const total = Math.ceil((diffDays(month, gridStart) + daysInMonth(month)) / 7) * 7;
+  const days = Array.from({ length: total }, (_, i) => addDays(gridStart, i));
+  const dows = days.slice(0, 7).map((x) => fmtWeekdayShort(x));
+  const data = {};
+  for (const x of days) {
+    const a = agendaItems(x);
+    data[x] = [...a.allDay, ...a.timed];
+  }
+  const sel = data[d] ? d : t0;
+  const selItems = agendaItems(sel);
+  return (
+    <>
+      <div class="card cal-month">
+        <div class="month">
+          {dows.map((w) => <div class="dow">{w}</div>)}
+          {days.map((x) => {
+            const its = data[x];
+            const open = its.filter((i) => !i.done);
+            return (
+              <div class={'day' + (x.slice(0, 7) !== month.slice(0, 7) ? ' out' : '') + (x === t0 ? ' today' : '') + (!desktop && x === sel ? ' sel' : '')}
+                role="button" tabIndex={0} aria-label={fmtDay(x) + (open.length ? `, ${open.length} planned` : '')}
+                onClick={() => (desktop ? onOpenDay(x) : onSelect(x))} onKeyDown={(e) => e.key === 'Enter' && (desktop ? onOpenDay(x) : onSelect(x))}>
+                <span class="day-num">{dayNum(x)}</span>
+                <div class="day-dots">{open.slice(0, 4).map((i) => <i class={i.tone} />)}</div>
+                <div class="day-items">
+                  {its.slice(0, 3).map((i) => (
+                    <button class={'cal-chip ' + i.tone + (i.done ? ' done' : '')} title={i.title} onClick={(e) => { e.stopPropagation(); openItem(i); }}>
+                      {i.start != null && <span class="t">{toHHMM(i.start)}</span>}<span>{i.title}</span>
+                    </button>
+                  ))}
+                  {its.length > 3 && <div class="day-more">+{its.length - 3} more</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {!desktop && (
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">{relDay(sel)}<span class="count">{fmtShort(sel)}</span></div>
+            <button class="btn xs soft" onClick={() => onOpenDay(sel)}>Open day</button>
+          </div>
+          {(selItems.allDay.length + selItems.timed.length)
+            ? <AgendaList d={sel} allDay={selItems.allDay} timed={selItems.timed} />
+            : <div class="muted" style={{ fontSize: 14 }}>Nothing planned. <button class="link-btn" onClick={() => openTaskSheet(null, { dueDate: sel })}>Add a task</button></div>}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ---------- day and week grid ----------
 function Grid({ days, week, onPickDay }) {
   const scroller = useRef();
   const cols = useRef();
@@ -120,8 +240,7 @@ function Grid({ days, week, onPickDay }) {
   const startH = Math.max(0, Math.min(6, Math.floor(firstTimed / 60)));
   const hours = Array.from({ length: 24 - startH }, (_, i) => startH + i);
   const top = (min) => ((min - startH * 60) / 60) * H;
-  const now = nowParts();
-  const nowMin = now.hour * 60 + now.minute;
+  const nowMin = nowMinutes();
 
   useEffect(() => {
     const el = scroller.current; if (!el) return;
@@ -168,7 +287,7 @@ function Grid({ days, week, onPickDay }) {
       clearTimeout(timer);
       cleanup();
       if (active && moved && cur) {
-        if (mode === 'resize') { patch('tasks', it.id, { estimate: cur.dur }); toast(`Duration ${cur.dur} min`); }
+        if (mode === 'resize') { patch('tasks', it.id, { estimate: cur.dur }); toast(`Duration ${fmtMinutes(cur.dur)}`); }
         else { patch('tasks', it.id, { dueDate: cur.day, dueTime: toHHMM(cur.start) }); toast(`Moved to ${toHHMM(cur.start)}${cur.day !== d ? ' · ' + fmtDay(cur.day) : ''}`); }
       } else if (!active || !moved) openItem(it);
       setDrag(null);
@@ -181,6 +300,7 @@ function Grid({ days, week, onPickDay }) {
   };
 
   const hasAllDay = data.some((x) => x.allDay.length);
+  const cap = week ? 3 : 8;
   return (
     <div class={'card cal-card ' + (week ? 'is-week' : 'is-day')}>
       {week && (
@@ -194,8 +314,8 @@ function Grid({ days, week, onPickDay }) {
           <div class="cal-gutter-label">All day</div>
           {data.map((x) => (
             <div class="cal-allday-col">
-              {x.allDay.slice(0, week ? 3 : 8).map((it) => <button class={'cal-chip ' + it.tone} onClick={() => openItem(it)}>{it.title}</button>)}
-              {x.allDay.length > (week ? 3 : 8) && <button class="cal-more" onClick={() => onPickDay(x.d)}>+{x.allDay.length - 3} more</button>}
+              {x.allDay.slice(0, cap).map((it) => <button class={'cal-chip ' + it.tone} onClick={() => openItem(it)}>{it.title}</button>)}
+              {x.allDay.length > cap && <button class="cal-more" onClick={() => onPickDay(x.d)}>+{x.allDay.length - cap} more</button>}
             </div>
           ))}
         </div>

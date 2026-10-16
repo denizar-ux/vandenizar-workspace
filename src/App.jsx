@@ -248,6 +248,8 @@ function Search({ close }) {
     if (content.length) groups.push({ label: 'Content', rows: content.map((c) => ({ key: c.id, icon: 'video', title: c.title, meta: [c.pillar, (c.platforms || []).join(', ')].filter(Boolean).join(' · '), badge: <ContentBadge status={c.status} sm />, run: () => go('/content/item/' + c.id) })) });
     if (projects.length) groups.push({ label: 'Projects', rows: projects.map((p) => ({ key: p.id, icon: 'briefcase', title: p.name, meta: M.clientName(p.clientId) + (p.archived ? ' · Archived' : ''), badge: <StageBadge stage={p.stage} sm />, run: () => go('/freelance/projects/' + p.id) })) });
     if (clients.length) groups.push({ label: 'Clients', rows: clients.map((c) => ({ key: c.id, icon: 'users', title: c.name, meta: [c.pic, c.archived ? 'Archived' : ''].filter(Boolean).join(' · '), run: () => go('/freelance/clients/' + c.id) })) });
+    const posts = M.liveThreads().filter((t) => has(t.text, t.pillar)).slice(0, 6);
+    if (posts.length) groups.push({ label: 'Threads', rows: posts.map((t) => ({ key: t.id, icon: 'at', title: t.text.length > 90 ? t.text.slice(0, 90) + '…' : t.text, meta: [t.date ? relDay(t.date) + (t.time ? ' ' + t.time : '') : 'Idea', t.pillar, t.status === 'posted' ? 'Posted' : ''].filter(Boolean).join(' · '), run: () => go(t.date ? '/content/threads?d=' + t.date : '/content/threads?view=ideas') })) });
     if (invoices.length) groups.push({ label: 'Invoices', rows: invoices.map((i) => { const c = M.calcInvoice(i); return { key: i.id, icon: 'file', title: i.number, meta: `${M.clientName(i.clientId)} · ${fmtMoney(c.total, i.currency)}`, badge: <InvoiceBadge status={c.status} sm />, run: () => go('/freelance/invoices/' + i.id) }; }) });
   }
   const recent = (M.meta('recent', { items: [] }).items || []).map(recentRow).filter(Boolean).slice(0, 6);
@@ -257,7 +259,7 @@ function Search({ close }) {
       <SheetBody>
         <div class="search-box">
           <Icon name="search" size={18} class="muted" />
-          <input id="global-search" value={q} placeholder="Tasks, content, projects, clients, invoices" onInput={(e) => setQ(e.currentTarget.value)} autoFocus ref={(el) => el && setTimeout(() => el.focus(), 50)}
+          <input id="global-search" value={q} placeholder="Tasks, content, Threads, clients, invoices" onInput={(e) => setQ(e.currentTarget.value)} autoFocus ref={(el) => el && setTimeout(() => el.focus(), 50)}
             onKeyDown={(e) => { if (e.key === 'Enter' && groups[0]) groups[0].rows[0].run(); }} />
           {q && <button class="icon-btn ghost sm" aria-label="Clear" onClick={() => setQ('')}><Icon name="x" size={16} /></button>}
         </div>

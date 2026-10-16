@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Check, Field, TextInput, TextArea, Select, DateInput, Chips, Segmented, Progress, Ring, Empty, NumberInput } from '../ui/kit.jsx';
-import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot } from '../ui/overlay.jsx';
-import { TaskRow, PageHeader, SubNav, DAILY_NAV, openTaskSheet, pickTask, togglePlan, catTone, Dot, ContentBadge, fmtAgo } from '../ui/parts.jsx';
+import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
+import { TaskRow, PageHeader, SubNav, DAILY_NAV, openTaskSheet, pickTask, catTone, Dot, ContentBadge, fmtAgo } from '../ui/parts.jsx';
+import { agendaItems, AgendaList } from './calendar.jsx';
+import { ThreadsTodayCard } from './threads.jsx';
 import { navigate } from '../lib/router.js';
 import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
-import { today, addDays, diffDays, relDay, relDayLower, fmtDay, fmtLong, fmtShort, greeting, isoOf, startOfWeek, fmtFull, nowParts, fmtMinutes } from '../lib/date.js';
+import { today, addDays, diffDays, relDay, relDayLower, fmtDay, fmtLong, fmtShort, greeting, isoOf, startOfWeek, fmtFull, nowParts, fmtMinutes, fmtWeekdayShort, dayNum } from '../lib/date.js';
 import { fmtMoney } from '../lib/money.js';
 import { dragHandlers, orderBetween } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
@@ -22,13 +24,15 @@ import { pendingJournal, saveJournal } from '../lib/journal.js';
 // =====================================================================
 export function TodayPage() {
   useStore();
+  const desktop = useMedia(DESKTOP_Q);
   const s = M.settings();
   const t0 = today();
   const tasks = M.liveTasks();
-  const openToday = M.sortTasks(tasks.filter((t) => M.isOpen(t) && t.dueDate === t0));
+  const dueToday = tasks.filter((t) => M.isOpen(t) && t.dueDate === t0);
+  // Tasks with a time come first, in time order, then the rest
+  const openToday = [...dueToday.filter((t) => t.dueTime).sort((a, b) => a.dueTime.localeCompare(b.dueTime)), ...M.sortTasks(dueToday.filter((t) => !t.dueTime))];
   const overdue = M.sortTasks(tasks.filter((t) => M.isOpen(t) && t.dueDate && t.dueDate < t0));
   const doneToday = tasks.filter((t) => M.taskDoneOn(t, t0));
-  const inbox = tasks.filter((t) => M.isOpen(t) && !t.dueDate);
   const contentActs = M.contentActions(t0);
   const freelance = M.freelanceAgenda(t0, t0, true);
   const remaining = openToday.length + contentActs.filter((a) => !a.overdue).length + freelance.filter((f) => !f.overdue).length;
@@ -36,6 +40,7 @@ export function TodayPage() {
   const empty = !tasks.length && !M.liveContents().length && !M.liveProjects().length && !M.meta('onboarding', {}).done;
   const hasSample = tasks.some((t) => t.sample) || M.liveContents().some((c) => c.sample) || M.liveClients().some((c) => c.sample);
   const attention = overdue.length + freelance.filter((f) => f.overdue).length + contentActs.filter((a) => a.overdue).length;
+  const journal = <JournalCard />;
 
   return (
     <div class="page">
@@ -60,38 +65,27 @@ export function TodayPage() {
           <button class="btn sm" onClick={() => navigate('/settings/data')}>Settings</button>
         </div>
       )}
-      {rem.morning && <MorningBrief openToday={openToday} contentActs={contentActs} />}
+      {rem.morning && <MorningBrief openToday={openToday} contentActs={contentActs} freelance={freelance} />}
       {rem.evening && (
         <div class="nudge blue">
           <Icon name="moonStars" size={22} />
-          <div class="grow"><b>Time to close the day.</b> <span class="muted">How was today? Write a few lines in your journal.</span></div>
-          <button class="btn sm primary" onClick={() => { dismissReminder('evening'); navigate('/review'); }}>Review</button>
+          <div class="grow"><b>Time to close the day.</b> <span class="muted">How was today?</span></div>
+          <button class="btn sm primary" onClick={() => { dismissReminder('evening'); const el = document.getElementById('today-journal'); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => el.focus(), 350); } }}>Write</button>
           <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('evening')}><Icon name="x" size={16} /></button>
         </div>
       )}
 
-      <div class="hero">
+      <div class="hero today-hero">
         <HeroArt />
         <h1 class="hero-title">Your day,<br /><span class="soft">in focus.</span></h1>
         <Capture />
       </div>
 
+      <WeekStrip />
+
       <div class="two-col">
         <div class="stack">
-          <div class="card">
-            <div class="card-head">
-              <div class="card-title">Today <span class="count">{openToday.length}</span></div>
-              <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />Task</button>
-            </div>
-            {openToday.length ? <div class="list">{openToday.map((t) => <TaskRow t={t} hideDate />)}</div> : <div class="muted" style={{ fontSize: 14, padding: '4px 2px 8px' }}>Nothing due today.{inbox.length ? <> You have <a href="#/tasks?view=inbox">{inbox.length} in Inbox</a> to plan.</> : ''}</div>}
-            {doneToday.length > 0 && (
-              <details style={{ marginTop: 8 }}>
-                <summary class="muted" style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13.5 }}>Completed today ({doneToday.length})</summary>
-                <div class="list">{doneToday.map((t) => <TaskRow t={t} hideDate />)}</div>
-              </details>
-            )}
-          </div>
-
+          <TodayTasks openToday={openToday} doneToday={doneToday} />
           {overdue.length > 0 && (
             <div class="card">
               <div class="card-head">
@@ -102,19 +96,124 @@ export function TodayPage() {
               {overdue.length > 8 && <a class="section-link" href="#/tasks?view=overdue">See all {overdue.length}</a>}
             </div>
           )}
+          {desktop && journal}
         </div>
 
         <div class="stack">
-          {(contentActs.length + freelance.length) > 0 && (
-            <div class="section">
-              <div class="section-head"><div class="section-title">Scheduled today</div><a class="section-link" href="#/calendar">Calendar</a></div>
-              {freelance.map((f) => <FreelanceEvent f={f} />)}
-              {contentActs.map((a) => <ContentEvent a={a} />)}
-            </div>
-          )}
+          <Schedule />
+          <ThreadsTodayCard />
+          {!desktop && journal}
           <Recent />
         </div>
       </div>
+    </div>
+  );
+}
+
+// This week at a glance. Tap a day to open it in Calendar.
+function WeekStrip() {
+  const s = M.settings();
+  const t0 = today();
+  const ws = startOfWeek(t0, s.weekStart);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+  return (
+    <nav class="wstrip" aria-label="This week">
+      {days.map((d) => {
+        const a = agendaItems(d);
+        const its = [...a.allDay, ...a.timed].filter((i) => !i.done);
+        const kinds = ['task', 'content', 'freelance'].filter((k) => its.some((i) => i.kind === k));
+        return (
+          <a class={'ws-day' + (d === t0 ? ' today' : '') + (d < t0 ? ' past' : '')} href={'#/calendar?d=' + d + '&v=day'} aria-label={fmtDay(d) + (its.length ? `, ${its.length} planned` : '')}>
+            <span class="ws-dow">{fmtWeekdayShort(d)}</span>
+            <b class="ws-num">{dayNum(d)}</b>
+            <span class="ws-dots">{kinds.map((k) => <i class={'k-' + k} />)}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+function TodayTasks({ openToday, doneToday }) {
+  const t0 = today();
+  const total = openToday.length + doneToday.length;
+  const pct = total ? Math.round((doneToday.length / total) * 100) : 0;
+  const inbox = M.liveTasks().filter((t) => M.isOpen(t) && !t.dueDate);
+  const planInbox = () => pickTask({ title: 'Plan for today', filter: (t) => !t.dueDate, allowNew: false, onPick: (t) => { patch('tasks', t.id, { dueDate: t0 }); toast('Added to today'); } });
+  return (
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Today <span class="count">{openToday.length}</span></div>
+        <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />Task</button>
+      </div>
+      {total > 0 && (
+        <div class="today-progress">
+          <div class="th-bar grow"><i style={{ width: pct + '%' }} /></div>
+          <span class="tnum">{doneToday.length} of {total} done</span>
+        </div>
+      )}
+      {openToday.length ? <div class="list">{openToday.map((t) => <TaskRow t={t} hideDate />)}</div> : (
+        <div class="today-empty">
+          <span class={'mini-ic ' + (doneToday.length ? 't-green' : 't-accent')}><Icon name={doneToday.length ? 'check' : 'sun'} size={18} /></span>
+          <div class="grow" style={{ minWidth: 0 }}>
+            <div class="row-title">{doneToday.length ? 'All done for today' : 'Nothing due today'}</div>
+            <div class="row-meta">{inbox.length ? `${inbox.length} task${inbox.length === 1 ? '' : 's'} in Inbox without a date.` : 'Type one in the box above, or block time in Calendar.'}</div>
+          </div>
+          {inbox.length > 0 && <button class="btn sm soft" onClick={planInbox}>Plan from Inbox</button>}
+        </div>
+      )}
+      {doneToday.length > 0 && (
+        <details class="done-today">
+          <summary>Completed today ({doneToday.length})</summary>
+          <div class="list">{doneToday.map((t) => <TaskRow t={t} hideDate />)}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// Everything with a time today, plus shoots, deliveries and invoices, in one timeline.
+function Schedule() {
+  const t0 = today();
+  const { allDay, timed } = agendaItems(t0, { untimedTasks: false });
+  const late = [
+    ...M.freelanceAgenda(t0, t0, true).filter((f) => f.overdue).map((f) => ({ kind: 'freelance', id: 'late:' + f.kind + (f.project?.id || f.invoice?.id), f, tone: 't-red', overdue: true, timeLabel: 'Late',
+      title: f.kind === 'invoice' ? `Follow up ${f.invoice.number}` : `${f.project.name}`, sub: f.kind === 'invoice' ? `${M.clientName(f.invoice.clientId)} · ${fmtMoney(f.calc.balance, f.invoice.currency)} unpaid since ${fmtShort(f.date)}` : `Delivery was due ${relDayLower(f.date)}` })),
+    ...M.contentActions(t0).filter((a) => a.overdue).map((a) => ({ kind: 'content', id: 'late:' + a.content.id + a.stage.id, c: a.content, stage: a.stage.id, tone: 't-red', overdue: true, timeLabel: 'Late',
+      title: `${a.stage.verb}: ${a.content.title}`, sub: `Content · was due ${relDayLower(a.date)}` })),
+  ];
+  const n = late.length + allDay.length + timed.length;
+  return (
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Schedule {n > 0 && <span class="count">{n}</span>}</div>
+        <a class="section-link" href={'#/calendar?d=' + t0 + '&v=day'}>Calendar</a>
+      </div>
+      {n ? <AgendaList d={t0} allDay={[...late, ...allDay]} timed={timed} /> : (
+        <div class="today-empty">
+          <span class="mini-ic t-violet"><Icon name="calendar" size={18} /></span>
+          <div class="grow" style={{ minWidth: 0 }}>
+            <div class="row-title">Nothing on the clock</div>
+            <div class="row-meta">Give a task a time, or plan a shoot or upload. It lines up here.</div>
+          </div>
+          <a class="btn sm soft" href={'#/calendar?d=' + t0 + '&v=day'}>Open</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Today's journal entry, written right on the home page. Same entry as Review.
+function JournalCard() {
+  const t0 = today();
+  const [r, set, saved] = useAutosave('dailyReviews', t0, { journal: '' });
+  return (
+    <div class="card journal-mini">
+      <div class="card-head">
+        <div class="card-title"><Icon name="review" size={18} style={{ color: 'var(--accent)' }} />How was today?</div>
+        {saved ? <span class="save-hint">{saved}</span> : <a class="section-link" href="#/review">Journal</a>}
+      </div>
+      <TextArea id="today-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder="A few lines about today. It goes into your journal and the monthly PDF." minRows={3} />
     </div>
   );
 }
@@ -154,146 +253,6 @@ function Capture() {
   );
 }
 
-function MainPriority({ plan }) {
-  const t0 = today();
-  const t = plan.main;
-  const pick = () => pickTask({ title: 'Main priority for today', onPick: (x) => togglePlan(x, 'main', t0) });
-  const focusing = t && M.meta('focus', {}).taskId === t.id;
-  return (
-    <div class="card">
-      <div class="card-head"><div class="card-title"><Icon name="target" size={18} style={{ color: 'var(--accent)' }} />Main priority</div>{t && <button class="icon-btn ghost sm" aria-label="Change main priority" onClick={(e) => openMenu(e, [{ label: 'Change', icon: 'edit', onSelect: pick }, { label: 'Clear', icon: 'x', onSelect: () => M.setDayPlan(t0, { mainTaskId: '' }) }])}><Icon name="more" /></button>}</div>
-      {t ? (
-        <div class={'priority ' + (t.status === 'done' ? 'done' : '')}>
-          <Check checked={t.status === 'done'} onChange={(v) => (v ? (M.completeTask(t.id), toast('Main priority done. That was the big one.')) : M.reopenTask(t.id))} tone="accent" />
-          <div class="grow" style={{ minWidth: 0 }}>
-            <div class="priority-title" onClick={() => openTaskSheet(t.id)} style={{ cursor: 'pointer' }}>{t.title}</div>
-            <div class="task-meta" style={{ marginTop: 6 }}>
-              {t.category && <span class="m"><Dot tone={catTone(t.category)} />{t.category}</span>}
-              {t.estimate > 0 && <span class="m"><Icon name="clock" />{fmtMinutes(t.estimate)}</span>}
-              {t.dueTime && <span class="m">{t.dueTime}</span>}
-            </div>
-          </div>
-          {t.status !== 'done' && !focusing && <button class="icon-btn dark" aria-label="Start focus on main priority" onClick={() => M.startFocus(t.id)}><Icon name="arrow" size={18} /></button>}
-        </div>
-      ) : (
-        <button class="slot-empty" onClick={pick}><Icon name="plus" size={18} />Choose the one thing that makes today a win</button>
-      )}
-    </div>
-  );
-}
-
-function KeyTasks({ plan }) {
-  const t0 = today();
-  const keys = plan.keys;
-  const pick = () => pickTask({ title: 'Add a key task', filter: (x) => x.id !== plan.main?.id && !keys.some((k) => k.id === x.id), onPick: (x) => togglePlan(x, 'key', t0) });
-  return (
-    <div class="card">
-      <div class="card-head"><div class="card-title">Key tasks <span class="count">{keys.length}/3</span></div></div>
-      <div class="list">
-        {keys.map((t) => <TaskRow t={t} hideDate />)}
-      </div>
-      {keys.length < 3 && <button class="slot-empty" style={{ marginTop: keys.length ? 8 : 0 }} onClick={pick}><Icon name="plus" size={18} />{keys.length ? 'Add another key task' : 'Pick up to 3 key tasks'}</button>}
-    </div>
-  );
-}
-
-function ContentEvent({ a }) {
-  const c = a.content;
-  const time = a.time || '';
-  return (
-    <div class={'ev ' + (a.overdue ? 'over' : '')}>
-      <div class="ev-time">{a.overdue ? <span style={{ color: 'var(--bad)' }}>Overdue · {relDay(a.date)}</span> : time || 'Any time today'}</div>
-      <div class="ev-title" style={{ cursor: 'pointer' }} onClick={() => navigate('/content/item/' + c.id)}>{a.stage.verb}: {c.title}</div>
-      <div class="ev-sub">Content{c.pillar ? ' · ' + c.pillar : ''}{(c.platforms || []).length ? ' · ' + c.platforms.join(', ') : ''}</div>
-      <button class="icon-btn dark ev-go" aria-label="Open content" onClick={() => navigate('/content/item/' + c.id)}><Icon name="arrow" size={16} /></button>
-      <div class="ev-foot">
-        <span class="pill-time">{a.overdue ? fmtShort(a.date) : 'Today'} / {a.stage.label}</span>
-        <button class="btn sm soft" onClick={() => { M.completeStage(c, a.stage.id); toast(a.stage.id === 'upload' ? 'Marked uploaded' : `${a.stage.label} done`); }}><Icon name="check" size={15} />{a.stage.id === 'upload' ? 'Uploaded' : 'Done'}</button>
-      </div>
-    </div>
-  );
-}
-
-function FreelanceEvent({ f }) {
-  if (f.kind === 'invoice') {
-    const i = f.invoice;
-    return (
-      <div class={'ev ' + (f.overdue ? 'over' : '')}>
-        <div class="ev-time">{f.overdue ? <span style={{ color: 'var(--bad)' }}>Overdue since {fmtShort(i.dueDate)}</span> : 'Due today'}</div>
-        <div class="ev-title" style={{ cursor: 'pointer' }} onClick={() => navigate('/freelance/invoices/' + i.id)}>Follow up {i.number}</div>
-        <div class="ev-sub">{M.clientName(i.clientId)} · {fmtMoney(f.calc.balance, i.currency)} unpaid</div>
-        <button class="icon-btn dark ev-go" aria-label="Open invoice" onClick={() => navigate('/freelance/invoices/' + i.id)}><Icon name="arrow" size={16} /></button>
-        <div class="ev-foot"><span class="pill-time">{f.label}</span>
-          <button class="btn sm soft" onClick={() => openTaskSheet(null, { title: `Follow up ${i.number} with ${M.clientName(i.clientId)}`, invoiceId: i.id, projectId: i.projectId || '', category: 'Freelance', dueDate: today() })}><Icon name="plus" size={15} />Task</button>
-        </div>
-      </div>
-    );
-  }
-  const p = f.project;
-  return (
-    <div class={'ev ' + (f.overdue ? 'over' : '')}>
-      <div class="ev-time">{f.overdue ? <span style={{ color: 'var(--bad)' }}>Was due {relDay(f.date)}</span> : f.kind === 'shoot' ? 'Shoot day' : 'Delivery due today'}{p.location ? ' · ' + p.location : ''}</div>
-      <div class="ev-title" style={{ cursor: 'pointer' }} onClick={() => navigate('/freelance/projects/' + p.id)}>{p.name}</div>
-      <div class="ev-sub">{M.clientName(p.clientId)}{p.type ? ' · ' + p.type : ''}</div>
-      <button class="icon-btn dark ev-go" aria-label="Open project" onClick={() => navigate('/freelance/projects/' + p.id)}><Icon name="arrow" size={16} /></button>
-      <div class="ev-foot"><span class="pill-time">Today / {f.label}</span><span class="badge sm">{p.stage}</span></div>
-    </div>
-  );
-}
-
-function WeeklyGoals() {
-  const goals = M.activeGoals().sort((a, b) => (a.endDate || '9').localeCompare(b.endDate || '9'));
-  return (
-    <div class="card">
-      <div class="card-head"><div class="card-title">Goals <span class="count">{goals.length}</span></div><a class="section-link" href="#/goals">All goals</a></div>
-      {goals.length ? (
-        <div class="col gap-12">
-          {goals.slice(0, 5).map((g) => {
-            const p = M.goalProgress(g);
-            return (
-              <a href="#/goals" class="row gap-12" style={{ textDecoration: 'none' }}>
-                <Ring pct={p.pct} size={42} />
-                <div class="grow" style={{ minWidth: 0 }}>
-                  <div class="row-title ellipsis">{g.title}</div>
-                  <div class="row-meta">{p.label}{g.endDate ? ' · ends ' + relDayLower(g.endDate) : ''}</div>
-                </div>
-              </a>
-            );
-          })}
-        </div>
-      ) : (
-        <button class="slot-empty" onClick={() => navigate('/goals?new=1')}><Icon name="plus" size={18} />Set a goal for this week</button>
-      )}
-    </div>
-  );
-}
-
-function Upcoming() {
-  const t0 = today();
-  const end = addDays(t0, 7);
-  const items = [];
-  for (const f of M.freelanceAgenda(addDays(t0, 1), end)) items.push({ date: f.date, title: f.kind === 'invoice' ? `${f.invoice.number} due` : f.project.name, sub: f.kind === 'invoice' ? M.clientName(f.invoice.clientId) : `${f.label} · ${M.clientName(f.project.clientId)}`, icon: f.kind === 'invoice' ? 'file' : 'briefcase', tone: f.kind === 'invoice' ? 't-green' : 't-orange', path: f.kind === 'invoice' ? '/freelance/invoices/' + f.invoice.id : '/freelance/projects/' + f.project.id });
-  for (const c of M.upcomingUploads(addDays(t0, 1), 7)) items.push({ date: c.schedule.upload.date, title: c.title, sub: `Upload${c.schedule.upload.time ? ' ' + c.schedule.upload.time : ''} · ${(c.platforms || []).join(', ')}`, icon: 'video', tone: 't-violet', path: '/content/item/' + c.id });
-  for (const t of M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate > t0 && t.dueDate <= end && (t.priority === 'high' || t.dueTime))) items.push({ date: t.dueDate, title: t.title, sub: `Task${t.dueTime ? ' · ' + t.dueTime : ''}`, icon: 'tasks', tone: 't-blue', task: t.id });
-  items.sort((a, b) => a.date.localeCompare(b.date));
-  return (
-    <div class="card">
-      <div class="card-head"><div class="card-title">Next 7 days</div><a class="section-link" href="#/content/calendar">Calendar</a></div>
-      {items.length ? (
-        <div class="list">
-          {items.slice(0, 8).map((it) => (
-            <button class="list-row clickable" onClick={() => (it.task ? openTaskSheet(it.task) : navigate(it.path))}>
-              <span class={'mini-ic ' + it.tone}><Icon name={it.icon} size={16} /></span>
-              <div class="row-main"><div class="row-title ellipsis">{it.title}</div><div class="row-meta">{it.sub}</div></div>
-              <span class="badge sm">{relDay(it.date)}</span>
-            </button>
-          ))}
-        </div>
-      ) : <div class="muted" style={{ fontSize: 14 }}>A quiet week ahead. Uploads, shoots, deliveries and invoice dates appear here.</div>}
-    </div>
-  );
-}
-
 function Recent() {
   const rows = (M.meta('recent', { items: [] }).items || []).map(recentRow).filter(Boolean).slice(0, 8);
   if (!rows.length) return null;
@@ -313,15 +272,19 @@ function Recent() {
   );
 }
 
-function MorningBrief({ openToday, contentActs }) {
-  const goals = M.activeGoals();
-  const uploads = contentActs.filter((a) => a.stage.id === 'upload');
+function MorningBrief({ openToday, contentActs, freelance }) {
+  const timed = openToday.filter((t) => t.dueTime).sort((a, b) => a.dueTime.localeCompare(b.dueTime));
+  const today_ = contentActs.filter((a) => !a.overdue);
+  const bits = [];
+  bits.push(`${openToday.length} task${openToday.length === 1 ? '' : 's'} today${timed.length ? `, first at ${timed[0].dueTime}` : ''}.`);
+  const shoots = [...today_.filter((a) => a.stage.id === 'shoot'), ...freelance.filter((f) => f.kind === 'shoot')];
+  const uploads = today_.filter((a) => a.stage.id === 'upload');
+  if (shoots.length) bits.push(`${shoots.length === 1 ? 'A shoot' : shoots.length + ' shoots'} planned.`);
+  if (uploads.length) bits.push(`${uploads.length} upload${uploads.length === 1 ? '' : 's'}${uploads[0].time ? ' at ' + uploads[0].time : ''}.`);
   return (
     <div class="nudge">
       <Icon name="coffee" size={22} />
-      <div class="grow" style={{ fontSize: 14 }}>
-        <b>Morning brief.</b> {openToday.length} task{openToday.length === 1 ? '' : 's'} today{uploads.length ? `, ${uploads.length} upload${uploads.length === 1 ? '' : 's'} planned` : ''}.
-      </div>
+      <div class="grow" style={{ fontSize: 14 }}><b>Morning brief.</b> {bits.join(' ')}</div>
       <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('morning')}><Icon name="x" size={16} /></button>
     </div>
   );
@@ -732,10 +695,10 @@ export function MonthlyReview({ month }) {
         <button class="icon-btn" aria-label="Next month" disabled={ym >= cur} onClick={() => go(addMonths(ym, 1))}><Icon name="chevronRight" /></button>
       </div>
       <div class="stats">
-        <div class="stat"><div class="stat-label">Days reviewed</div><div class="stat-value">{d.days.length}</div></div>
+        <div class="stat"><div class="stat-label">Days written</div><div class="stat-value">{d.days.length}</div></div>
         <div class="stat"><div class="stat-label">Tasks done</div><div class="stat-value">{d.doneCount}</div></div>
         <div class="stat"><div class="stat-label">Uploads</div><div class="stat-value">{d.uploads}</div></div>
-        <div class="stat"><div class="stat-label">Avg energy</div><div class="stat-value" style={{ fontSize: d.avgEnergy ? 22 : undefined }}>{d.avgEnergy ? ENERGY[Math.round(d.avgEnergy) - 1] : '–'}</div></div>
+        <div class="stat"><div class="stat-label">Words written</div><div class="stat-value">{d.days.reduce((n, x) => n + ((x.review.journal || '').trim().match(/\S+/g) || []).length, 0).toLocaleString('id-ID')}</div></div>
       </div>
       <div class="card export-card">
         <div class="export-icon"><Icon name="file" size={22} /></div>
@@ -759,64 +722,7 @@ export function MonthlyReview({ month }) {
             {x.review.lesson && <div class="jd-line"><span class="jd-label">Lesson</span>{x.review.lesson}</div>}
           </a>
         ))}</div>
-      ) : <div class="card"><Empty icon="review" title="No daily reviews this month">Write one in Daily review. Every review this month lands here and in the PDF.</Empty></div>}
-    </>
-  );
-}
-
-function WeeklyReview({ start }) {
-  const s = M.settings();
-  const t0 = today();
-  const ws = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? startOfWeek(start, s.weekStart) : startOfWeek(t0, s.weekStart);
-  const we = addDays(ws, 6);
-  const [r, set, saved] = useAutosave('weeklyReviews', ws, { worked: '', change: '', notes: '' });
-  const inWeek = (ts) => { if (!ts) return false; const d = isoOf(ts); return d >= ws && d <= we; };
-  const goals = all('goals').filter((g) => !g.deletedAt && g.status !== 'archived' && (!g.startDate || g.startDate <= we) && (!g.endDate || g.endDate >= ws));
-  const completed = M.liveTasks().filter((t) => inWeek(t.completedAt) || (t.completions || []).some((c) => inWeek(c.at)));
-  const carried = M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate && t.dueDate <= we);
-  const published = M.publishedInWeek(ws);
-  const milestones = all('activity').filter((a) => inWeek(a.at) && (a.stage === 'Delivered' || a.stage === 'Paid' || a.amount)).sort((a, b) => a.at - b.at);
-  const go = (iso) => navigate('/review/weekly?d=' + iso);
-  return (
-    <>
-      <div class="row gap-8">
-        <button class="icon-btn" aria-label="Previous week" onClick={() => go(addDays(ws, -7))}><Icon name="chevronLeft" /></button>
-        <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{fmtShort(ws)} – {fmtShort(we)}</div><div class="muted" style={{ fontSize: 13 }}>{ws <= t0 && t0 <= we ? 'This week' : diffDays(ws, t0) < 0 ? `${Math.round(-diffDays(ws, startOfWeek(t0, s.weekStart)) / 7)} week(s) ago` : 'Upcoming'}</div></div>
-        <button class="icon-btn" aria-label="Next week" disabled={we >= t0} onClick={() => go(addDays(ws, 7))}><Icon name="chevronRight" /></button>
-      </div>
-      <div class="stats">
-        <div class="stat"><div class="stat-label">Tasks done</div><div class="stat-value">{completed.length}</div></div>
-        <div class="stat"><div class="stat-label">Carried forward</div><div class="stat-value">{carried.length}</div></div>
-        <div class="stat"><div class="stat-label">Uploaded</div><div class="stat-value">{published.length}<span class="muted" style={{ fontSize: 14 }}> / {s.weeklyTarget}</span></div></div>
-        <div class="stat"><div class="stat-label">Freelance milestones</div><div class="stat-value">{milestones.length}</div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">Goals this week</div></div>
-        {goals.length ? <div class="col gap-12">{goals.map((g) => { const p = M.goalProgress(g); return <div class="row gap-12"><Ring pct={p.pct} size={40} /><div class="grow"><div class="row-title">{g.title}</div><div class="row-meta">{p.label} · {g.status}</div></div></div>; })}</div> : <div class="muted" style={{ fontSize: 14 }}>No goals covered this week.</div>}
-      </div>
-      <div class="grid-2">
-        <div class="card"><div class="card-head"><div class="card-title">Completed <span class="count">{completed.length}</span></div></div>
-          {completed.length ? <div class="col gap-6" style={{ fontSize: 14 }}>{completed.slice(0, 20).map((t) => <div class="row gap-8"><Icon name="check" size={15} style={{ color: 'var(--good)' }} /><span class="ellipsis">{t.title}</span></div>)}</div> : <div class="muted" style={{ fontSize: 14 }}>None yet.</div>}
-        </div>
-        <div class="card"><div class="card-head"><div class="card-title">Carried forward <span class="count">{carried.length}</span></div></div>
-          {carried.length ? <div class="col gap-6" style={{ fontSize: 14 }}>{carried.slice(0, 20).map((t) => <button class="row gap-8" style={{ textAlign: 'left' }} onClick={() => openTaskSheet(t.id)}><Dot tone={catTone(t.category)} /><span class="ellipsis grow">{t.title}</span><span class="muted" style={{ fontSize: 12 }}>{relDay(t.dueDate)}</span></button>)}</div> : <div class="muted" style={{ fontSize: 14 }}>Clean slate.</div>}
-        </div>
-        <div class="card"><div class="card-head"><div class="card-title">Content uploaded</div></div>
-          {published.length ? <div class="list">{published.map((c) => <a class="list-row clickable" href={'#/content/item/' + c.id}><div class="row-main"><div class="row-title">{c.title}</div><div class="row-meta">{(c.platforms || []).join(', ')}{c.pillar ? ' · ' + c.pillar : ''}</div></div></a>)}</div> : <div class="muted" style={{ fontSize: 14 }}>Nothing uploaded this week.</div>}
-        </div>
-        <div class="card"><div class="card-head"><div class="card-title">Freelance milestones</div></div>
-          {milestones.length ? <div class="timeline">{milestones.map((a) => <div class="tl-item"><div><div>{a.text}{a.amount ? ` · ${fmtMoney(a.amount, a.currency)}` : ''}</div><div class="tl-time">{fmtDay(isoOf(a.at))}</div></div></div>)}</div> : <div class="muted" style={{ fontSize: 14 }}>No deliveries or payments this week.</div>}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">Reflect</div><span class="save-hint">{saved}</span></div>
-        <div class="form">
-          <Field label="What worked" htmlFor="wr-worked"><TextArea id="wr-worked" value={r.worked} onInput={(v) => set({ worked: v })} placeholder="Keep doing this" /></Field>
-          <Field label="What to change next week" htmlFor="wr-change"><TextArea id="wr-change" value={r.change} onInput={(v) => set({ change: v })} placeholder="One or two adjustments" /></Field>
-          <Field label="Other notes" htmlFor="wr-notes"><TextArea id="wr-notes" value={r.notes} onInput={(v) => set({ notes: v })} /></Field>
-        </div>
-      </div>
-      <button class="btn soft" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/goals?new=1')}><Icon name="target" size={16} />Set next week's goals</button>
+      ) : <div class="card"><Empty icon="review" title="No journal entries this month">Write a few lines on Today or in Daily journal. Every entry this month lands here and in the PDF.</Empty></div>}
     </>
   );
 }

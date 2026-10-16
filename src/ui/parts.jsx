@@ -88,6 +88,7 @@ export function TaskRow({ t, hideDate, hideCat, compact, dragProps }) {
         {!compact && (
           <div class="task-meta">
             {!hideDate && dueLabel(t)}
+            {hideDate && t.dueTime && <span class="m" style={{ color: 'var(--accent-text)', fontWeight: 700 }}>{t.dueTime}</span>}
             {!hideCat && t.category && <span class="m"><Dot tone={catTone(t.category)} />{t.category}</span>}
             {t.priority === 'high' && <span class="m" style={{ color: 'var(--accent-text)' }}><Icon name="flag" />High</span>}
             {t.recurrence?.freq && <span class="m"><Icon name="repeat" />{recurrenceLabel(t.recurrence)}</span>}
