@@ -1115,3 +1115,9 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
   .status-scroll { flex: none; }
   .status-next { width: 100%; justify-content: center; height: 42px; font-size: 14.5px; }
 }
+/* the status capsule must never widen the page (Safari sized the column to the capsule's full width) */
+.editor-head, .status-bar { min-width: 0; max-width: 100%; }
+.status-scroll { contain: inline-size; min-width: 0; }
+@media (max-width: 959px) { .status-bar { width: 100%; } .status-scroll { width: 100vw; max-width: 100vw; } }
+/* safety net: nothing inside a page can push the page wider than the screen */
+.main { overflow-x: clip; }
