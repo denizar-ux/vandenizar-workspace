@@ -419,9 +419,13 @@ export function ContentEditor({ id }) {
         ])}><Icon name="more" /></button>
       </>} />
       <div class="editor-head">
-        <div class="status-flow">
-          {M.CONTENT_STATUSES.map((st, i) => <button class={'status-step ' + (st.id === c.status ? 'on' : i < idx ? 'past' : '')} onClick={() => M.setContentStatus(id, st.id)}>{st.label}</button>)}
-          {next && <button class="btn sm accent" style={{ marginLeft: 'auto' }} onClick={() => { M.setContentStatus(id, next.to); toast(`Moved to ${statusLabel(next.to)}`); }}>{next.label}<Icon name="chevronRight" size={16} /></button>}
+        <div class="status-bar">
+          <div class="status-scroll" ref={(el) => { const on = el && el.querySelector('.status-step.on'); if (on && (on.offsetLeft + on.offsetWidth > el.clientWidth + el.scrollLeft || on.offsetLeft < el.scrollLeft)) el.scrollLeft = on.offsetLeft - 24; }}>
+            <div class="status-track lg">
+              {M.CONTENT_STATUSES.map((st, i) => <button class={'status-step ' + (st.id === c.status ? 'on' : i < idx ? 'past' : '')} aria-pressed={st.id === c.status} onClick={() => M.setContentStatus(id, st.id)}>{st.label}</button>)}
+            </div>
+          </div>
+          {next && <button class="btn sm accent status-next" onClick={() => { M.setContentStatus(id, next.to); toast(`Moved to ${statusLabel(next.to)}`); }}>{next.label}<Icon name="chevronRight" size={16} /></button>}
         </div>
         <textarea class="input title-input" id="ce-title" rows={1} value={c.title} placeholder="Content title" aria-label="Title"
           ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; if (isNew && !el.dataset.f) { el.dataset.f = 1; setTimeout(() => { el.focus(); el.select(); }, 80); } } }}

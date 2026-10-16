@@ -104,7 +104,6 @@ export function TodayPage() {
           <Schedule />
           <ThreadsTodayCard />
           {!desktop && journal}
-          <Recent />
         </div>
       </div>
     </div>
