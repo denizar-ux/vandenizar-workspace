@@ -12,6 +12,7 @@ import { ContentOverview, ContentBoard, ContentEditor, ContentCalendar, Resource
 import { FreelanceOverview, PipelinePage, ProjectsPage, ProjectDetail, ClientsPage, ClientDetail, InvoicesPage, InvoiceEditor, FinancePage, TemplatesPage, openProjectSheet, openClientSheet, createInvoiceAndOpen } from './pages/freelance.jsx';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
 import { ThreadsPage } from './pages/threads.jsx';
+import { CalendarPage } from './pages/calendar.jsx';
 import { SettingsPage, TrashPage, useReminders, useTheme, useSync, syncLabel } from './pages/settings.jsx';
 import { htmlToText } from './ui/kit.jsx';
 
@@ -40,6 +41,7 @@ export function App() {
   let page, section = 'today', sub = '';
   if (!p0) { page = <TodayPage />; sub = 'today'; }
   else if (p0 === 'tasks') { page = <TasksPage query={r.query} />; sub = 'tasks'; }
+  else if (p0 === 'calendar') { page = <CalendarPage query={r.query} />; sub = 'calendar'; }
   else if (p0 === 'goals') { page = <GoalsPage />; sub = 'goals'; }
   else if (p0 === 'review') { page = <ReviewPage mode={p1 === 'weekly' || p1 === 'monthly' ? p1 : 'daily'} date={r.query.d} />; sub = 'review'; }
   else if (p0 === 'content') {
@@ -118,7 +120,7 @@ function FocusBar() {
 }
 
 const SIDE = [
-  { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
+  { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
   { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', icon: 'at', path: '/content/threads' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
   { group: 'Freelance OS', key: 'freelance', items: [{ id: 'overview', label: 'Overview', icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', icon: 'video', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', icon: 'users', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', icon: 'file', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', icon: 'template', path: '/freelance/templates' }] },
 ];

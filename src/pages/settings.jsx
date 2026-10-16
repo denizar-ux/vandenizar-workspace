@@ -34,7 +34,7 @@ export function reminderState() {
   const morningDue = s.reminders.morning.enabled && now >= toMin(mT) && now < Math.min(toMin(eT), toMin(mT) + 300);
   const eveningDue = s.reminders.evening.enabled && now >= toMin(eT);
   return {
-    morning: morningDue && seen.morning !== n.date, evening: eveningDue && seen.evening !== n.date && !get('dailyReviews', n.date)?.wins,
+    morning: morningDue && seen.morning !== n.date, evening: eveningDue && seen.evening !== n.date && !(get('dailyReviews', n.date)?.journal || get('dailyReviews', n.date)?.wins),
     morningDue, eveningDue, morningTime: mT, eveningTime: eT,
   };
 }
@@ -57,7 +57,7 @@ export function useReminders() {
         if (notifySupported() && Notification.permission === 'granted' && !pushFlag()) {
           const openToday = M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate === n.date).length;
           const uploads = M.contentActions(n.date).filter((a) => a.stage.id === 'upload').length;
-          const body = kind === 'morning' ? `${openToday} task(s) today${uploads ? `, ${uploads} upload(s) planned` : ''}. Pick your main priority.` : 'Two-minute review: wins, what is left, and tomorrow\'s main priority.';
+          const body = kind === 'morning' ? `${openToday} task(s) today${uploads ? `, ${uploads} upload(s) planned` : ''}.` : 'How was today? Write a few lines in your journal.';
           try { new Notification(kind === 'morning' ? 'Morning brief' : 'Time to close the day', { body, tag: 'vz-' + kind + '-' + n.date }); } catch {
             try { navigator.serviceWorker?.ready.then((reg) => reg.showNotification(kind === 'morning' ? 'Morning brief' : 'Time to close the day', { body, tag: 'vz-' + kind + '-' + n.date })); } catch {}
           }
@@ -248,7 +248,7 @@ function NotificationsSection({ s }) {
         <PushRow lead={s.pushLead ?? 0} onLead={(v) => set({ pushLead: v })} />
       </Group>
       <Group title="Daily reminders">
-        {[['morning', 'Morning brief', "Today's tasks and planned uploads"], ['evening', 'Daily review', 'Review the day, plan tomorrow']].map(([k, label, hint]) => (
+        {[['morning', 'Morning brief', "Today's tasks and planned uploads"], ['evening', 'Daily review', 'How was today? A short journal entry']].map(([k, label, hint]) => (
           <Row label={label} hint={hint}>
             <div class="set-time"><TimeInput id={'s-rem-' + k} value={s.reminders[k].time} onChange={(v) => v && setRem(k, { time: v })} /></div>
             <button class={'toggle ' + (s.reminders[k].enabled ? 'on' : '')} role="switch" aria-checked={s.reminders[k].enabled} aria-label={label} onClick={() => setRem(k, { enabled: !s.reminders[k].enabled })} />

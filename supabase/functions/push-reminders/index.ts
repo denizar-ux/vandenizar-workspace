@@ -19,7 +19,7 @@ function wib(ms = Date.now()) {
   const d = new Date(ms + 7 * 3600e3);
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
 }
-const toMin = (t: string) => { const [h, m] = (t || '').split(':').map(Number); return Number.isFinite(h) ? h * 60 + (m || 0) : null; };
+const toMin = (t: string) => { if (!t || !/^\d{1,2}:\d{2}/.test(t)) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 const addDays = (iso: string, n: number) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 // minutes from "now" (WIB) to date+time; negative when in the past
 function minutesUntil(date: string, time: string, now: { date: string; min: number }) {
@@ -117,7 +117,7 @@ async function runForUser(userId: string) {
         if (contentToday.length) parts.push(`${contentToday.length} content step${contentToday.length > 1 ? 's' : ''} scheduled`);
         out.push({ key: `morning:${now.date}`, title: 'Morning brief', body: parts.join(' · '), url: '#/' });
       } else {
-        out.push({ key: `evening:${now.date}`, title: 'Time to close the day', body: 'Quick review and plan tomorrow.', url: '#/review' });
+        out.push({ key: `evening:${now.date}`, title: 'How was today?', body: 'Write a few lines in your journal.', url: '#/review' });
       }
     }
   }

@@ -47,7 +47,7 @@ export function SubNav({ items, active }) {
     </nav>
   );
 }
-export const DAILY_NAV = [{ id: 'today', label: 'Today', path: '/' }, { id: 'tasks', label: 'Tasks', path: '/tasks' }, { id: 'goals', label: 'Goals', path: '/goals' }, { id: 'review', label: 'Review', path: '/review' }];
+export const DAILY_NAV = [{ id: 'today', label: 'Today', path: '/' }, { id: 'tasks', label: 'Tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', path: '/calendar' }, { id: 'goals', label: 'Goals', path: '/goals' }, { id: 'review', label: 'Review', path: '/review' }];
 export const CONTENT_NAV = [{ id: 'overview', label: 'Overview', path: '/content' }, { id: 'board', label: 'Board', path: '/content/board' }, { id: 'calendar', label: 'Calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', path: '/content/threads' }, { id: 'resources', label: 'Resources', path: '/content/resources' }];
 export const FREELANCE_NAV = [{ id: 'overview', label: 'Overview', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', path: '/freelance/templates' }];
 
@@ -118,9 +118,6 @@ export function taskMenu(e, t) {
     open && { label: 'Do today', icon: 'sun', onSelect: () => patch('tasks', t.id, { dueDate: today() }) },
     open && { label: 'Defer to tomorrow', icon: 'chevronRight', onSelect: () => { M.deferTask(t.id, 1); toast('Moved to tomorrow'); } },
     open && { label: 'Reschedule…', icon: 'calendar', onSelect: () => openReschedule(t) },
-    { divider: true },
-    open && { label: isMain ? 'Remove as main priority' : 'Set as main priority', icon: 'target', onSelect: () => togglePlan(t, 'main') },
-    open && { label: isKey ? 'Remove from key tasks' : 'Add to key tasks', icon: 'pin', onSelect: () => togglePlan(t, 'key') },
     { divider: true },
     t.status !== 'deferred' && open && { label: 'Mark deferred', icon: 'clock', onSelect: () => patch('tasks', t.id, { status: 'deferred' }) },
     (t.status === 'deferred' || t.status === 'cancelled' || t.status === 'done') && { label: 'Reopen', icon: 'restore', onSelect: () => patch('tasks', t.id, { status: 'todo', completedAt: null }) },

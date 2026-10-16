@@ -7,7 +7,7 @@ import * as M from './model.js';
 import { MONTHS } from './drive.js';
 
 export const ENERGY = ['Drained', 'Low', 'Okay', 'Good', 'Great'];
-const hasText = (r) => r && ((r.wins || '').trim() || (r.blockers || '').trim() || (r.lesson || '').trim() || (r.unfinishedNote || '').trim() || r.energy);
+const hasText = (r) => r && ((r.journal || '').trim() || (r.wins || '').trim() || (r.blockers || '').trim() || (r.lesson || '').trim() || (r.unfinishedNote || '').trim() || r.energy);
 
 export function monthData(ym) {
   const inMonth = (iso) => iso && iso.slice(0, 7) === ym;
@@ -77,6 +77,7 @@ export async function buildMonthlyPdf(ym) {
       yy += 2.6;
     };
     const doneList = [...day.done.map((t) => '•  ' + t.title), ...day.uploads.map((c) => '•  Uploaded: ' + c.title)].join('\n');
+    section('How was today?', r.journal);
     section('Done', doneList);
     section('Wins', r.wins);
     section('Left unfinished', r.unfinishedNote);

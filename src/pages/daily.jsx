@@ -25,18 +25,12 @@ export function TodayPage() {
   const s = M.settings();
   const t0 = today();
   const tasks = M.liveTasks();
-  const plan = M.validPlan(t0);
-  const pinned = new Set([plan.main?.id, ...plan.keys.map((k) => k.id)].filter(Boolean));
   const openToday = M.sortTasks(tasks.filter((t) => M.isOpen(t) && t.dueDate === t0));
   const overdue = M.sortTasks(tasks.filter((t) => M.isOpen(t) && t.dueDate && t.dueDate < t0));
   const doneToday = tasks.filter((t) => M.taskDoneOn(t, t0));
   const inbox = tasks.filter((t) => M.isOpen(t) && !t.dueDate);
   const contentActs = M.contentActions(t0);
   const freelance = M.freelanceAgenda(t0, t0, true);
-  const timed = openToday.filter((t) => t.dueTime && !pinned.has(t.id));
-  const restToday = openToday.filter((t) => !pinned.has(t.id) && !t.dueTime);
-  const next = [...overdue, ...openToday].find((t) => !pinned.has(t.id) && t.status !== 'in_progress') || null;
-  const agendaCount = contentActs.length + freelance.length + timed.length;
   const remaining = openToday.length + contentActs.filter((a) => !a.overdue).length + freelance.filter((f) => !f.overdue).length;
   const rem = reminderState();
   const empty = !tasks.length && !M.liveContents().length && !M.liveProjects().length && !M.meta('onboarding', {}).done;
@@ -70,7 +64,7 @@ export function TodayPage() {
       {rem.evening && (
         <div class="nudge blue">
           <Icon name="moonStars" size={22} />
-          <div class="grow"><b>Time to close the day.</b> <span class="muted">Two minutes: wins, what's left, and tomorrow's main priority.</span></div>
+          <div class="grow"><b>Time to close the day.</b> <span class="muted">How was today? Write a few lines in your journal.</span></div>
           <button class="btn sm primary" onClick={() => { dismissReminder('evening'); navigate('/review'); }}>Review</button>
           <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('evening')}><Icon name="x" size={16} /></button>
         </div>
@@ -84,35 +78,18 @@ export function TodayPage() {
 
       <div class="two-col">
         <div class="stack">
-          <MainPriority plan={plan} />
-          <KeyTasks plan={plan} />
-          {next && (
-            <div class="card tight">
-              <div class="row gap-12">
-                <span class="mini-ic t-accent" style={{ borderRadius: 12 }}><Icon name="play" size={16} /></span>
-                <div class="grow" style={{ minWidth: 0 }}>
-                  <div class="eyebrow">Up next</div>
-                  <div class="row-title ellipsis" style={{ cursor: 'pointer' }} onClick={() => openTaskSheet(next.id)}>{next.title}</div>
-                </div>
-                <button class="btn sm primary" onClick={() => M.startFocus(next.id)}>Start</button>
-              </div>
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Today <span class="count">{openToday.length}</span></div>
+              <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />Task</button>
             </div>
-          )}
-
-          <div class="section">
-            <div class="section-head"><div class="section-title">Scheduled today</div><span class="section-link">{agendaCount ? `${agendaCount} scheduled` : ''}</span></div>
-            {agendaCount === 0 && <div class="card"><Empty icon="calendar" title="No shoots, uploads or deadlines today">Content stages, shoot dates, deliveries and invoice due dates show up here on their day.</Empty></div>}
-            {freelance.map((f) => <FreelanceEvent f={f} />)}
-            {contentActs.map((a) => <ContentEvent a={a} />)}
-            {timed.map((t) => (
-              <div class="ev">
-                <div class="ev-time">{t.dueTime}{t.estimate ? ` · ${fmtMinutes(t.estimate)}` : ''}</div>
-                <div class="ev-title" onClick={() => openTaskSheet(t.id)} style={{ cursor: 'pointer' }}>{t.title}</div>
-                <div class="ev-sub">Task · {t.category}</div>
-                <button class="icon-btn dark ev-go" aria-label="Start focus" onClick={() => M.startFocus(t.id)}><Icon name="play" size={15} /></button>
-                <div class="ev-foot"><span class="pill-time">Today / {t.dueTime}</span><button class="btn sm soft" onClick={() => { M.completeTask(t.id); toast('Task done'); }}><Icon name="check" size={15} />Done</button></div>
-              </div>
-            ))}
+            {openToday.length ? <div class="list">{openToday.map((t) => <TaskRow t={t} hideDate />)}</div> : <div class="muted" style={{ fontSize: 14, padding: '4px 2px 8px' }}>Nothing due today.{inbox.length ? <> You have <a href="#/tasks?view=inbox">{inbox.length} in Inbox</a> to plan.</> : ''}</div>}
+            {doneToday.length > 0 && (
+              <details style={{ marginTop: 8 }}>
+                <summary class="muted" style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13.5 }}>Completed today ({doneToday.length})</summary>
+                <div class="list">{doneToday.map((t) => <TaskRow t={t} hideDate />)}</div>
+              </details>
+            )}
           </div>
 
           {overdue.length > 0 && (
@@ -125,25 +102,16 @@ export function TodayPage() {
               {overdue.length > 8 && <a class="section-link" href="#/tasks?view=overdue">See all {overdue.length}</a>}
             </div>
           )}
-
-          <div class="card">
-            <div class="card-head">
-              <div class="card-title">Today's tasks <span class="count">{restToday.length}</span></div>
-              <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />Task</button>
-            </div>
-            {restToday.length ? <div class="list">{restToday.map((t) => <TaskRow t={t} hideDate />)}</div> : <div class="muted" style={{ fontSize: 14, padding: '4px 2px 8px' }}>{openToday.length ? 'Everything left is in your priorities above.' : 'Nothing else due today.'}{inbox.length ? <> You have <a href="#/tasks?view=inbox">{inbox.length} in Inbox</a> to plan.</> : ''}</div>}
-            {doneToday.length > 0 && (
-              <details style={{ marginTop: 8 }}>
-                <summary class="muted" style={{ cursor: 'pointer', fontWeight: 700, fontSize: 13.5 }}>Completed today ({doneToday.length})</summary>
-                <div class="list">{doneToday.map((t) => <TaskRow t={t} hideDate />)}</div>
-              </details>
-            )}
-          </div>
         </div>
 
         <div class="stack">
-          <WeeklyGoals />
-          <Upcoming />
+          {(contentActs.length + freelance.length) > 0 && (
+            <div class="section">
+              <div class="section-head"><div class="section-title">Scheduled today</div><a class="section-link" href="#/calendar">Calendar</a></div>
+              {freelance.map((f) => <FreelanceEvent f={f} />)}
+              {contentActs.map((a) => <ContentEvent a={a} />)}
+            </div>
+          )}
           <Recent />
         </div>
       </div>
@@ -352,7 +320,7 @@ function MorningBrief({ openToday, contentActs }) {
     <div class="nudge">
       <Icon name="coffee" size={22} />
       <div class="grow" style={{ fontSize: 14 }}>
-        <b>Morning brief.</b> {openToday.length} task{openToday.length === 1 ? '' : 's'} today{uploads.length ? `, ${uploads.length} upload${uploads.length === 1 ? '' : 's'} planned` : ''}{goals.length ? `, ${goals.length} active goal${goals.length === 1 ? '' : 's'}` : ''}. {M.validPlan(today()).main ? '' : 'Pick a main priority below.'}
+        <b>Morning brief.</b> {openToday.length} task{openToday.length === 1 ? '' : 's'} today{uploads.length ? `, ${uploads.length} upload${uploads.length === 1 ? '' : 's'} planned` : ''}.
       </div>
       <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('morning')}><Icon name="x" size={16} /></button>
     </div>
@@ -393,7 +361,7 @@ function Attention({ close }) {
       <SheetHead title="Needs attention" onClose={close} />
       <SheetBody>
         <div class="col gap-12">
-          {rem.morningDue && <div class="nudge"><Icon name="coffee" size={20} /><div class="grow">Morning brief at {rem.morningTime}. Plan your main priority and check today's uploads.</div></div>}
+          {rem.morningDue && <div class="nudge"><Icon name="coffee" size={20} /><div class="grow">Morning brief at {rem.morningTime}. Check today's tasks and uploads.</div></div>}
           {rem.eveningDue && <div class="nudge blue"><Icon name="moonStars" size={20} /><div class="grow">Daily review is open from {rem.eveningTime}.</div><button class="btn sm primary" onClick={() => { dismissReminder('evening'); go('/review'); }}>Review</button></div>}
           {!overdue.length && !fl.length && !ca.length && <Empty icon="check" title="All clear">Nothing overdue and nothing waiting on you right now.</Empty>}
           {overdue.length > 0 && <div class="card soft tight"><div class="card-title" style={{ marginBottom: 6 }}>{overdue.length} overdue task{overdue.length === 1 ? '' : 's'}</div><div class="list">{overdue.slice(0, 6).map((t) => <TaskRow t={t} />)}</div></div>}
@@ -673,13 +641,24 @@ function GoalSheet({ id, close }) {
 // =====================================================================
 export function ReviewPage({ mode, date }) {
   useStore();
+  if (mode === 'monthly') return (
+    <div class="page narrow">
+      <SubNav items={DAILY_NAV} active="review" />
+      <BackRow />
+      <PageHeader title="Monthly journal" />
+      <MonthlyReview month={date} />
+    </div>
+  );
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="review" />
-      <PageHeader title={mode === 'weekly' ? 'Weekly review' : mode === 'monthly' ? 'Monthly journal' : 'Daily review'} actions={<Segmented options={[{ id: 'daily', label: 'Daily' }, { id: 'weekly', label: 'Weekly' }, { id: 'monthly', label: 'Monthly' }]} value={mode} onChange={(v) => navigate(v === 'daily' ? '/review' : '/review/' + v)} />} />
-      {mode === 'weekly' ? <WeeklyReview start={date} /> : mode === 'monthly' ? <MonthlyReview month={date} /> : <DailyReview date={date} />}
+      <PageHeader title="Daily journal" actions={<a class="btn sm soft" href="#/review/monthly"><Icon name="file" size={15} />Monthly PDF</a>} />
+      <DailyReview date={date} />
     </div>
   );
+}
+function BackRow() {
+  return <a class="set-back" style={{ display: 'inline-flex' }} href="#/review"><Icon name="chevronLeft" size={18} />Daily journal</a>;
 }
 
 function useAutosave(coll, id, initial) {
@@ -706,14 +685,7 @@ function useAutosave(coll, id, initial) {
 function DailyReview({ date }) {
   const t0 = today();
   const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : t0;
-  const [r, set, saved] = useAutosave('dailyReviews', d, { wins: '', unfinishedNote: '', blockers: '', lesson: '', energy: 0 });
-  const tomorrow = addDays(d, 1);
-  const done = M.liveTasks().filter((t) => M.taskDoneOn(t, d));
-  const unfinished = M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate && t.dueDate <= d);
-  const published = M.liveContents().filter((c) => c.status === 'published' && c.publishedAt && isoOf(c.publishedAt) === d);
-  const payments = all('payments').filter((p) => !p.voided && p.date === d);
-  const planT = M.validPlan(tomorrow);
-  const past = all('dailyReviews').filter((x) => x.id !== d).sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10);
+  const [r, set, saved] = useAutosave('dailyReviews', d, { journal: '' });
   const go = (iso) => navigate('/review?d=' + iso);
   return (
     <>
@@ -722,58 +694,10 @@ function DailyReview({ date }) {
         <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{relDay(d)}</div><div class="muted" style={{ fontSize: 13 }}>{fmtFull(d)}</div></div>
         <button class="icon-btn" aria-label="Next day" disabled={d >= t0} onClick={() => go(addDays(d, 1))}><Icon name="chevronRight" /></button>
       </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">What got done</div><span class="save-hint">{saved}</span></div>
-        {done.length || published.length || payments.length ? (
-          <div class="col gap-6" style={{ fontSize: 14 }}>
-            {done.map((t) => <div class="row gap-8"><Icon name="check" size={16} style={{ color: 'var(--good)' }} /><span>{t.title}</span></div>)}
-            {published.map((c) => <div class="row gap-8"><Icon name="video" size={16} style={{ color: 'var(--t-violet)' }} /><span>Uploaded: {c.title}</span></div>)}
-            {payments.map((p) => { const i = get('invoices', p.invoiceId); return <div class="row gap-8"><Icon name="money" size={16} style={{ color: 'var(--good)' }} /><span>Payment {fmtMoney(p.amount, i?.currency)} for {i?.number}</span></div>; })}
-          </div>
-        ) : <div class="muted" style={{ fontSize: 14 }}>No completed tasks recorded for this day yet.</div>}
-        <div style={{ marginTop: 14 }}><Field label="Wins" htmlFor="dr-wins"><TextArea id="dr-wins" value={r.wins} onInput={(v) => set({ wins: v })} placeholder="What went well, even small things" /></Field></div>
+      <div class="card journal-card">
+        <div class="card-head"><div class="card-title">How was today?</div><span class="save-hint">{saved}</span></div>
+        <TextArea id="dr-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder="Write anything: what happened, how it felt, what you noticed." minRows={8} />
       </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">Left unfinished <span class="count">{unfinished.length}</span></div></div>
-        {unfinished.length ? <div class="list">{unfinished.map((t) => (
-          <div class="list-row">
-            <Dot tone={catTone(t.category)} />
-            <div class="row-main"><div class="row-title">{t.title}</div><div class="row-meta">{relDay(t.dueDate)}</div></div>
-            <button class="btn xs soft" onClick={() => togglePlan(t, 'main', tomorrow)}>{planT.main?.id === t.id ? 'Main ✓' : 'Main'}</button>
-            <button class="btn xs soft" onClick={() => togglePlan(t, 'key', tomorrow)}>{planT.keys.some((k) => k.id === t.id) ? 'Key ✓' : 'Key'}</button>
-          </div>
-        ))}</div> : <div class="muted" style={{ fontSize: 14 }}>Nothing left over. Nice.</div>}
-        <div class="form" style={{ marginTop: 14 }}>
-          <Field label="Blockers or observations" htmlFor="dr-block"><TextArea id="dr-block" value={r.blockers} onInput={(v) => set({ blockers: v })} placeholder="What slowed you down?" /></Field>
-          <Field label="One lesson or note" htmlFor="dr-lesson"><TextArea id="dr-lesson" value={r.lesson} onInput={(v) => set({ lesson: v })} minRows={1} placeholder="Something to remember" /></Field>
-          <Field label="Energy">
-            <div class="chips">{[1, 2, 3, 4, 5].map((n) => <button class={'chip ' + (r.energy === n ? 'on' : '')} onClick={() => set({ energy: r.energy === n ? 0 : n })} aria-label={'Energy ' + n}>{['Drained', 'Low', 'Okay', 'Good', 'Great'][n - 1]}</button>)}</div>
-          </Field>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">Plan {relDayLower(tomorrow)}</div></div>
-        <div class="col gap-10">
-          <div>
-            <div class="eyebrow" style={{ marginBottom: 6 }}>Main priority</div>
-            {planT.main ? (
-              <div class="row gap-8"><div class="priority-title grow" style={{ fontSize: 22 }}>{planT.main.title}</div><button class="btn xs soft" onClick={() => M.setDayPlan(tomorrow, { mainTaskId: '' })}>Clear</button></div>
-            ) : <button class="slot-empty" onClick={() => pickTask({ title: 'Main priority for ' + relDayLower(tomorrow), newPreset: { dueDate: tomorrow }, onPick: (t) => togglePlan(t, 'main', tomorrow) })}><Icon name="target" size={18} />Choose tomorrow's main priority</button>}
-          </div>
-          <div>
-            <div class="eyebrow" style={{ marginBottom: 6 }}>Key tasks ({planT.keys.length}/3)</div>
-            {planT.keys.map((t) => <div class="list-row"><div class="row-main"><div class="row-title">{t.title}</div></div><button class="icon-btn ghost sm" aria-label="Remove" onClick={() => togglePlan(t, 'key', tomorrow)}><Icon name="x" size={15} /></button></div>)}
-            {planT.keys.length < 3 && <button class="slot-empty" onClick={() => pickTask({ title: 'Key task for ' + relDayLower(tomorrow), newPreset: { dueDate: tomorrow }, filter: (t) => t.id !== planT.main?.id && !planT.keys.some((k) => k.id === t.id), onPick: (t) => togglePlan(t, 'key', tomorrow) })}><Icon name="plus" size={18} />Add a key task</button>}
-          </div>
-          <div class="field-hint">Picking a task here moves its due date to {relDayLower(tomorrow)}. It stays one task, no copies.</div>
-        </div>
-      </div>
-      {past.length > 0 && (
-        <div class="card">
-          <div class="card-head"><div class="card-title">Past reviews</div></div>
-          <div class="list">{past.map((p) => <a class="list-row clickable" href={'#/review?d=' + p.id}><div class="row-main"><div class="row-title">{fmtDay(p.id)}</div><div class="row-meta ellipsis">{p.wins || p.lesson || 'No notes'}</div></div><Icon name="chevronRight" size={16} class="muted" /></a>)}</div>
-        </div>
-      )}
     </>
   );
 }
@@ -828,6 +752,7 @@ export function MonthlyReview({ month }) {
         <div class="col gap-12">{d.days.map((x) => (
           <a class="card journal-day" href={'#/review?d=' + x.date}>
             <div class="row between gap-8"><div class="card-title">{fmtDay(x.date)}</div>{x.review.energy ? <span class="badge sm t-orange">{ENERGY[x.review.energy - 1]}</span> : null}</div>
+            {x.review.journal && <div class="jd-line">{x.review.journal}</div>}
             {x.done.length > 0 && <div class="jd-line"><span class="jd-label">Done</span>{x.done.map((t) => t.title).join(', ')}</div>}
             {x.review.wins && <div class="jd-line"><span class="jd-label">Wins</span>{x.review.wins}</div>}
             {x.review.blockers && <div class="jd-line"><span class="jd-label">Blockers</span>{x.review.blockers}</div>}
