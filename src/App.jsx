@@ -187,9 +187,12 @@ function BottomNav({ section }) {
     { id: 'freelance', label: 'Freelance', icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
     { id: 'search', label: 'Search', icon: 'search', action: openSearch, on: false },
   ];
+  const idx = tabs.findIndex((t) => t.on);
   return (
     <nav class="bottom" aria-label="Main navigation">
-      <div class="tabbar">
+      <div class="tabbar lg">
+        {/* liquid lens: slides to the active tab, the inner drop stretches on each move */}
+        <span class={'dock-lens' + (idx < 0 ? ' off' : '')} style={{ transform: `translateX(${Math.max(0, idx) * 100}%)` }} aria-hidden="true"><i key={idx} /></span>
         {tabs.map((t) => (
           <button class={'tab ' + (t.on ? 'on' : '')} aria-label={t.label} aria-current={t.on ? 'page' : undefined} onClick={() => (t.action ? t.action() : navigate(t.path))}>
             <Icon name={t.icon} size={25} stroke={t.on ? 2.1 : 1.8} /><span>{t.label}</span>
@@ -201,22 +204,18 @@ function BottomNav({ section }) {
 }
 
 // ---------- floating create button (phones) ----------
-// A liquid-glass + that floats above the dock and opens into the create menu.
+// A + that floats above the dock and opens the create menu.
 function Fab({ path }) {
   const [open, setOpen] = useState(false);
-  const [mini, setMini] = useState(false);
   const [typing, setTyping] = useState(false);
   useEffect(() => { setOpen(false); }, [path]);
   useEffect(() => {
-    let last = window.scrollY;
-    const onScroll = () => { const y = window.scrollY; if (Math.abs(y - last) < 8) return; setMini(y > last && y > 120); last = y; };
     const isField = (el) => el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable="true"]');
     const onIn = (e) => setTyping(isField(e.target));
     const onOut = () => setTimeout(() => setTyping(isField(document.activeElement)), 60);
-    window.addEventListener('scroll', onScroll, { passive: true });
     document.addEventListener('focusin', onIn);
     document.addEventListener('focusout', onOut);
-    return () => { window.removeEventListener('scroll', onScroll); document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); };
+    return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); };
   }, []);
   useEffect(() => {
     if (!open) return;
@@ -224,12 +223,12 @@ function Fab({ path }) {
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [open]);
-  const run = (fn) => { setOpen(false); setTimeout(fn, 160); };
+  const run = (fn) => { setOpen(false); setTimeout(fn, 60); };
   const hidden = typing && !open;
   return (
     <>
       <div class={'fab-scrim' + (open ? ' on' : '')} onClick={() => setOpen(false)} aria-hidden="true" />
-      <div class={'fab-wrap' + (open ? ' open' : '') + (mini && !open ? ' mini' : '') + (hidden ? ' gone' : '')}>
+      <div class={'fab-wrap' + (open ? ' open' : '') + (hidden ? ' gone' : '')}>
         <div class="fab-menu" role="menu" aria-hidden={!open} aria-label="Create">
           {createActions().map((a, i) => (
             <button class="fab-item" role="menuitem" style={{ '--i': i }} tabIndex={open ? 0 : -1} onClick={() => run(a.run)}>
@@ -239,7 +238,7 @@ function Fab({ path }) {
           ))}
         </div>
         <button class="fab" aria-label={open ? 'Close create menu' : 'Create new'} aria-expanded={open} onClick={() => setOpen(!open)}>
-          <Icon name="plus" size={26} stroke={2.3} />
+          <Icon name={open ? 'x' : 'plus'} size={open ? 24 : 26} stroke={2.3} />
         </button>
       </div>
     </>

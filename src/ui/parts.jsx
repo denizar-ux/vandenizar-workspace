@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon.jsx';
 import { Check, Field, TextInput, TextArea, Select, DateInput, TimeInput, Chips, NumberInput } from './kit.jsx';
 import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot, openSheet } from './overlay.jsx';
@@ -40,10 +40,35 @@ export function PageHeader({ eyebrow, title, actions, children }) {
     </div>
   );
 }
+// Section menu on phones: one liquid-glass capsule, the active item sits on a lens
+// that slides over from wherever it was on the previous page.
+const lensMemory = {};
 export function SubNav({ items, active }) {
+  const wrap = useRef(), track = useRef(), lens = useRef();
+  const group = items[0].path;
+  useLayoutEffect(() => {
+    const el = track.current && track.current.querySelector('a.on');
+    const L = lens.current;
+    if (!el || !L) { if (L) L.style.opacity = '0'; return; }
+    const to = { x: el.offsetLeft, w: el.offsetWidth };
+    const from = lensMemory[group];
+    const place = (p) => { L.style.transform = `translateX(${p.x}px)`; L.style.width = p.w + 'px'; };
+    L.style.opacity = '1';
+    if (from && (from.x !== to.x || from.w !== to.w)) {
+      L.style.transition = 'none'; place(from); void L.offsetWidth;
+      L.style.transition = ''; requestAnimationFrame(() => place(to));
+    } else place(to);
+    lensMemory[group] = to;
+    // keep the active item in view without moving the page
+    const w = wrap.current;
+    if (w && (to.x < w.scrollLeft || to.x + to.w > w.scrollLeft + w.clientWidth - 24)) w.scrollLeft = Math.max(0, to.x - 24);
+  }, [active, group]);
   return (
-    <nav class="subnav" aria-label="Section">
-      {items.map((it) => <a href={'#' + it.path} class={active === it.id ? 'on' : ''} aria-current={active === it.id ? 'page' : undefined}>{it.label}</a>)}
+    <nav class="subnav" ref={wrap} aria-label="Section">
+      <div class="subnav-track lg" ref={track}>
+        <span class="subnav-lens" ref={lens} aria-hidden="true" />
+        {items.map((it) => <a href={'#' + it.path} class={active === it.id ? 'on' : ''} aria-current={active === it.id ? 'page' : undefined}>{it.label}</a>)}
+      </div>
     </nav>
   );
 }
