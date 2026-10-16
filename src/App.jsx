@@ -64,6 +64,8 @@ export function App() {
   } else if (p0 === 'settings') { section = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { section = 'settings'; page = <TrashPage />; }
   if (!page) page = <NotFound />;
+  // No floating + inside editors and settings, where it would sit on top of the form
+  const hideFab = (p0 === 'content' && p1 === 'item') || (p0 === 'freelance' && p2) || p0 === 'settings' || p0 === 'trash';
 
   return (
     <div class="app">
@@ -76,7 +78,8 @@ export function App() {
           {page}
         </div>
       </main>
-      {!desktop && <BottomNav section={section} sub={sub} />}
+      {!desktop && <BottomNav section={section} />}
+      {!desktop && !hideFab && <Fab path={r.path} />}
       <Overlays />
       <UpdateBanner />
       <Toasts />
@@ -177,26 +180,69 @@ function UpdateBanner() {
   );
 }
 
-function BottomNav({ section, sub }) {
+function BottomNav({ section }) {
   const tabs = [
-    { id: 'today', label: 'Home', icon: 'home', path: '/', on: section === 'today' },
-    { id: 'search', label: 'Search', icon: 'search', action: openSearch, on: false },
+    { id: 'daily', label: 'Daily', icon: 'calCheck', path: '/', on: section === 'today' },
     { id: 'content', label: 'Content', icon: 'video', path: '/content', on: section === 'content' },
     { id: 'freelance', label: 'Freelance', icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
+    { id: 'search', label: 'Search', icon: 'search', action: openSearch, on: false },
   ];
-  const Tab = (t) => (
-    <button class={'tab ' + (t.on ? 'on' : '')} aria-label={t.label} aria-current={t.on ? 'page' : undefined} onClick={() => (t.action ? t.action() : navigate(t.path))}>
-      <Icon name={t.icon} size={25} stroke={t.on ? 2.1 : 1.8} /><span>{t.label}</span>
-    </button>
-  );
   return (
     <nav class="bottom" aria-label="Main navigation">
       <div class="tabbar">
-        {Tab(tabs[0])}{Tab(tabs[1])}
-        <button class="tab-new" onClick={openQuickAdd} aria-label="Create new"><Icon name="plus" size={24} stroke={2.2} /></button>
-        {Tab(tabs[2])}{Tab(tabs[3])}
+        {tabs.map((t) => (
+          <button class={'tab ' + (t.on ? 'on' : '')} aria-label={t.label} aria-current={t.on ? 'page' : undefined} onClick={() => (t.action ? t.action() : navigate(t.path))}>
+            <Icon name={t.icon} size={25} stroke={t.on ? 2.1 : 1.8} /><span>{t.label}</span>
+          </button>
+        ))}
       </div>
     </nav>
+  );
+}
+
+// ---------- floating create button (phones) ----------
+// A liquid-glass + that floats above the dock and opens into the create menu.
+function Fab({ path }) {
+  const [open, setOpen] = useState(false);
+  const [mini, setMini] = useState(false);
+  const [typing, setTyping] = useState(false);
+  useEffect(() => { setOpen(false); }, [path]);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => { const y = window.scrollY; if (Math.abs(y - last) < 8) return; setMini(y > last && y > 120); last = y; };
+    const isField = (el) => el && el.matches && el.matches('input:not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable="true"]');
+    const onIn = (e) => setTyping(isField(e.target));
+    const onOut = () => setTimeout(() => setTyping(isField(document.activeElement)), 60);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => { window.removeEventListener('scroll', onScroll); document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); };
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const k = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [open]);
+  const run = (fn) => { setOpen(false); setTimeout(fn, 160); };
+  const hidden = typing && !open;
+  return (
+    <>
+      <div class={'fab-scrim' + (open ? ' on' : '')} onClick={() => setOpen(false)} aria-hidden="true" />
+      <div class={'fab-wrap' + (open ? ' open' : '') + (mini && !open ? ' mini' : '') + (hidden ? ' gone' : '')}>
+        <div class="fab-menu" role="menu" aria-hidden={!open} aria-label="Create">
+          {createActions().map((a, i) => (
+            <button class="fab-item" role="menuitem" style={{ '--i': i }} tabIndex={open ? 0 : -1} onClick={() => run(a.run)}>
+              <span class={'mini-ic ' + a.tone}><Icon name={a.icon} size={18} /></span>
+              <span class="fab-label">{a.label}<small>{a.sub}</small></span>
+            </button>
+          ))}
+        </div>
+        <button class="fab" aria-label={open ? 'Close create menu' : 'Create new'} aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Icon name="plus" size={26} stroke={2.3} />
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -204,22 +250,25 @@ function BottomNav({ section, sub }) {
 export function openQuickAdd() {
   openOverlay((close) => <QuickAdd close={close} />, { kind: 'sheet' });
 }
-function QuickAdd({ close }) {
-  const actions = [
-    { label: 'Task', sub: 'To do, today or later', icon: 'tasks', tone: 't-blue', run: () => { close(); openTaskSheet(null, { dueDate: today() }); } },
-    { label: 'Content', sub: 'New idea in Content OS', icon: 'video', tone: 't-violet', run: () => { close(); createContentAndOpen({}); } },
-    { label: 'Project', sub: 'Freelance job or lead', icon: 'briefcase', tone: 't-orange', run: () => { close(); openProjectSheet(); } },
-    { label: 'Client', sub: 'Brand or contact', icon: 'users', tone: 't-pink', run: () => { close(); openClientSheet(); } },
-    { label: 'Invoice', sub: 'Bill a client', icon: 'file', tone: 't-green', run: () => { close(); createInvoiceAndOpen({}); } },
-    { label: 'Goal', sub: 'Weekly or monthly', icon: 'target', tone: 't-yellow', run: () => { close(); navigate('/goals?new=1'); } },
+export function createActions() {
+  return [
+    { label: 'Task', sub: 'Today or later', icon: 'tasks', tone: 't-blue', run: () => openTaskSheet(null, { dueDate: today() }) },
+    { label: 'Content', sub: 'New idea in Content OS', icon: 'video', tone: 't-violet', run: () => createContentAndOpen({}) },
+    { label: 'Threads post', sub: 'Add to today', icon: 'at', tone: 't-grey', run: () => { navigate('/content/threads'); setTimeout(() => { const el = document.querySelector('.th-composer textarea'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 250); } },
+    { label: 'Project', sub: 'Freelance job or lead', icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
+    { label: 'Client', sub: 'Brand or contact', icon: 'users', tone: 't-pink', run: () => openClientSheet() },
+    { label: 'Invoice', sub: 'Bill a client', icon: 'file', tone: 't-green', run: () => createInvoiceAndOpen({}) },
+    { label: 'Goal', sub: 'Weekly or monthly', icon: 'target', tone: 't-yellow', run: () => navigate('/goals?new=1') },
   ];
+}
+function QuickAdd({ close }) {
   return (
     <>
       <SheetHead title="Create" onClose={close} />
       <SheetBody>
         <div class="qa-grid">
-          {actions.map((a) => (
-            <button class="qa" onClick={a.run}><span class={'mini-ic ' + a.tone}><Icon name={a.icon} size={19} /></span><span>{a.label}<small>{a.sub}</small></span></button>
+          {createActions().map((a) => (
+            <button class="qa" onClick={() => { close(); a.run(); }}><span class={'mini-ic ' + a.tone}><Icon name={a.icon} size={19} /></span><span>{a.label}<small>{a.sub}</small></span></button>
           ))}
         </div>
       </SheetBody>

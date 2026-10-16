@@ -44,6 +44,7 @@ export function TodayPage() {
 
   return (
     <div class="page">
+      <SubNav items={DAILY_NAV} active="today" />
       <div class="topbar">
         <button class="avatar" aria-label="Settings" onClick={() => navigate('/settings')}>{(s.name || 'D')[0].toUpperCase()}</button>
         <div class="topbar-text">

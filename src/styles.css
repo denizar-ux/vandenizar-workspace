@@ -996,3 +996,43 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
   .is-week .cal-block { padding: 2px 3px; border-radius: 6px; }
   .is-week .cal-block-title { font-size: 10px; overflow-wrap: anywhere; line-height: 1.15; }
 }
+/* ---------- dock: 4 tabs; floating liquid-glass + ---------- */
+.tabbar { grid-template-columns: repeat(4, 1fr); max-width: 420px; }
+@media (max-width: 959px) {
+  .main { padding-bottom: calc(var(--sab) + 176px); }
+  .toasts { bottom: calc(var(--sab) + 168px); }
+}
+.fab-wrap { position: fixed; z-index: 46; right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px)); bottom: calc(var(--sab) + 94px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px; pointer-events: none;
+  transition: transform .38s cubic-bezier(.34, 1.56, .64, 1), opacity .25s ease; }
+.fab-wrap.mini { transform: translateY(6px) scale(.84); opacity: .92; }
+.fab-wrap.gone { transform: translateY(30px) scale(.6); opacity: 0; }
+.fab-wrap.gone .fab { pointer-events: none; }
+.fab { pointer-events: auto; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; color: #fff; position: relative; overflow: hidden;
+  background: radial-gradient(120% 90% at 30% 15%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%), linear-gradient(160deg, #6aa2ff 0%, #2f6bff 52%, #1d4fe0 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.7), inset 0 -6px 14px rgba(10, 30, 120, .28), inset 0 0 0 1px rgba(255,255,255,.22), 0 10px 26px rgba(31, 91, 255, .38), 0 2px 6px rgba(20, 40, 120, .2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6);
+  -webkit-tap-highlight-color: transparent; transition: transform .3s cubic-bezier(.34, 1.56, .64, 1); }
+.fab::after { content: ''; position: absolute; left: 14%; right: 14%; top: 5%; height: 34%; border-radius: 50%; background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0)); pointer-events: none; }
+.fab .ic { transition: transform .42s cubic-bezier(.34, 1.56, .64, 1); position: relative; z-index: 1; }
+.fab:active { transform: scale(.9); }
+.fab-wrap.open .fab { animation: jelly .55s cubic-bezier(.3, .7, .4, 1); }
+.fab-wrap.open .fab .ic { transform: rotate(135deg); }
+@keyframes jelly { 0% { transform: scale(1); } 28% { transform: scale(1.14, .88); } 50% { transform: scale(.93, 1.07); } 72% { transform: scale(1.03, .98); } 100% { transform: scale(1); } }
+.fab-menu { pointer-events: none; width: min(280px, calc(100vw - 32px)); padding: 8px; border-radius: 30px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--glass-strong); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8);
+  box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px var(--glass-line), 0 24px 60px rgba(20, 30, 70, .22), 0 4px 12px rgba(20, 30, 70, .10);
+  transform-origin: calc(100% - 29px) calc(100% + 41px); transform: scale(.12, .08); opacity: 0; filter: blur(8px); border-radius: 60px;
+  transition: transform .5s cubic-bezier(.34, 1.4, .64, 1), opacity .22s ease, filter .3s ease, border-radius .45s ease; }
+.fab-wrap.open .fab-menu { pointer-events: auto; transform: none; opacity: 1; filter: none; border-radius: 30px; }
+.fab-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 20px; text-align: left; color: var(--ink);
+  opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .2s ease, transform .35s cubic-bezier(.34, 1.56, .64, 1), background .15s; }
+.fab-wrap.open .fab-item { opacity: 1; transform: none; transition-delay: calc((6 - var(--i)) * 22ms + 60ms); }
+.fab-item:active { background: var(--surface-2); transform: scale(.98); }
+.fab-item .mini-ic { width: 36px; height: 36px; border-radius: 12px; flex: none; }
+.fab-label { display: flex; flex-direction: column; font-weight: 800; font-size: 15px; line-height: 1.2; }
+.fab-label small { font-weight: 600; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.fab-scrim { position: fixed; inset: 0; z-index: 45; background: rgba(12, 18, 36, .18); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+.fab-scrim.on { opacity: 1; pointer-events: auto; }
+@media (min-width: 960px) { .fab-wrap, .fab-scrim { display: none; } }
+@media (prefers-reduced-motion: reduce) { .fab-wrap, .fab, .fab .ic, .fab-menu, .fab-item { transition-duration: .01s !important; animation: none !important; } }
