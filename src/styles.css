@@ -865,12 +865,6 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .th-meta { flex-wrap: nowrap; min-width: 0; }
 .th-meta .badge { flex: none; }
 .th-meta .th-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; display: block; line-height: 22px; }
-/* phone: compact capture instead of the big hero */
-@media (max-width: 959px) {
-  .today-hero { padding: 8px; border-radius: 999px; gap: 0; }
-  .today-hero .hero-title, .today-hero .hero-art { display: none; }
-  .today-hero .capture { background: transparent; padding: 0; }
-}
 /* content editor tabs (phone) */
 .ce-tabs { position: sticky; top: calc(var(--sat) + 8px); z-index: 25; }
 .ce-tabs .seg { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px var(--glass-line), var(--glass-shadow); background: var(--glass-strong); }
