@@ -5,6 +5,7 @@ import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, Shee
 import { TaskRow, PageHeader, SubNav, DAILY_NAV, openTaskSheet, pickTask, catTone, Dot, ContentBadge, fmtAgo } from '../ui/parts.jsx';
 import { agendaItems, AgendaList } from './calendar.jsx';
 import { ThreadsTodayCard } from './threads.jsx';
+import { HabitsTodayCard } from './habits.jsx';
 import { navigate } from '../lib/router.js';
 import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
 import { today, addDays, diffDays, relDay, relDayLower, fmtDay, fmtLong, fmtShort, greeting, isoOf, startOfWeek, fmtFull, nowParts, fmtMinutes, fmtWeekdayShort, dayNum } from '../lib/date.js';
@@ -87,6 +88,7 @@ export function TodayPage() {
       <div class="two-col">
         <div class="stack">
           <TodayTasks openToday={openToday} doneToday={doneToday} />
+          <HabitsTodayCard />
           {overdue.length > 0 && (
             <div class="card">
               <div class="card-head">

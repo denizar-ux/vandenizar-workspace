@@ -72,7 +72,7 @@ export function SubNav({ items, active }) {
     </nav>
   );
 }
-export const DAILY_NAV = [{ id: 'today', label: 'Today', path: '/' }, { id: 'tasks', label: 'Tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', path: '/calendar' }, { id: 'goals', label: 'Goals', path: '/goals' }, { id: 'review', label: 'Review', path: '/review' }];
+export const DAILY_NAV = [{ id: 'today', label: 'Today', path: '/' }, { id: 'tasks', label: 'Tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', path: '/calendar' }, { id: 'habits', label: 'Habits', path: '/habits' }, { id: 'goals', label: 'Goals', path: '/goals' }, { id: 'review', label: 'Review', path: '/review' }];
 export const CONTENT_NAV = [{ id: 'overview', label: 'Overview', path: '/content' }, { id: 'board', label: 'Board', path: '/content/board' }, { id: 'calendar', label: 'Calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', path: '/content/threads' }, { id: 'resources', label: 'Resources', path: '/content/resources' }];
 export const FREELANCE_NAV = [{ id: 'overview', label: 'Overview', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', path: '/freelance/templates' }];
 

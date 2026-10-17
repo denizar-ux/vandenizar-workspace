@@ -8,6 +8,7 @@ import { fmtDuration, today, relDay } from './lib/date.js';
 import { fmtMoney } from './lib/money.js';
 import { openTaskSheet, catTone, Dot, ContentBadge, InvoiceBadge, StageBadge } from './ui/parts.jsx';
 import { TodayPage, TasksPage, GoalsPage, ReviewPage } from './pages/daily.jsx';
+import { HabitsPage } from './pages/habits.jsx';
 import { ContentOverview, ContentBoard, ContentEditor, ContentCalendar, ResourcesPage, createContentAndOpen } from './pages/content.jsx';
 import { FreelanceOverview, PipelinePage, ProjectsPage, ProjectDetail, ClientsPage, ClientDetail, InvoicesPage, InvoiceEditor, FinancePage, TemplatesPage, openProjectSheet, openClientSheet, createInvoiceAndOpen } from './pages/freelance.jsx';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
@@ -42,6 +43,7 @@ export function App() {
   if (!p0) { page = <TodayPage />; sub = 'today'; }
   else if (p0 === 'tasks') { page = <TasksPage query={r.query} />; sub = 'tasks'; }
   else if (p0 === 'calendar') { page = <CalendarPage query={r.query} />; sub = 'calendar'; }
+  else if (p0 === 'habits') { page = <HabitsPage />; sub = 'habits'; }
   else if (p0 === 'goals') { page = <GoalsPage />; sub = 'goals'; }
   else if (p0 === 'review') { page = <ReviewPage mode={p1 === 'weekly' || p1 === 'monthly' ? p1 : 'daily'} date={r.query.d} />; sub = 'review'; }
   else if (p0 === 'content') {
@@ -123,7 +125,7 @@ function FocusBar() {
 }
 
 const SIDE = [
-  { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
+  { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' }, { id: 'habits', label: 'Habits', icon: 'habit', path: '/habits' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
   { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', icon: 'at', path: '/content/threads' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
   { group: 'Freelance OS', key: 'freelance', items: [{ id: 'overview', label: 'Overview', icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', icon: 'video', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', icon: 'users', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', icon: 'file', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', icon: 'template', path: '/freelance/templates' }] },
 ];
@@ -257,6 +259,7 @@ export function createActions() {
     { label: 'Project', sub: 'Freelance job or lead', icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
     { label: 'Client', sub: 'Brand or contact', icon: 'users', tone: 't-pink', run: () => openClientSheet() },
     { label: 'Invoice', sub: 'Bill a client', icon: 'file', tone: 't-green', run: () => createInvoiceAndOpen({}) },
+    { label: 'Habit', sub: 'Daily or weekly', icon: 'habit', tone: 't-green', run: () => navigate('/habits?new=1') },
     { label: 'Goal', sub: 'Weekly or monthly', icon: 'target', tone: 't-yellow', run: () => navigate('/goals?new=1') },
   ];
 }

@@ -456,3 +456,56 @@ export function newThread(p = {}) {
   return put('threads', { id: uid(), text: '', date: '', time: '', pillar: '', status: 'draft', postedAt: null, order: Date.now(), ...p });
 }
 export const markThreadPosted = (id, on = true) => patch('threads', id, { status: on ? 'posted' : 'draft', postedAt: on ? Date.now() : null });
+
+// ---------- habits ----------
+// A habit is either daily (every day) or weekly (N times per week).
+// checks holds the calendar dates ('YYYY-MM-DD', WIB) it was done, at most once per day.
+export const allHabits = () => all('habits').filter((h) => !h.deletedAt).sort((a, b) => (a.order || 0) - (b.order || 0));
+export const liveHabits = () => allHabits().filter((h) => !h.archived);
+export function newHabit(p = {}) {
+  return put('habits', { id: uid(), title: '', emoji: '', freq: 'daily', target: 1, checks: [], archived: false, order: Date.now(), ...p });
+}
+export const habitDone = (h, iso) => (h.checks || []).includes(iso);
+export function toggleHabit(id, iso = today()) {
+  const h = get('habits', id);
+  if (!h) return;
+  const c = h.checks || [];
+  patch('habits', id, { checks: c.includes(iso) ? c.filter((d) => d !== iso) : [...c, iso].sort() });
+}
+export const habitTarget = (h) => (h.freq === 'weekly' ? Math.max(1, Math.min(7, +h.target || 1)) : 1);
+export function habitWeekCount(h, iso = today()) {
+  const ws = startOfWeek(iso, settings().weekStart), we = addDays(ws, 6);
+  return (h.checks || []).filter((d) => d >= ws && d <= we).length;
+}
+// Current streak: days in a row (daily) or weeks in a row meeting the target (weekly).
+// Today / this week only breaks the streak once it is over, so an unchecked today still shows yesterday's run.
+export function habitStreak(h, iso = today()) {
+  const set = new Set(h.checks || []);
+  if (h.freq === 'weekly') {
+    const wsDay = settings().weekStart, target = habitTarget(h);
+    let ws = startOfWeek(iso, wsDay), n = 0;
+    if (habitWeekCount(h, ws) < target) ws = addDays(ws, -7);
+    while (habitWeekCount(h, ws) >= target && n < 520) { n++; ws = addDays(ws, -7); }
+    return n;
+  }
+  let d = set.has(iso) ? iso : addDays(iso, -1), n = 0;
+  while (set.has(d) && n < 3650) { n++; d = addDays(d, -1); }
+  return n;
+}
+// Is this habit still open today? Daily: not checked today. Weekly: target not met this week and not checked today.
+export function habitOpenToday(h, iso = today()) {
+  if (habitDone(h, iso)) return false;
+  return h.freq === 'daily' || habitWeekCount(h, iso) < habitTarget(h);
+}
+// Share of days (daily) or target hits (weekly) in the last 30 days, for a quick consistency number.
+export function habitRate(h, iso = today()) {
+  const from = addDays(iso, -29);
+  const checks = (h.checks || []).filter((d) => d <= iso);
+  const created = h.createdAt ? isoOf(h.createdAt) : from;
+  const first = checks.length && checks[0] < created ? checks[0] : created;
+  const start = first > from ? first : from;
+  const days = Math.max(1, diffDays(iso, start) + 1);
+  const hits = checks.filter((d) => d >= start).length;
+  const expected = h.freq === 'weekly' ? Math.ceil(days / 7) * habitTarget(h) : days;
+  return Math.min(100, Math.round((hits / expected) * 100));
+}
