@@ -1318,3 +1318,4 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .mn-brow-top > b, .list-row > .mn-amt { white-space: nowrap; flex: none; }
 .sheet-foot .btn.grow { flex: 1 1 auto; }
 html.overlay-open .toasts { bottom: auto; top: calc(var(--sat) + 12px); }
+.sc-url { font-size: 12px; word-break: break-all; }

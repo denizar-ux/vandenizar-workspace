@@ -1,6 +1,7 @@
 // All calendar dates are stored as plain 'YYYY-MM-DD' strings in Asia/Jakarta local time.
 // They are never parsed with new Date('YYYY-MM-DD') (that parses as UTC and can shift a day).
 // Calendar math is done on UTC-midnight timestamps, which has no DST or timezone drift.
+import { t, locale } from './i18n.js';
 export const TZ = 'Asia/Jakarta';
 
 const partsFmt = new Intl.DateTimeFormat('en-CA', {
@@ -41,8 +42,9 @@ export const monthKey = (iso) => iso.slice(0, 7);
 
 const fmtCache = {};
 function fmt(iso, opts) {
-  const k = JSON.stringify(opts);
-  fmtCache[k] = fmtCache[k] || new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...opts });
+  const loc = locale();
+  const k = loc + JSON.stringify(opts);
+  fmtCache[k] = fmtCache[k] || new Intl.DateTimeFormat(loc, { timeZone: 'UTC', ...opts });
   return fmtCache[k].format(new Date(toUTC(iso)));
 }
 export const fmtDay = (iso) => (iso ? fmt(iso, { weekday: 'short', day: 'numeric', month: 'short' }) : '');
@@ -58,13 +60,13 @@ export const dayNum = (iso) => +iso.slice(8, 10);
 export function relDay(iso, base = today()) {
   if (!iso) return '';
   const d = diffDays(iso, base);
-  if (d === 0) return 'Today';
-  if (d === 1) return 'Tomorrow';
-  if (d === -1) return 'Yesterday';
+  if (d === 0) return t('Today');
+  if (d === 1) return t('Tomorrow');
+  if (d === -1) return t('Yesterday');
   if (d > 1 && d < 7) return fmt(iso, { weekday: 'long' });
   return fmtDay(iso);
 }
-export const relDayLower = (iso) => { const r = relDay(iso); return ['Today', 'Tomorrow', 'Yesterday'].includes(r) ? r.toLowerCase() : r; };
+export const relDayLower = (iso) => { const r = relDay(iso); return [t('Today'), t('Tomorrow'), t('Yesterday')].includes(r) ? r.toLowerCase() : r; };
 export function fmtTimestamp(ts) {
   if (!ts) return '';
   const p = nowParts(new Date(ts));
@@ -72,10 +74,10 @@ export function fmtTimestamp(ts) {
 }
 export function greeting() {
   const h = nowParts().hour;
-  if (h < 4) return 'Up late';
-  if (h < 11) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 4) return t('Up late');
+  if (h < 11) return t('Good morning');
+  if (h < 17) return t('Good afternoon');
+  return t('Good evening');
 }
 export function fmtDuration(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -86,7 +88,8 @@ export function fmtDuration(ms) {
 export function fmtMinutes(min) {
   if (!min) return '';
   const h = Math.floor(min / 60), m = min % 60;
-  return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+  const H = t('{n}h', { n: h }), M = t('{n}m', { n: m });
+  return h ? (m ? `${H} ${M}` : H) : M;
 }
 // Next occurrence for a recurring task after `from` date.
 export function nextOccurrence(rule, from) {
@@ -101,5 +104,5 @@ export function nextOccurrence(rule, from) {
 export const recurrenceLabel = (r) => {
   if (!r || !r.freq) return '';
   const n = +r.interval || 1;
-  return { daily: n > 1 ? `Every ${n} days` : 'Daily', weekdays: 'Weekdays', weekly: n > 1 ? `Every ${n} weeks` : 'Weekly', monthly: n > 1 ? `Every ${n} months` : 'Monthly' }[r.freq] || '';
+  return { daily: n > 1 ? t('Every {n} days', { n }) : t('Daily'), weekdays: t('Weekdays'), weekly: n > 1 ? t('Every {n} weeks', { n }) : t('Weekly'), monthly: n > 1 ? t('Every {n} months', { n }) : t('Monthly') }[r.freq] || '';
 };

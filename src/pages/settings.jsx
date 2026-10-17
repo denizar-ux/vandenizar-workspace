@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { Field, TextInput, TextArea, Select, TimeInput, NumberInput, Segmented, ListEditor, Empty } from '../ui/kit.jsx';
+import { Field, TextInput, TextArea, Select, TimeInput, NumberInput, Segmented, ListEditor, Empty, copyText } from '../ui/kit.jsx';
 import { toast, confirmDialog, openMenu } from '../ui/overlay.jsx';
 import { PageHeader, fmtAgo, ContentBadge } from '../ui/parts.jsx';
 import { navigate } from '../lib/router.js';
@@ -13,6 +13,8 @@ import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, 
 import { driveStatus, monthLabel } from '../lib/drive.js';
 import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
 import { MoneySettingsSection, moneySettingsSummary } from './money.jsx';
+import { t as _t, tn as _tn, lang as _lang } from '../lib/i18n.js';
+import { notifyAll } from '../lib/db.js';
 
 // ---------- theme ----------
 export function getTheme() { try { return localStorage.getItem('vz:theme') || 'system'; } catch { return 'system'; } }
@@ -58,7 +60,7 @@ export function useReminders() {
         if (notifySupported() && Notification.permission === 'granted' && !pushFlag()) {
           const openToday = M.liveTasks().filter((t) => M.isOpen(t) && t.dueDate === n.date).length;
           const uploads = M.contentActions(n.date).filter((a) => a.stage.id === 'upload').length;
-          const body = kind === 'morning' ? `${openToday} task(s) today${uploads ? `, ${uploads} upload(s) planned` : ''}.` : 'How was today? Write a few lines in your journal.';
+          const body = kind === 'morning' ? _t('{0} task(s) today', [openToday]) + (uploads ? _t(', {0} upload(s) planned', [uploads]) : '') + '.' : _t('How was today? Write a few lines in your journal.');
           try { new Notification(kind === 'morning' ? 'Morning brief' : 'Time to close the day', { body, tag: 'vz-' + kind + '-' + n.date }); } catch {
             try { navigator.serviceWorker?.ready.then((reg) => reg.showNotification(kind === 'morning' ? 'Morning brief' : 'Time to close the day', { body, tag: 'vz-' + kind + '-' + n.date })); } catch {}
           }
@@ -109,29 +111,29 @@ function PushRow({ lead, onLead }) {
   const [, force] = useState(0);
   useEffect(() => { pushStatus().then(setOn); return onSync(() => force((x) => x + 1)); }, []);
   const needsHome = isIOS() && !isStandalone();
-  const blocked = !sync.user ? 'Sign in above to turn on notifications.' : needsHome ? 'On iPhone, open Vandenizar from your Home Screen, then turn this on there.' : !pushSupported() ? 'This browser does not support notifications.' : '';
+  const blocked = !sync.user ? _t('Sign in above to turn on notifications.') : needsHome ? _t('On iPhone, open Vandenizar from your Home Screen, then turn this on there.') : !pushSupported() ? _t('This browser does not support notifications.') : '';
   const toggle = async () => {
     if (busy || blocked) return;
     setBusy(true);
     try {
-      if (on) { await disablePush(); setOn(false); toast('Notifications off on this device'); }
-      else { await enablePush(); setOn(true); toast('Notifications on. Sending a test…'); testPush().catch(() => {}); }
-    } catch (e) { toast(e.message || 'Could not change notifications.', { tone: 'warn', duration: 5000 }); }
+      if (on) { await disablePush(); setOn(false); toast(_t('Notifications off on this device')); }
+      else { await enablePush(); setOn(true); toast(_t('Notifications on. Sending a test…')); testPush().catch(() => {}); }
+    } catch (e) { toast(e.message || _t('Could not change notifications.'), { tone: 'warn', duration: 5000 }); }
     setBusy(false);
   };
   return (
     <>
       <div class="set-row">
         <div class="grow">
-          <div>Notifications on this device</div>
-          <div class="hint">{blocked || (on ? 'Tasks and content steps with a time, plus the morning brief and daily review. Works with the app closed.' : 'Get an alert for anything scheduled with a time, even when the app is closed.')}</div>
+          <div>{_t('Notifications on this device')}</div>
+          <div class="hint">{blocked || (on ? _t('Tasks and content steps with a time, plus the morning brief and daily review. Works with the app closed.') : _t('Get an alert for anything scheduled with a time, even when the app is closed.'))}</div>
         </div>
-        <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label="Notifications on this device" disabled={!!blocked || busy} onClick={toggle} />
+        <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label={_t('Notifications on this device')} disabled={!!blocked || busy} onClick={toggle} />
       </div>
       {on && (
         <>
-          <Field label="Alert me"><Segmented class="full" options={[{ id: 0, label: 'On time' }, { id: 5, label: '5m early' }, { id: 15, label: '15m early' }, { id: 30, label: '30m early' }]} value={lead} onChange={(v) => onLead(+v)} /></Field>
-          <div><button class="btn sm" onClick={async () => { try { const n = await testPush(); toast(n ? 'Test sent' : 'No device is subscribed yet', { tone: n ? '' : 'warn' }); } catch (e) { toast(e.message, { tone: 'warn' }); } }}><Icon name="bell" size={15} />Send test</button></div>
+          <Field label={_t('Alert me')}><Segmented class="full" options={[{ id: 0, label: _t('On time') }, { id: 5, label: _t('5m early') }, { id: 15, label: _t('15m early') }, { id: 30, label: _t('30m early') }]} value={lead} onChange={(v) => onLead(+v)} /></Field>
+          <div><button class="btn sm" onClick={async () => { try { const n = await testPush(); toast(n ? _t('Test sent') : _t('No device is subscribed yet'), { tone: n ? '' : 'warn' }); } catch (e) { toast(e.message, { tone: 'warn' }); } }}><Icon name="bell" size={15} />{_t('Send test')}</button></div>
         </>
       )}
     </>
@@ -140,29 +142,31 @@ function PushRow({ lead, onLead }) {
 
 // ---------- Settings: section hub ----------
 const SECTIONS = [
-  { id: 'account', label: 'Account & sync', icon: 'restore', tone: 't-blue' },
-  { id: 'notifications', label: 'Notifications', icon: 'bell', tone: 't-orange' },
-  { id: 'general', label: 'Profile & appearance', icon: 'sun', tone: 't-yellow' },
-  { id: 'daily', label: 'Daily system', icon: 'tasks', tone: 't-green' },
-  { id: 'content', label: 'Content OS', icon: 'video', tone: 't-violet' },
-  { id: 'freelance', label: 'Freelance & invoices', icon: 'briefcase', tone: 't-pink' },
-  { id: 'money', label: 'Money', icon: 'wallet', tone: 't-green' },
-  { id: 'drive', label: 'Google Drive', icon: 'upload', tone: 't-blue' },
-  { id: 'data', label: 'Backup & data', icon: 'archive', tone: 't-grey' },
+  { id: 'account', get label() { return _t('Account & sync'); }, icon: 'restore', tone: 't-blue' },
+  { id: 'notifications', get label() { return _t('Notifications'); }, icon: 'bell', tone: 't-orange' },
+  { id: 'general', get label() { return _t('Profile & appearance'); }, icon: 'sun', tone: 't-yellow' },
+  { id: 'shortcuts', get label() { return _t('iPhone shortcuts'); }, icon: 'bolt', tone: 't-orange' },
+  { id: 'daily', get label() { return _t('Daily system'); }, icon: 'tasks', tone: 't-green' },
+  { id: 'content', get label() { return _t('Content OS'); }, icon: 'video', tone: 't-violet' },
+  { id: 'freelance', get label() { return _t('Freelance & invoices'); }, icon: 'briefcase', tone: 't-pink' },
+  { id: 'money', get label() { return _t('Money'); }, icon: 'wallet', tone: 't-green' },
+  { id: 'drive', get label() { return _t('Google Drive'); }, icon: 'upload', tone: 't-blue' },
+  { id: 'data', get label() { return _t('Backup & data'); }, icon: 'archive', tone: 't-grey' },
 ];
 
 function sectionSummary(id, s) {
   const sy = sync;
   switch (id) {
-    case 'account': return sy.user ? syncLabel(sy) : 'Not signed in';
-    case 'notifications': return pushFlag() ? 'On for this device' : 'Off on this device';
-    case 'general': return (s.name || 'You') + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
-    case 'daily': return s.categories.length + ' categories';
+    case 'account': return sy.user ? syncLabel(sy) : _t('Not signed in');
+    case 'notifications': return pushFlag() ? _t('On for this device') : _t('Off on this device');
+    case 'general': return (s.name || _t('You')) + ' · ' + (_lang() === 'id' ? 'Bahasa Indonesia' : 'English') + ' · ' + _t({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
+    case 'shortcuts': return _t('Home Screen, Siri, Back Tap');
+    case 'daily': return _t('{0} categories', [s.categories.length]);
     case 'content': return s.platforms.join(', ');
-    case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
+    case 'freelance': return _t('Next invoice {0}', [M.nextInvoiceNumber().num]);
     case 'money': return moneySettingsSummary();
-    case 'drive': return M.meta('driveStatus', {}).connected ? 'Connected' : 'Monthly review PDFs';
-    case 'data': return 'Export, import, trash';
+    case 'drive': return M.meta('driveStatus', {}).connected ? _t('Connected') : _t('Monthly review PDFs');
+    case 'data': return _t('Export, import, trash');
     default: return '';
   }
 }
@@ -178,7 +182,7 @@ export function SettingsPage({ section }) {
     <div class={'page settings-page ' + (valid ? 'has-section' : 'no-section')}>
       <div class="set-layout">
         <div class="set-hub">
-          <PageHeader eyebrow="Workspace" title="Settings" />
+          <PageHeader eyebrow={_t('Workspace')} title={_t('Settings')} />
           <div class="set-nav">
             {SECTIONS.map((x) => (
               <a href={'#/settings/' + x.id} class={'set-nav-item ' + (x.id === cur ? 'on' : '')}>
@@ -188,14 +192,15 @@ export function SettingsPage({ section }) {
               </a>
             ))}
           </div>
-          <div class="set-foot">Vandenizar Creator Workspace · times in WIB (Asia/Jakarta)</div>
+          <div class="set-foot">{_t('Vandenizar Creator Workspace · times in WIB (Asia/Jakarta)')}</div>
         </div>
         <div class="set-panel">
-          <a href="#/settings" class="set-back"><Icon name="chevronLeft" size={18} />Settings</a>
+          <a href="#/settings" class="set-back"><Icon name="chevronLeft" size={18} />{_t('Settings')}</a>
           <h2 class="set-title">{meta.label}</h2>
           {cur === 'account' && <AccountCard />}
           {cur === 'notifications' && <NotificationsSection s={s} />}
           {cur === 'general' && <GeneralSection s={s} />}
+          {cur === 'shortcuts' && <ShortcutsSection />}
           {cur === 'daily' && <DailySection s={s} />}
           {cur === 'content' && <ContentSection s={s} />}
           {cur === 'freelance' && <FreelanceSection s={s} />}
@@ -217,7 +222,7 @@ const Group = ({ title, hint, children }) => (
 );
 
 // Chips you can tap to rename, x to remove, and + to add
-function ChipsEditor({ items, onChange, placeholder = 'Add', min = 0 }) {
+function ChipsEditor({ items, onChange, placeholder = _t('Add'), min = 0 }) {
   const [edit, setEdit] = useState(-1);
   const [val, setVal] = useState('');
   const [adding, setAdding] = useState(false);
@@ -226,11 +231,11 @@ function ChipsEditor({ items, onChange, placeholder = 'Add', min = 0 }) {
   return (
     <div class="chip-editor">
       {items.map((t, i) => edit === i ? (
-        <input class="chip-input" autoFocus value={val} onInput={(e) => setVal(e.currentTarget.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } if (e.key === 'Escape') setEdit(-1); }} aria-label={'Rename ' + t} />
+        <input class="chip-input" autoFocus value={val} onInput={(e) => setVal(e.currentTarget.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } if (e.key === 'Escape') setEdit(-1); }} aria-label={_t('Rename {0}', [t])} />
       ) : (
         <span class="chip ed">
-          <button type="button" class="chip-name" onClick={() => { setEdit(i); setVal(t); }} title="Tap to rename">{t}</button>
-          <button type="button" class="chip-x" aria-label={'Remove ' + t} disabled={items.length <= min} onClick={() => onChange(items.filter((_, j) => j !== i))}><Icon name="x" size={13} /></button>
+          <button type="button" class="chip-name" onClick={() => { setEdit(i); setVal(t); }} title={_t('Tap to rename')}>{t}</button>
+          <button type="button" class="chip-x" aria-label={_t('Remove {0}', [t])} disabled={items.length <= min} onClick={() => onChange(items.filter((_, j) => j !== i))}><Icon name="x" size={13} /></button>
         </span>
       ))}
       {adding ? (
@@ -248,17 +253,17 @@ function NotificationsSection({ s }) {
   const setRem = (kind, ch) => M.setSettings({ reminders: { ...s.reminders, [kind]: { ...s.reminders[kind], ...ch } } });
   return (
     <>
-      <Group title="Push notifications" hint="Alerts for anything scheduled with a time, even when the app is closed. Turn on per device.">
+      <Group title={_t('Push notifications')} hint={_t('Alerts for anything scheduled with a time, even when the app is closed. Turn on per device.')}>
         <PushRow lead={s.pushLead ?? 0} onLead={(v) => set({ pushLead: v })} />
       </Group>
-      <Group title="Daily reminders">
-        {[['morning', 'Morning brief', "Today's tasks and planned uploads"], ['evening', 'Daily review', 'How was today? A short journal entry']].map(([k, label, hint]) => (
+      <Group title={_t('Daily reminders')}>
+        {[['morning', _t('Morning brief'), _t("Today's tasks and planned uploads")], ['evening', _t('Daily review'), _t('How was today? A short journal entry')]].map(([k, label, hint]) => (
           <Row label={label} hint={hint}>
             <div class="set-time"><TimeInput id={'s-rem-' + k} value={s.reminders[k].time} onChange={(v) => v && setRem(k, { time: v })} /></div>
             <button class={'toggle ' + (s.reminders[k].enabled ? 'on' : '')} role="switch" aria-checked={s.reminders[k].enabled} aria-label={label} onClick={() => setRem(k, { enabled: !s.reminders[k].enabled })} />
           </Row>
         ))}
-        {!pushFlag() && <div class="field-hint">With notifications off, reminders show as a card on Today when you open the app. <button class="link-btn" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', 'Calendar file saved. Open it to add the daily alerts.')}>Add them to your calendar instead</button>.</div>}
+        {!pushFlag() && <div class="field-hint">{_t('With notifications off, reminders show as a card on Today when you open the app.')}{' '}<button class="link-btn" onClick={() => downloadBlob('vandenizar-reminders.ics', icsFile(), 'text/calendar', _t('Calendar file saved. Open it to add the daily alerts.'))}>{_t('Add them to your calendar instead')}</button>.</div>}
       </Group>
     </>
   );
@@ -269,18 +274,67 @@ function GeneralSection({ s }) {
   const standalone = typeof matchMedia !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
   return (
     <>
-      <Group title="Profile">
-        <Field label="Your name" htmlFor="s-name"><TextInput id="s-name" value={s.name} onInput={(v) => set({ name: v })} /></Field>
-        <Field label="Appearance"><Segmented options={[{ id: 'system', label: 'Match device' }, { id: 'light', label: 'Light' }, { id: 'dark', label: 'Dark' }]} value={theme} onChange={(v) => { setTheme(v); try { localStorage.setItem('vz:theme', v); } catch {} if (v === 'system') document.documentElement.removeAttribute('data-theme'); applyTheme(v); }} /></Field>
+      <Group title={_t('Profile')}>
+        <Field label={_t('Your name')} htmlFor="s-name"><TextInput id="s-name" value={s.name} onInput={(v) => set({ name: v })} /></Field>
+        <Field label={_t('Language')} hint={_t('Invoices and monthly PDFs stay in English.')}><Segmented class="full" options={[{ id: 'en', label: 'English' }, { id: 'id', label: 'Bahasa Indonesia' }]} value={_lang()} onChange={(v) => { set({ language: v }); try { localStorage.setItem('vz:lang', v); document.documentElement.lang = v; } catch {} notifyAll(); }} /></Field>
+        <Field label={_t('Appearance')}><Segmented options={[{ id: 'system', label: _t('Match device') }, { id: 'light', label: _t('Light') }, { id: 'dark', label: _t('Dark') }]} value={theme} onChange={(v) => { setTheme(v); try { localStorage.setItem('vz:theme', v); } catch {} if (v === 'system') document.documentElement.removeAttribute('data-theme'); applyTheme(v); }} /></Field>
       </Group>
-      <Group title="iPhone home screen">
-        {standalone ? <div class="row gap-8" style={{ fontSize: 14 }}><Icon name="check" size={18} style={{ color: 'var(--good)' }} /><span>You're using the installed app.</span></div> : (
+      <Group title={_t('iPhone home screen')}>
+        {standalone ? <div class="row gap-8" style={{ fontSize: 14 }}><Icon name="check" size={18} style={{ color: 'var(--good)' }} /><span>{_t('You\'re using the installed app.')}</span></div> : (
           <ol class="install-steps">
-            <li>Open this site in <b>Safari</b> on your iPhone.</li>
-            <li>Tap <b>Share</b> <Icon name="share" size={15} style={{ display: 'inline', verticalAlign: '-2px' }} />, then <b>Add to Home Screen</b>.</li>
-            <li>Open Vandenizar from the new icon and sign in.</li>
+            <li>{_t('Open this site in')}{' '}<b>{_t('Safari')}</b>{' '}{_t('on your iPhone.')}</li>
+            <li>{_t('Tap')}{' '}<b>{_t('Share')}</b> <Icon name="share" size={15} style={{ display: 'inline', verticalAlign: '-2px' }} />{_t(', then')}{' '}<b>{_t('Add to Home Screen')}</b>.</li>
+            <li>{_t('Open Vandenizar from the new icon and sign in.')}</li>
           </ol>
         )}
+      </Group>
+    </>
+  );
+}
+
+// Links that open one screen or form directly. Used by the iPhone Shortcuts app, Siri, Back Tap or the Action Button.
+const SHORTCUT_LINKS = () => [
+  { id: 'expense', icon: 'arrowUp', tone: 't-orange', label: _t('Add expense'), hash: '#/money?add=expense' },
+  { id: 'income', icon: 'arrowDown', tone: 't-green', label: _t('Add income'), hash: '#/money?add=income' },
+  { id: 'transfer', icon: 'swap', tone: 't-blue', label: _t('Transfer between accounts'), hash: '#/money?add=transfer' },
+  { id: 'task', icon: 'tasks', tone: 't-violet', label: _t('New task'), hash: '#/?add=task' },
+  { id: 'money', icon: 'wallet', tone: 't-green', label: _t('Money overview'), hash: '#/money' },
+  { id: 'today', icon: 'home', tone: 't-grey', label: _t('Today'), hash: '#/' },
+];
+function ShortcutsSection() {
+  const base = location.origin + location.pathname;
+  const standalone = typeof matchMedia !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+  return (
+    <>
+      <Group title={_t('1. Put the workspace on your Home Screen')}>
+        {standalone ? <div class="row gap-8" style={{ fontSize: 14 }}><Icon name="check" size={18} style={{ color: 'var(--good)' }} /><span>{_t('Done. You\'re using the installed app.')}</span></div> : (
+          <ol class="install-steps">
+            <li>{_t('Open this site in Safari on your iPhone.')}</li>
+            <li>{_t('Tap Share, then Add to Home Screen.')}</li>
+            <li>{_t('Open Vandenizar from the new icon and sign in. It works offline and syncs when you\'re back online.')}</li>
+          </ol>
+        )}
+      </Group>
+      <Group title={_t('2. Quick links')} hint={_t('Each link opens straight to a form or screen.')}>
+        <div class="list">
+          {SHORTCUT_LINKS().map((l) => (
+            <div class="list-row">
+              <span class={'mini-ic ' + l.tone}><Icon name={l.icon} size={16} /></span>
+              <div class="row-main"><div class="row-title">{l.label}</div><div class="row-meta sc-url">{base + l.hash}</div></div>
+              <button class="btn xs soft" onClick={() => copyText(base + l.hash, _t('Link copied'))}><Icon name="copy" size={14} />{_t('Copy')}</button>
+            </div>
+          ))}
+        </div>
+      </Group>
+      <Group title={_t('3. Make an iPhone shortcut')}>
+        <ol class="install-steps">
+          <li>{_t('Copy one of the links above.')}</li>
+          <li>{_t('Open the Shortcuts app, tap +, then Add Action. Search for Open URLs and paste the link.')}</li>
+          <li>{_t('Name it, for example “Add expense”. Tap Done.')}</li>
+          <li>{_t('To get an icon, open the shortcut menu and choose Add to Home Screen. You can also say “Hey Siri, Add expense”.')}</li>
+          <li>{_t('Optional: Settings → Accessibility → Touch → Back Tap, or the Action Button, and pick the shortcut.')}</li>
+        </ol>
+        <div class="field-hint" style={{ marginTop: 10 }}>{_t('Shortcuts open links in Safari, not in the Home Screen app. Sign in once in Safari and your data syncs between the two.')}</div>
       </Group>
     </>
   );
@@ -289,17 +343,17 @@ function GeneralSection({ s }) {
 function DailySection({ s }) {
   return (
     <>
-      <Group title="Task categories" hint="Tap a category to rename it. Renaming updates existing tasks.">
-        <ChipsEditor items={s.categories} min={1} placeholder="Add category" onChange={(v) => renameAware('categories', s.categories, v, (a, b) => all('tasks').filter((t) => t.category === a).forEach((t) => patch('tasks', t.id, { category: b })))} />
+      <Group title={_t('Task categories')} hint={_t('Tap a category to rename it. Renaming updates existing tasks.')}>
+        <ChipsEditor items={s.categories} min={1} placeholder={_t('Add category')} onChange={(v) => renameAware('categories', s.categories, v, (a, b) => all('tasks').filter((t) => t.category === a).forEach((t) => patch('tasks', t.id, { category: b })))} />
       </Group>
-      <Group title="Defaults">
+      <Group title={_t('Defaults')}>
         <div class="form-row">
-          <Field label="Default category" htmlFor="s-dcat"><Select id="s-dcat" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} options={s.categories} /></Field>
-          <Field label="Default priority" htmlFor="s-dprio"><Select id="s-dprio" value={s.defaultPriority} onChange={(v) => set({ defaultPriority: v })} options={M.PRIORITIES} /></Field>
+          <Field label={_t('Default category')} htmlFor="s-dcat"><Select id="s-dcat" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} options={s.categories} /></Field>
+          <Field label={_t('Default priority')} htmlFor="s-dprio"><Select id="s-dprio" value={s.defaultPriority} onChange={(v) => set({ defaultPriority: v })} options={M.PRIORITIES} /></Field>
         </div>
         <div class="form-row">
-          <Field label="Week starts on" htmlFor="s-ws"><Select id="s-ws" value={String(s.weekStart)} onChange={(v) => set({ weekStart: +v })} options={[{ id: '1', label: 'Monday' }, { id: '0', label: 'Sunday' }, { id: '6', label: 'Saturday' }]} /></Field>
-          <Field label="Weekly goal limit" htmlFor="s-gl"><NumberInput id="s-gl" value={s.weeklyGoalLimit} min={1} onChange={(v) => set({ weeklyGoalLimit: Math.max(1, +v || 1) })} /></Field>
+          <Field label={_t('Week starts on')} htmlFor="s-ws"><Select id="s-ws" value={String(s.weekStart)} onChange={(v) => set({ weekStart: +v })} options={[{ id: '1', label: _t('Monday') }, { id: '0', label: _t('Sunday') }, { id: '6', label: _t('Saturday') }]} /></Field>
+          <Field label={_t('Weekly goal limit')} htmlFor="s-gl"><NumberInput id="s-gl" value={s.weeklyGoalLimit} min={1} onChange={(v) => set({ weeklyGoalLimit: Math.max(1, +v || 1) })} /></Field>
         </div>
       </Group>
     </>
@@ -309,23 +363,23 @@ function DailySection({ s }) {
 function ContentSection({ s }) {
   return (
     <>
-      <Group title="Platforms" hint="Tap to rename. Renaming updates existing content.">
-        <ChipsEditor items={s.platforms} min={1} placeholder="Add platform" onChange={(v) => renameAware('platforms', s.platforms, v, (a, b) => all('contents').filter((x) => (x.platforms || []).includes(a)).forEach((x) => patch('contents', x.id, { platforms: x.platforms.map((p) => (p === a ? b : p)) })))} />
+      <Group title={_t('Platforms')} hint={_t('Tap to rename. Renaming updates existing content.')}>
+        <ChipsEditor items={s.platforms} min={1} placeholder={_t('Add platform')} onChange={(v) => renameAware('platforms', s.platforms, v, (a, b) => all('contents').filter((x) => (x.platforms || []).includes(a)).forEach((x) => patch('contents', x.id, { platforms: x.platforms.map((p) => (p === a ? b : p)) })))} />
       </Group>
-      <Group title="Content pillars">
-        <ChipsEditor items={s.pillars} placeholder="Add pillar" onChange={(v) => renameAware('pillars', s.pillars, v, (a, b) => all('contents').filter((x) => x.pillar === a).forEach((x) => patch('contents', x.id, { pillar: b })))} />
+      <Group title={_t('Content pillars')}>
+        <ChipsEditor items={s.pillars} placeholder={_t('Add pillar')} onChange={(v) => renameAware('pillars', s.pillars, v, (a, b) => all('contents').filter((x) => x.pillar === a).forEach((x) => patch('contents', x.id, { pillar: b })))} />
       </Group>
-      <Group title="Formats">
-        <ChipsEditor items={s.formats} placeholder="Add format" onChange={(v) => renameAware('formats', s.formats, v, (a, b) => all('contents').filter((x) => x.format === a).forEach((x) => patch('contents', x.id, { format: b })))} />
+      <Group title={_t('Formats')}>
+        <ChipsEditor items={s.formats} placeholder={_t('Add format')} onChange={(v) => renameAware('formats', s.formats, v, (a, b) => all('contents').filter((x) => x.format === a).forEach((x) => patch('contents', x.id, { format: b })))} />
       </Group>
-      <Group title="Threads" hint="Pillars for your Threads posts and how many you aim to post a day">
-        <ChipsEditor items={s.threadsPillars} placeholder="Add pillar" onChange={(v) => renameAware('threadsPillars', s.threadsPillars, v, (x, y) => all('threads').filter((t) => t.pillar === x).forEach((t) => patch('threads', t.id, { pillar: y })))} />
-        <Row label="Posts per day">
+      <Group title={_t('Threads')} hint={_t('Pillars for your Threads posts and how many you aim to post a day')}>
+        <ChipsEditor items={s.threadsPillars} placeholder={_t('Add pillar')} onChange={(v) => renameAware('threadsPillars', s.threadsPillars, v, (x, y) => all('threads').filter((t) => t.pillar === x).forEach((t) => patch('threads', t.id, { pillar: y })))} />
+        <Row label={_t('Posts per day')}>
           <div class="set-num"><NumberInput id="s-thd" value={s.threadsDaily} min={1} onChange={(v) => set({ threadsDaily: Math.max(1, +v || 1) })} /></div>
         </Row>
       </Group>
       <Group>
-        <Row label="Weekly upload target" hint="Shown on Content overview">
+        <Row label={_t('Weekly upload target')} hint={_t('Shown on Content overview')}>
           <div class="set-num"><NumberInput id="s-wt" value={s.weeklyTarget} min={0} onChange={(v) => set({ weeklyTarget: Math.max(0, +v || 0) })} /></div>
         </Row>
       </Group>
@@ -337,34 +391,34 @@ function FreelanceSection({ s }) {
   const setBiz = (ch) => M.setSettings({ business: { ...s.business, ...ch } });
   return (
     <>
-      <Group title="Business details" hint="Printed on your invoices">
+      <Group title={_t('Business details')} hint={_t('Printed on your invoices')}>
         <div class="form-row">
-          <Field label="Business name" htmlFor="s-biz"><TextInput id="s-biz" value={s.business.name} onInput={(v) => setBiz({ name: v })} /></Field>
-          <Field label="Your name" htmlFor="s-owner"><TextInput id="s-owner" value={s.business.owner} onInput={(v) => setBiz({ owner: v })} /></Field>
+          <Field label={_t('Business name')} htmlFor="s-biz"><TextInput id="s-biz" value={s.business.name} onInput={(v) => setBiz({ name: v })} /></Field>
+          <Field label={_t('Your name')} htmlFor="s-owner"><TextInput id="s-owner" value={s.business.owner} onInput={(v) => setBiz({ owner: v })} /></Field>
         </div>
         <div class="form-row">
-          <Field label="Email" htmlFor="s-bemail"><TextInput id="s-bemail" type="email" value={s.business.email} onInput={(v) => setBiz({ email: v })} /></Field>
-          <Field label="Phone / WhatsApp" htmlFor="s-bphone"><TextInput id="s-bphone" type="tel" value={s.business.phone} onInput={(v) => setBiz({ phone: v })} /></Field>
+          <Field label={_t('Email')} htmlFor="s-bemail"><TextInput id="s-bemail" type="email" value={s.business.email} onInput={(v) => setBiz({ email: v })} /></Field>
+          <Field label={_t('Phone / WhatsApp')} htmlFor="s-bphone"><TextInput id="s-bphone" type="tel" value={s.business.phone} onInput={(v) => setBiz({ phone: v })} /></Field>
         </div>
         <div class="form-row">
-          <Field label="Address" htmlFor="s-baddr"><TextInput id="s-baddr" value={s.business.address} onInput={(v) => setBiz({ address: v })} /></Field>
-          <Field label="Website / portfolio" htmlFor="s-bweb"><TextInput id="s-bweb" value={s.business.website} onInput={(v) => setBiz({ website: v })} /></Field>
+          <Field label={_t('Address')} htmlFor="s-baddr"><TextInput id="s-baddr" value={s.business.address} onInput={(v) => setBiz({ address: v })} /></Field>
+          <Field label={_t('Website / portfolio')} htmlFor="s-bweb"><TextInput id="s-bweb" value={s.business.website} onInput={(v) => setBiz({ website: v })} /></Field>
         </div>
       </Group>
-      <Group title="Invoices">
-        <Field label="Number format" htmlFor="s-ifmt" hint={<>Next number: <b>{M.nextInvoiceNumber().num}</b>. Use {'{YYYY}'}, {'{MM}'} and {'{####}'}.</>}><TextInput id="s-ifmt" value={s.invoiceFormat} onInput={(v) => set({ invoiceFormat: v })} /></Field>
+      <Group title={_t('Invoices')}>
+        <Field label={_t('Number format')} htmlFor="s-ifmt" hint={<>{_t('Next number:')}{' '}<b>{M.nextInvoiceNumber().num}</b>{_t('. Use')}{' '}{'{YYYY}'}, {'{MM}'}{' '}{_t('and')}{' '}{'{####}'}.</>}><TextInput id="s-ifmt" value={s.invoiceFormat} onInput={(v) => set({ invoiceFormat: v })} /></Field>
         <div class="form-row">
-          <Field label="Default currency" htmlFor="s-cur"><Select id="s-cur" value={s.defaultCurrency} onChange={(v) => set({ defaultCurrency: v })} options={Object.keys(CURRENCIES)} /></Field>
-          <Field label="Payment terms (days)" htmlFor="s-terms"><NumberInput id="s-terms" value={s.defaultTermsDays} onChange={(v) => set({ defaultTermsDays: Math.max(0, +v || 0) })} /></Field>
+          <Field label={_t('Default currency')} htmlFor="s-cur"><Select id="s-cur" value={s.defaultCurrency} onChange={(v) => set({ defaultCurrency: v })} options={Object.keys(CURRENCIES)} /></Field>
+          <Field label={_t('Payment terms (days)')} htmlFor="s-terms"><NumberInput id="s-terms" value={s.defaultTermsDays} onChange={(v) => set({ defaultTermsDays: Math.max(0, +v || 0) })} /></Field>
         </div>
-        <Field label="Payment instructions" htmlFor="s-payi" hint="Printed on new invoices."><TextArea id="s-payi" value={s.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder={'Bank BCA\nAccount name\nAccount number'} /></Field>
-        <Field label="Terms text" htmlFor="s-ttext"><TextArea id="s-ttext" value={s.defaultTermsText} onInput={(v) => set({ defaultTermsText: v })} /></Field>
+        <Field label={_t('Payment instructions')} htmlFor="s-payi" hint={_t('Printed on new invoices.')}><TextArea id="s-payi" value={s.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder={_t('Bank BCA\nAccount name\nAccount number')} /></Field>
+        <Field label={_t('Terms text')} htmlFor="s-ttext"><TextArea id="s-ttext" value={s.defaultTermsText} onInput={(v) => set({ defaultTermsText: v })} /></Field>
       </Group>
-      <Group title="Project types">
-        <ChipsEditor items={s.projectTypes} placeholder="Add type" onChange={(v) => renameAware('projectTypes', s.projectTypes, v, (a, b) => all('projects').filter((x) => x.type === a).forEach((x) => patch('projects', x.id, { type: b })))} />
+      <Group title={_t('Project types')}>
+        <ChipsEditor items={s.projectTypes} placeholder={_t('Add type')} onChange={(v) => renameAware('projectTypes', s.projectTypes, v, (a, b) => all('projects').filter((x) => x.type === a).forEach((x) => patch('projects', x.id, { type: b })))} />
       </Group>
-      <Group title="Default deliverables" hint="Added to every new project">
-        <ChipsEditor items={s.defaultDeliverables} placeholder="Add deliverable" onChange={(v) => set({ defaultDeliverables: v })} />
+      <Group title={_t('Default deliverables')} hint={_t('Added to every new project')}>
+        <ChipsEditor items={s.defaultDeliverables} placeholder={_t('Add deliverable')} onChange={(v) => set({ defaultDeliverables: v })} />
       </Group>
     </>
   );
@@ -383,20 +437,20 @@ function DriveSection() {
   const exports = Object.entries(M.meta('driveExports', {}).months || {}).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
   return (
     <>
-      <Group title="Connection">
-        <Row label={st.connected ? 'Connected' : busy ? 'Checking…' : 'Not connected'} hint={st.connected ? <>Monthly reviews are saved to <b>Daily Review / year / month</b> in {st.email || 'your'} Google Drive.</> : !sync.user ? 'Sign in first.' : (st.error || 'Google Drive is not connected yet.')}>
-          <span class={'badge sm ' + (st.connected ? 't-green' : 't-grey')}>{st.connected ? 'On' : 'Off'}</span>
+      <Group title={_t('Connection')}>
+        <Row label={st.connected ? _t('Connected') : busy ? _t('Checking…') : _t('Not connected')} hint={st.connected ? <>{_t('Monthly reviews are saved to')}{' '}<b>{_t('Daily Review / year / month')}</b>{' '}{_t('in')}{' '}{st.email || 'your'}{' '}{_t('Google Drive.')}</> : !sync.user ? _t('Sign in first.') : (st.error || _t('Google Drive is not connected yet.'))}>
+          <span class={'badge sm ' + (st.connected ? 't-green' : 't-grey')}>{st.connected ? _t('On') : _t('Off')}</span>
         </Row>
         <div class="row gap-8 wrap">
-          <button class="btn sm" disabled={busy || !sync.user} onClick={check}><Icon name="restore" size={15} />Check connection</button>
-          <a class="btn sm soft" href="#/review/monthly">Open monthly review</a>
+          <button class="btn sm" disabled={busy || !sync.user} onClick={check}><Icon name="restore" size={15} />{_t('Check connection')}</button>
+          <a class="btn sm soft" href="#/review/monthly">{_t('Open monthly review')}</a>
         </div>
       </Group>
       {exports.length > 0 && (
-        <Group title="Saved to Drive">
+        <Group title={_t('Saved to Drive')}>
           <div class="list">{exports.map(([m, x]) => (
             <a class="list-row clickable" href={x.url || '#/review/monthly?m=' + m} target={x.url ? '_blank' : undefined} rel="noopener">
-              <div class="row-main"><div class="row-title">{monthLabel(m)}</div><div class="row-meta">Saved {fmtAgo(x.at)}</div></div>
+              <div class="row-main"><div class="row-title">{monthLabel(m)}</div><div class="row-meta">{_t('Saved')}{' '}{fmtAgo(x.at)}</div></div>
               <Icon name="external" size={15} class="muted" />
             </a>
           ))}</div>
@@ -413,35 +467,35 @@ function DataSection() {
   const hasSample = M.liveTasks().some((t) => t.sample) || all('contents').some((x) => x.sample) || all('clients').some((x) => x.sample);
   const doExport = () => {
     const name = `vandenizar-backup-${today()}.json`;
-    downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', 'Backup saved: ' + name);
+    downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', _t('Backup saved: {0}', [name]));
   };
   const doImport = async (file) => {
     try {
       const json = JSON.parse(await file.text());
-      if (!(await confirmDialog({ title: 'Replace everything with this backup?', body: `Backup from ${json.exportedAt ? fmtShort(isoOf(Date.parse(json.exportedAt))) : 'unknown date'}. Data that isn't in the backup will be removed. Export first if you're unsure.`, confirmLabel: 'Restore backup', danger: true }))) return;
+      if (!(await confirmDialog({ title: _t('Replace everything with this backup?'), body: _t('Backup from {0}. Data that isn\'t in the backup will be removed. Export first if you\'re unsure.', [json.exportedAt ? fmtShort(isoOf(Date.parse(json.exportedAt))) : 'unknown date']), confirmLabel: _t('Restore backup'), danger: true }))) return;
       const ok = await importAll(json);
-      toast(ok ? 'Backup restored' : 'Restored in memory, but saving failed. Try again.', { tone: ok ? '' : 'warn' });
-    } catch (e) { toast(e.message || 'That file could not be read.', { tone: 'warn' }); }
+      toast(ok ? _t('Backup restored') : _t('Restored in memory, but saving failed. Try again.'), { tone: ok ? '' : 'warn' });
+    } catch (e) { toast(e.message || _t('That file could not be read.'), { tone: 'warn' }); }
   };
   return (
     <>
-      <Group title="Where your data lives">
-        <div style={{ fontSize: 14 }}>{sy.user ? <>Saved on this device and synced to <b>{sy.user.email}</b>.</> : 'Saved on this device only. Sign in to back it up.'}</div>
-        <div class="muted" style={{ fontSize: 13 }}>{c.tasks} tasks · {c.contents} content · {c.projects} projects · {c.clients} clients · {c.invoices} invoices · {c.dailyReviews} daily reviews</div>
+      <Group title={_t('Where your data lives')}>
+        <div style={{ fontSize: 14 }}>{sy.user ? <>{_t('Saved on this device and synced to')}{' '}<b>{sy.user.email}</b>.</> : _t('Saved on this device only. Sign in to back it up.')}</div>
+        <div class="muted" style={{ fontSize: 13 }}>{c.tasks}{' '}{_t('tasks ·')}{' '}{c.contents}{' '}{_t('content ·')}{' '}{c.projects}{' '}{_t('projects ·')}{' '}{c.clients}{' '}{_t('clients ·')}{' '}{c.invoices}{' '}{_t('invoices ·')}{' '}{c.dailyReviews}{' '}{_t('daily reviews')}</div>
       </Group>
-      <Group title="Backup file" hint="A JSON copy of everything, for safekeeping">
+      <Group title={_t('Backup file')} hint={_t('A JSON copy of everything, for safekeeping')}>
         <div class="row gap-8 wrap">
-          <button class="btn sm" onClick={doExport}><Icon name="download" size={15} />Export</button>
-          <button class="btn sm" onClick={() => fileRef.current.click()}><Icon name="upload" size={15} />Import</button>
-          <a class="btn sm" href="#/trash"><Icon name="trash" size={15} />Trash</a>
+          <button class="btn sm" onClick={doExport}><Icon name="download" size={15} />{_t('Export')}</button>
+          <button class="btn sm" onClick={() => fileRef.current.click()}><Icon name="upload" size={15} />{_t('Import')}</button>
+          <a class="btn sm" href="#/trash"><Icon name="trash" size={15} />{_t('Trash')}</a>
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; e.currentTarget.value = ''; if (f) doImport(f); }} />
         </div>
       </Group>
-      <Group title="Reset">
+      <Group title={_t('Reset')}>
         <div class="row gap-8 wrap">
-          {hasSample ? <button class="btn sm soft" onClick={async () => { if (await confirmDialog({ title: 'Remove sample data?', body: 'Only records created by "Load sample data" are removed. Your own entries stay.', confirmLabel: 'Remove sample data' })) { removeSampleData(); toast('Sample data removed'); } }}>Remove sample data</button>
-            : <button class="btn sm soft" onClick={() => { loadSampleData(); toast('Sample data loaded'); }}>Load sample data</button>}
-          <button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase everything?', body: 'All tasks, content, projects, clients, invoices, payments, reviews and settings are deleted on this device and, if you are signed in, in your account too. Export a backup first if you might need them.', confirmLabel: 'Erase all data', danger: true })) { await wipeAll(); toast('All data erased'); navigate('/'); } }}>Erase all data</button>
+          {hasSample ? <button class="btn sm soft" onClick={async () => { if (await confirmDialog({ title: _t('Remove sample data?'), body: _t('Only records created by "Load sample data" are removed. Your own entries stay.'), confirmLabel: _t('Remove sample data') })) { removeSampleData(); toast(_t('Sample data removed')); } }}>{_t('Remove sample data')}</button>
+            : <button class="btn sm soft" onClick={() => { loadSampleData(); toast(_t('Sample data loaded')); }}>{_t('Load sample data')}</button>}
+          <button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: _t('Erase everything?'), body: _t('All tasks, content, projects, clients, invoices, payments, reviews and settings are deleted on this device and, if you are signed in, in your account too. Export a backup first if you might need them.'), confirmLabel: _t('Erase all data'), danger: true })) { await wipeAll(); toast(_t('All data erased')); navigate('/'); } }}>{_t('Erase all data')}</button>
         </div>
       </Group>
     </>
@@ -454,41 +508,41 @@ export function TrashPage() {
   const contents = all('contents').filter((c) => c.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
   const tasks = all('tasks').filter((t) => t.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
   const forever = async (coll, rec, label) => {
-    if (!(await confirmDialog({ title: `Delete “${label}” forever?`, body: 'This cannot be undone.', confirmLabel: 'Delete forever', danger: true }))) return;
+    if (!(await confirmDialog({ title: _t('Delete “{0}” forever?', [label]), body: _t('This cannot be undone.'), confirmLabel: _t('Delete forever'), danger: true }))) return;
     if (coll === 'contents') all('tasks').filter((t) => t.contentId === rec.id).forEach((t) => patch('tasks', t.id, { contentId: '' }));
     remove(coll, rec.id);
-    toast('Deleted forever');
+    toast(_t('Deleted forever'));
   };
   const empty = async () => {
-    if (!(await confirmDialog({ title: 'Empty the trash?', body: `${contents.length + tasks.length} item(s) will be deleted forever.`, confirmLabel: 'Empty trash', danger: true }))) return;
+    if (!(await confirmDialog({ title: _t('Empty the trash?'), body: _t('{0} item(s) will be deleted forever.', [contents.length + tasks.length]), confirmLabel: _t('Empty trash'), danger: true }))) return;
     contents.forEach((c) => { all('tasks').filter((t) => t.contentId === c.id).forEach((t) => patch('tasks', t.id, { contentId: '' })); remove('contents', c.id); });
     tasks.forEach((t) => remove('tasks', t.id));
-    toast('Trash emptied');
+    toast(_t('Trash emptied'));
   };
   return (
     <div class="page narrow">
-      <PageHeader eyebrow="Workspace" title="Trash" actions={(contents.length + tasks.length) > 0 && <button class="btn danger-soft" onClick={empty}><Icon name="trash" size={16} />Empty trash</button>}>
-        <div class="muted" style={{ marginTop: 6 }}>Deleted content and tasks wait here. They don't count anywhere until restored.</div>
+      <PageHeader eyebrow={_t('Workspace')} title={_t('Trash')} actions={(contents.length + tasks.length) > 0 && <button class="btn danger-soft" onClick={empty}><Icon name="trash" size={16} />{_t('Empty trash')}</button>}>
+        <div class="muted" style={{ marginTop: 6 }}>{_t('Deleted content and tasks wait here. They don\'t count anywhere until restored.')}</div>
       </PageHeader>
-      {!contents.length && !tasks.length && <div class="card"><Empty icon="trash" title="Trash is empty" /></div>}
+      {!contents.length && !tasks.length && <div class="card"><Empty icon="trash" title={_t('Trash is empty')} /></div>}
       {contents.length > 0 && (
-        <div class="card"><div class="card-head"><div class="card-title">Content <span class="count">{contents.length}</span></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">{_t('Content')}{' '}<span class="count">{contents.length}</span></div></div>
           <div class="list">{contents.map((c) => (
             <div class="list-row">
-              <div class="row-main"><div class="row-title">{c.title}</div><div class="row-meta">Deleted {fmtAgo(c.deletedAt)}</div></div>
+              <div class="row-main"><div class="row-title">{c.title}</div><div class="row-meta">{_t('Deleted')}{' '}{fmtAgo(c.deletedAt)}</div></div>
               <ContentBadge status={c.status} sm />
-              <button class="btn xs soft" onClick={() => { patch('contents', c.id, { deletedAt: null }); toast('Restored'); }}>Restore</button>
-              <button class="icon-btn ghost sm" aria-label="Delete forever" onClick={() => forever('contents', c, c.title)}><Icon name="trash" size={15} /></button>
+              <button class="btn xs soft" onClick={() => { patch('contents', c.id, { deletedAt: null }); toast(_t('Restored')); }}>{_t('Restore')}</button>
+              <button class="icon-btn ghost sm" aria-label={_t('Delete forever')} onClick={() => forever('contents', c, c.title)}><Icon name="trash" size={15} /></button>
             </div>))}</div>
         </div>
       )}
       {tasks.length > 0 && (
-        <div class="card"><div class="card-head"><div class="card-title">Tasks <span class="count">{tasks.length}</span></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">{_t('Tasks')}{' '}<span class="count">{tasks.length}</span></div></div>
           <div class="list">{tasks.map((t) => (
             <div class="list-row">
-              <div class="row-main"><div class="row-title">{t.title}</div><div class="row-meta">Deleted {fmtAgo(t.deletedAt)}</div></div>
-              <button class="btn xs soft" onClick={() => { patch('tasks', t.id, { deletedAt: null }); toast('Restored'); }}>Restore</button>
-              <button class="icon-btn ghost sm" aria-label="Delete forever" onClick={() => forever('tasks', t, t.title)}><Icon name="trash" size={15} /></button>
+              <div class="row-main"><div class="row-title">{t.title}</div><div class="row-meta">{_t('Deleted')}{' '}{fmtAgo(t.deletedAt)}</div></div>
+              <button class="btn xs soft" onClick={() => { patch('tasks', t.id, { deletedAt: null }); toast(_t('Restored')); }}>{_t('Restore')}</button>
+              <button class="icon-btn ghost sm" aria-label={_t('Delete forever')} onClick={() => forever('tasks', t, t.title)}><Icon name="trash" size={15} /></button>
             </div>))}</div>
         </div>
       )}
@@ -574,7 +628,7 @@ export function syncLabel(s = sync) {
   if (s.status === 'syncing') return 'Syncing…';
   if (s.status === 'offline') return 'Offline, will sync later';
   if (s.status === 'error') return 'Sync paused';
-  return s.lastSyncAt ? 'Synced ' + fmtAgo(s.lastSyncAt) : 'Synced';
+  return s.lastSyncAt ? _t('Synced {0}', [fmtAgo(s.lastSyncAt)]) : _t('Synced');
 }
 function AccountCard() {
   const s = useSync();
@@ -587,34 +641,34 @@ function AccountCard() {
   const run = async (fn) => { setBusy(true); setMsg(''); try { await fn(); } catch (e) { setMsg(friendly(e)); } finally { setBusy(false); } };
   if (s.user) return (
     <div class="card set-card" id="account"><div class="set-group">
-      <div class="row between gap-8"><div style={{ fontSize: 14, minWidth: 0 }}>Signed in as <b class="ellipsis">{s.user.email}</b></div><span class={'badge sm ' + (s.status === 'error' ? 't-red' : s.status === 'synced' ? 't-green' : 't-grey')}>{syncLabel(s)}</span></div>
-      <div class="muted" style={{ fontSize: 13.5 }}>Changes save on this device first, then sync so your iPhone and laptop show the same data.</div>
-      {s.status === 'error' && <div class="banner"><Icon name="alert" size={18} /><div>{s.error}. Your changes are safe on this device and will sync when this clears.</div></div>}
+      <div class="row between gap-8"><div style={{ fontSize: 14, minWidth: 0 }}>{_t('Signed in as')}{' '}<b class="ellipsis">{s.user.email}</b></div><span class={'badge sm ' + (s.status === 'error' ? 't-red' : s.status === 'synced' ? 't-green' : 't-grey')}>{syncLabel(s)}</span></div>
+      <div class="muted" style={{ fontSize: 13.5 }}>{_t('Changes save on this device first, then sync so your iPhone and laptop show the same data.')}</div>
+      {s.status === 'error' && <div class="banner"><Icon name="alert" size={18} /><div>{s.error}{_t('. Your changes are safe on this device and will sync when this clears.')}</div></div>}
       {s.recovery && (
         <div class="form">
-          <Field label="Set a new password" htmlFor="acc-newpw"><TextInput id="acc-newpw" type="password" value={newPw} onInput={setNewPw} placeholder="At least 8 characters" /></Field>
-          <button class="btn primary" style={{ alignSelf: 'flex-start' }} disabled={busy || newPw.length < 8} onClick={() => run(async () => { await updatePassword(newPw); sync.recovery = false; setNewPw(''); toast('Password updated'); })}>Save new password</button>
+          <Field label={_t('Set a new password')} htmlFor="acc-newpw"><TextInput id="acc-newpw" type="password" value={newPw} onInput={setNewPw} placeholder={_t('At least 8 characters')} /></Field>
+          <button class="btn primary" style={{ alignSelf: 'flex-start' }} disabled={busy || newPw.length < 8} onClick={() => run(async () => { await updatePassword(newPw); sync.recovery = false; setNewPw(''); toast(_t('Password updated')); })}>{_t('Save new password')}</button>
         </div>
       )}
       <div class="row gap-8 wrap">
-        <button class="btn" disabled={s.status === 'syncing'} onClick={() => syncNow()}><Icon name="restore" size={16} />Sync now</button>
-        <button class="btn ghost" onClick={async () => { if (await confirmDialog({ title: 'Sign out?', body: 'Your data stays on this device and in your account. Sign back in any time to keep syncing.', confirmLabel: 'Sign out' })) { await signOut(); toast('Signed out'); } }}>Sign out</button>
+        <button class="btn" disabled={s.status === 'syncing'} onClick={() => syncNow()}><Icon name="restore" size={16} />{_t('Sync now')}</button>
+        <button class="btn ghost" onClick={async () => { if (await confirmDialog({ title: _t('Sign out?'), body: _t('Your data stays on this device and in your account. Sign back in any time to keep syncing.'), confirmLabel: _t('Sign out') })) { await signOut(); toast(_t('Signed out')); } }}>{_t('Sign out')}</button>
       </div>
       {msg && <div class="field-hint" style={{ color: 'var(--bad)' }}>{msg}</div>}
     </div></div>
   );
   return (
     <div class="card set-card" id="account"><div class="set-group">
-      <div class="muted" style={{ fontSize: 14 }}>Sign in to sync your workspace between your iPhone and laptop.</div>
+      <div class="muted" style={{ fontSize: 14 }}>{_t('Sign in to sync your workspace between your iPhone and laptop.')}</div>
       <form class="form" onSubmit={(e) => { e.preventDefault(); run(async () => {
-        if (mode === 'signin') { await signIn(email, pw); toast('Signed in. Syncing your data…'); }
-        else { const r = await signUp(email, pw); if (r.needsConfirm) setMsg('Check your email and tap the confirmation link, then sign in here.'); else toast('Account created. Syncing your data…'); }
+        if (mode === 'signin') { await signIn(email, pw); toast(_t('Signed in. Syncing your data…')); }
+        else { const r = await signUp(email, pw); if (r.needsConfirm) setMsg('Check your email and tap the confirmation link, then sign in here.'); else toast(_t('Account created. Syncing your data…')); }
       }); }}>
-        <Field label="Email" htmlFor="acc-email"><TextInput id="acc-email" type="email" inputMode="email" value={email} onInput={setEmail} placeholder="you@email.com" /></Field>
-        <Field label="Password" htmlFor="acc-pw" hint={mode === 'signup' ? 'At least 8 characters.' : null}><TextInput id="acc-pw" type="password" value={pw} onInput={setPw} /></Field>
+        <Field label={_t('Email')} htmlFor="acc-email"><TextInput id="acc-email" type="email" inputMode="email" value={email} onInput={setEmail} placeholder={_t('you@email.com')} /></Field>
+        <Field label={_t('Password')} htmlFor="acc-pw" hint={mode === 'signup' ? _t('At least 8 characters.') : null}><TextInput id="acc-pw" type="password" value={pw} onInput={setPw} /></Field>
         <div class="row gap-8 wrap">
-          <button class="btn primary" type="submit" disabled={busy || !email || pw.length < (mode === 'signup' ? 8 : 1)}>{busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button>
-          {mode === 'signin' && <button class="btn ghost" type="button" disabled={busy || !email} onClick={() => run(async () => { await resetPassword(email); setMsg('If that email has an account, a reset link is on its way.'); })}>Forgot password</button>}
+          <button class="btn primary" type="submit" disabled={busy || !email || pw.length < (mode === 'signup' ? 8 : 1)}>{busy ? _t('Please wait…') : mode === 'signin' ? _t('Sign in') : _t('Create account')}</button>
+          {mode === 'signin' && <button class="btn ghost" type="button" disabled={busy || !email} onClick={() => run(async () => { await resetPassword(email); setMsg('If that email has an account, a reset link is on its way.'); })}>{_t('Forgot password')}</button>}
         </div>
       </form>
       {msg && <div class="field-hint" style={{ color: msg.startsWith('Check') || msg.startsWith('If') ? 'var(--ink-2)' : 'var(--bad)' }}>{msg}</div>}

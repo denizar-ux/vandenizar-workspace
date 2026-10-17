@@ -19,6 +19,7 @@ import { htmlToText } from './ui/kit.jsx';
 import { MoneyOverview, MoneyHistory, MoneyBudget, MoneyAccounts, MoneyDebts, MoneyInsights, openTx, rp as moneyRp } from './pages/money.jsx';
 import * as $ from './lib/money-data.js';
 import { t } from './lib/i18n.js';
+import { t as _t, tn as _tn } from './lib/i18n.js';
 
 export function App() {
   useStore();
@@ -114,15 +115,15 @@ export function App() {
 }
 
 function NotFound() {
-  return <div class="page"><div class="card"><div class="empty"><div class="empty-title">This page moved or no longer exists</div><a class="btn primary" href="#/">Go to Today</a></div></div></div>;
+  return <div class="page"><div class="card"><div class="empty"><div class="empty-title">{_t('This page moved or no longer exists')}</div><a class="btn primary" href="#/">{_t('Go to Today')}</a></div></div></div>;
 }
 
 function SaveBanner() {
   if (persist.status !== 'error') return null;
   return (
     <div class="page" style={{ marginBottom: 14 }}>
-      <div class="banner"><Icon name="alert" size={18} /><div class="grow"><b>Changes are not saved yet.</b> {persist.error} {persist.mode !== 'memory' && 'Your edits are kept in this tab. Try again, or export a backup from Settings.'}</div>
-        {persist.mode !== 'memory' && <button class="btn sm" onClick={async () => { const ok = await flush(); toast(ok ? 'Saved' : 'Still failing. Export a backup from Settings.', { tone: ok ? '' : 'warn' }); }}>Retry</button>}</div>
+      <div class="banner"><Icon name="alert" size={18} /><div class="grow"><b>{_t('Changes are not saved yet.')}</b> {persist.error} {persist.mode !== 'memory' && _t('Your edits are kept in this tab. Try again, or export a backup from Settings.')}</div>
+        {persist.mode !== 'memory' && <button class="btn sm" onClick={async () => { const ok = await flush(); toast(ok ? _t('Saved') : _t('Still failing. Export a backup from Settings.'), { tone: ok ? '' : 'warn' }); }}>{_t('Retry')}</button>}</div>
     </div>
   );
 }
@@ -138,21 +139,21 @@ function FocusBar() {
       <div class="focusbar" role="status">
         <span class="pulse" />
         <div class="grow" style={{ minWidth: 0 }} onClick={() => openTaskSheet(t.id)}>
-          <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700 }}>Focusing · <span class="timer">{fmtDuration(Date.now() - t.focusStartedAt)}</span></div>
+          <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 700 }}>{_t('Focusing ·')}{' '}<span class="timer">{fmtDuration(Date.now() - t.focusStartedAt)}</span></div>
           <div class="ellipsis" style={{ fontWeight: 800 }}>{t.title}</div>
         </div>
-        <button class="btn sm" onClick={() => { M.stopFocus(); toast('Focus paused'); }}>Pause</button>
-        <button class="btn sm accent" onClick={() => { M.completeTask(t.id); toast('Nice. Task done.'); }}><Icon name="check" size={16} />Done</button>
+        <button class="btn sm" onClick={() => { M.stopFocus(); toast(_t('Focus paused')); }}>{_t('Pause')}</button>
+        <button class="btn sm accent" onClick={() => { M.completeTask(t.id); toast(_t('Nice. Task done.')); }}><Icon name="check" size={16} />{_t('Done')}</button>
       </div>
     </div>
   );
 }
 
 const SIDE = [
-  { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' }, { id: 'habits', label: 'Habits', icon: 'habit', path: '/habits' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
-  { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', icon: 'at', path: '/content/threads' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
-  { group: 'Money', key: 'money', items: [{ id: 'overview', label: 'Overview', icon: 'wallet', path: '/money' }, { id: 'history', label: 'History', icon: 'calendar', path: '/money/history' }, { id: 'budget', label: 'Budget', icon: 'target', path: '/money/budget' }, { id: 'accounts', label: 'Accounts', icon: 'card', path: '/money/accounts' }, { id: 'debts', label: 'Debts', icon: 'handshake', path: '/money/debts' }, { id: 'insights', label: 'Insights', icon: 'pie', path: '/money/insights' }] },
-  { group: 'Freelance OS', key: 'freelance', items: [{ id: 'overview', label: 'Overview', icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', icon: 'video', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', icon: 'users', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', icon: 'file', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', icon: 'template', path: '/freelance/templates' }] },
+  { get group() { return _t('Daily'); }, items: [{ id: 'today', get label() { return _t('Today'); }, icon: 'home', path: '/' }, { id: 'tasks', get label() { return _t('Tasks'); }, icon: 'tasks', path: '/tasks' }, { id: 'calendar', get label() { return _t('Calendar'); }, icon: 'calendar', path: '/calendar' }, { id: 'habits', get label() { return _t('Habits'); }, icon: 'habit', path: '/habits' }, { id: 'goals', get label() { return _t('Goals'); }, icon: 'target', path: '/goals' }, { id: 'review', get label() { return _t('Review'); }, icon: 'review', path: '/review' }] },
+  { get group() { return _t('Content OS'); }, key: 'content', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'spark', path: '/content' }, { id: 'board', get label() { return _t('Content board'); }, icon: 'kanban', path: '/content/board' }, { id: 'calendar', get label() { return _t('Calendar'); }, icon: 'calendar', path: '/content/calendar' }, { id: 'threads', get label() { return _t('Threads'); }, icon: 'at', path: '/content/threads' }, { id: 'resources', get label() { return _t('Resources'); }, icon: 'link', path: '/content/resources' }] },
+  { get group() { return _t('Money'); }, key: 'money', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'wallet', path: '/money' }, { id: 'history', get label() { return _t('History'); }, icon: 'calendar', path: '/money/history' }, { id: 'budget', get label() { return _t('Budget'); }, icon: 'target', path: '/money/budget' }, { id: 'accounts', get label() { return _t('Accounts'); }, icon: 'card', path: '/money/accounts' }, { id: 'debts', get label() { return _t('Debts'); }, icon: 'handshake', path: '/money/debts' }, { id: 'insights', get label() { return _t('Insights'); }, icon: 'pie', path: '/money/insights' }] },
+  { get group() { return _t('Freelance OS'); }, key: 'freelance', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', get label() { return _t('Pipeline'); }, icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', get label() { return _t('Projects'); }, icon: 'video', path: '/freelance/projects' }, { id: 'clients', get label() { return _t('Clients'); }, icon: 'users', path: '/freelance/clients' }, { id: 'invoices', get label() { return _t('Invoices'); }, icon: 'file', path: '/freelance/invoices' }, { id: 'finance', get label() { return _t('Finance'); }, icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', get label() { return _t('Templates'); }, icon: 'template', path: '/freelance/templates' }] },
 ];
 
 function Sidebar({ section, sub }) {
@@ -161,11 +162,11 @@ function Sidebar({ section, sub }) {
   const overdueInv = M.liveInvoices().filter((i) => !i.archived && M.calcInvoice(i).status === 'overdue').length;
   const isOn = (g, it) => (g.key ? section === g.key : section === 'today') && sub === it.id;
   return (
-    <aside class="sidebar" aria-label="Main navigation">
-      <div class="brand"><div class="brand-mark"><Icon name="calCheck" size={20} stroke={2.2} /></div><div><div class="brand-name">Vandenizar</div><div class="brand-sub">Creator workspace</div></div></div>
+    <aside class="sidebar" aria-label={_t('Main navigation')}>
+      <div class="brand"><div class="brand-mark"><Icon name="calCheck" size={20} stroke={2.2} /></div><div><div class="brand-name">{_t('Vandenizar')}</div><div class="brand-sub">{_t('Creator workspace')}</div></div></div>
       <div class="row gap-6 side-new">
-        <button class="btn primary grow" onClick={openQuickAdd}><Icon name="plus" size={18} />New</button>
-        <button class="icon-btn soft" onClick={openSearch} aria-label="Search" title="Search (⌘K)"><Icon name="search" size={18} /></button>
+        <button class="btn primary grow" onClick={openQuickAdd}><Icon name="plus" size={18} />{_t('New')}</button>
+        <button class="icon-btn soft" onClick={openSearch} aria-label={_t('Search')} title={_t('Search (⌘K)')}><Icon name="search" size={18} /></button>
       </div>
       {SIDE.map((g) => (
         <div class="side-group">
@@ -180,10 +181,10 @@ function Sidebar({ section, sub }) {
         </div>
       ))}
       <div class="side-foot">
-        <a href="#/trash" class={'side-link ' + (section === 'settings' && location.hash.includes('trash') ? 'on' : '')}><Icon name="trash" size={18} />Trash</a>
-        <a href="#/settings" class={'side-link ' + (section === 'settings' && !location.hash.includes('trash') ? 'on' : '')}><Icon name="settings" size={18} />Settings</a>
+        <a href="#/trash" class={'side-link ' + (section === 'settings' && location.hash.includes('trash') ? 'on' : '')}><Icon name="trash" size={18} />{_t('Trash')}</a>
+        <a href="#/settings" class={'side-link ' + (section === 'settings' && !location.hash.includes('trash') ? 'on' : '')}><Icon name="settings" size={18} />{_t('Settings')}</a>
         <SaveState />
-        <div class="save-state" style={{ paddingTop: 0 }}>{s.name} · <span class="kbd">⌘K</span> search · <span class="kbd">N</span> new</div>
+        <div class="save-state" style={{ paddingTop: 0 }}>{s.name} · <span class="kbd">{_t('⌘K')}</span>{' '}{_t('search ·')}{' '}<span class="kbd">{_t('N')}</span>{' '}{_t('new')}</div>
       </div>
     </aside>
   );
@@ -201,23 +202,23 @@ function UpdateBanner() {
   if (!v) return null;
   return (
     <div class="update-pill" role="status">
-      <Icon name="spark" size={16} /><span>New version ready</span>
-      <button class="btn xs primary" disabled={busy} onClick={() => { setBusy(true); applyUpdate(); }}>{busy ? 'Updating…' : 'Update'}</button>
+      <Icon name="spark" size={16} /><span>{_t('New version ready')}</span>
+      <button class="btn xs primary" disabled={busy} onClick={() => { setBusy(true); applyUpdate(); }}>{busy ? _t('Updating…') : _t('Update')}</button>
     </div>
   );
 }
 
 function BottomNav({ section }) {
   const tabs = [
-    { id: 'daily', label: 'Daily', icon: 'calCheck', path: '/', on: section === 'today' },
-    { id: 'content', label: 'Content', icon: 'video', path: '/content', on: section === 'content' },
-    { id: 'freelance', label: 'Freelance', icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
-    { id: 'money', label: 'Money', icon: 'wallet', path: '/money', on: section === 'money' },
-    { id: 'search', label: 'Search', icon: 'search', action: openSearch, on: false },
+    { id: 'daily', label: _t('Daily'), icon: 'calCheck', path: '/', on: section === 'today' },
+    { id: 'content', label: _t('Content'), icon: 'video', path: '/content', on: section === 'content' },
+    { id: 'freelance', label: _t('Freelance'), icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
+    { id: 'money', label: _t('Money'), icon: 'wallet', path: '/money', on: section === 'money' },
+    { id: 'search', label: _t('Search'), icon: 'search', action: openSearch, on: false },
   ];
   const idx = tabs.findIndex((t) => t.on);
   return (
-    <nav class="bottom" aria-label="Main navigation">
+    <nav class="bottom" aria-label={_t('Main navigation')}>
       <div class="tabbar lg">
         {/* liquid lens: slides to the active tab, the inner drop stretches on each move */}
         <span class={'dock-lens' + (idx < 0 ? ' off' : '')} style={{ transform: `translateX(${Math.max(0, idx) * 100}%)` }} aria-hidden="true"><i key={idx} /></span>
@@ -257,7 +258,7 @@ function Fab({ path }) {
     <>
       <div class={'fab-scrim' + (open ? ' on' : '')} onClick={() => setOpen(false)} aria-hidden="true" />
       <div class={'fab-wrap' + (open ? ' open' : '') + (hidden ? ' gone' : '')}>
-        <div class="fab-menu" role="menu" aria-hidden={!open} aria-label="Create">
+        <div class="fab-menu" role="menu" aria-hidden={!open} aria-label={_t('Create')}>
           {createActions().map((a, i) => (
             <button class="fab-item" role="menuitem" style={{ '--i': i }} tabIndex={open ? 0 : -1} onClick={() => run(a.run)}>
               <span class={'mini-ic ' + a.tone}><Icon name={a.icon} size={18} /></span>
@@ -265,7 +266,7 @@ function Fab({ path }) {
             </button>
           ))}
         </div>
-        <button class="fab" aria-label={open ? 'Close create menu' : 'Create new'} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <button class="fab" aria-label={open ? _t('Close create menu') : _t('Create new')} aria-expanded={open} onClick={() => setOpen(!open)}>
           <Icon name={open ? 'x' : 'plus'} size={open ? 24 : 26} stroke={2.3} />
         </button>
       </div>
@@ -279,21 +280,21 @@ export function openQuickAdd() {
 }
 export function createActions() {
   return [
-    { label: 'Task', sub: 'Today or later', icon: 'tasks', tone: 't-blue', run: () => openTaskSheet(null, { dueDate: today() }) },
-    { label: 'Expense', sub: 'Or income, transfer', icon: 'wallet', tone: 't-orange', run: () => openTx({ type: 'expense' }) },
-    { label: 'Content', sub: 'New idea in Content OS', icon: 'video', tone: 't-violet', run: () => createContentAndOpen({}) },
-    { label: 'Threads post', sub: 'Add to today', icon: 'at', tone: 't-grey', run: () => { navigate('/content/threads'); setTimeout(() => { const el = document.querySelector('.th-composer textarea'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 250); } },
-    { label: 'Project', sub: 'Freelance job or lead', icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
-    { label: 'Client', sub: 'Brand or contact', icon: 'users', tone: 't-pink', run: () => openClientSheet() },
-    { label: 'Invoice', sub: 'Bill a client', icon: 'file', tone: 't-green', run: () => createInvoiceAndOpen({}) },
-    { label: 'Habit', sub: 'Daily or weekly', icon: 'habit', tone: 't-green', run: () => navigate('/habits?new=1') },
-    { label: 'Goal', sub: 'Weekly or monthly', icon: 'target', tone: 't-yellow', run: () => navigate('/goals?new=1') },
+    { label: _t('Task'), sub: _t('Today or later'), icon: 'tasks', tone: 't-blue', run: () => openTaskSheet(null, { dueDate: today() }) },
+    { label: _t('Expense'), sub: _t('Or income, transfer'), icon: 'wallet', tone: 't-orange', run: () => openTx({ type: 'expense' }) },
+    { label: _t('Content'), sub: _t('New idea in Content OS'), icon: 'video', tone: 't-violet', run: () => createContentAndOpen({}) },
+    { label: _t('Threads post'), sub: _t('Add to today'), icon: 'at', tone: 't-grey', run: () => { navigate('/content/threads'); setTimeout(() => { const el = document.querySelector('.th-composer textarea'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 250); } },
+    { label: _t('Project'), sub: _t('Freelance job or lead'), icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
+    { label: _t('Client'), sub: _t('Brand or contact'), icon: 'users', tone: 't-pink', run: () => openClientSheet() },
+    { label: _t('Invoice'), sub: _t('Bill a client'), icon: 'file', tone: 't-green', run: () => createInvoiceAndOpen({}) },
+    { label: _t('Habit'), sub: _t('Daily or weekly'), icon: 'habit', tone: 't-green', run: () => navigate('/habits?new=1') },
+    { label: _t('Goal'), sub: _t('Weekly or monthly'), icon: 'target', tone: 't-yellow', run: () => navigate('/goals?new=1') },
   ];
 }
 function QuickAdd({ close }) {
   return (
     <>
-      <SheetHead title="Create" onClose={close} />
+      <SheetHead title={_t('Create')} onClose={close} />
       <SheetBody>
         <div class="qa-grid">
           {createActions().map((a) => (
@@ -322,28 +323,28 @@ function Search({ close }) {
     const projects = M.liveProjects().filter((p) => has(p.name, p.type, p.location, (p.tags || []).join(' '), M.clientName(p.clientId))).slice(0, 8);
     const clients = M.liveClients().filter((c) => has(c.name, c.pic, c.email, c.phone)).slice(0, 8);
     const invoices = M.liveInvoices().filter((i) => has(i.number, M.clientName(i.clientId), (i.items || []).map((x) => x.desc).join(' '))).slice(0, 8);
-    if (tasks.length) groups.push({ label: 'Tasks', rows: tasks.map((t) => ({ key: t.id, icon: 'tasks', title: t.title, meta: [t.dueDate ? relDay(t.dueDate) : 'Inbox', t.category, M.TASK_STATUSES.find((s) => s.id === t.status)?.label].filter(Boolean).join(' · '), run: () => { close(); openTaskSheet(t.id); } })) });
-    if (content.length) groups.push({ label: 'Content', rows: content.map((c) => ({ key: c.id, icon: 'video', title: c.title, meta: [c.pillar, (c.platforms || []).join(', ')].filter(Boolean).join(' · '), badge: <ContentBadge status={c.status} sm />, run: () => go('/content/item/' + c.id) })) });
-    if (projects.length) groups.push({ label: 'Projects', rows: projects.map((p) => ({ key: p.id, icon: 'briefcase', title: p.name, meta: M.clientName(p.clientId) + (p.archived ? ' · Archived' : ''), badge: <StageBadge stage={p.stage} sm />, run: () => go('/freelance/projects/' + p.id) })) });
-    if (clients.length) groups.push({ label: 'Clients', rows: clients.map((c) => ({ key: c.id, icon: 'users', title: c.name, meta: [c.pic, c.archived ? 'Archived' : ''].filter(Boolean).join(' · '), run: () => go('/freelance/clients/' + c.id) })) });
+    if (tasks.length) groups.push({ label: _t('Tasks'), rows: tasks.map((t) => ({ key: t.id, icon: 'tasks', title: t.title, meta: [t.dueDate ? relDay(t.dueDate) : 'Inbox', t.category, M.TASK_STATUSES.find((s) => s.id === t.status)?.label].filter(Boolean).join(' · '), run: () => { close(); openTaskSheet(t.id); } })) });
+    if (content.length) groups.push({ label: _t('Content'), rows: content.map((c) => ({ key: c.id, icon: 'video', title: c.title, meta: [c.pillar, (c.platforms || []).join(', ')].filter(Boolean).join(' · '), badge: <ContentBadge status={c.status} sm />, run: () => go('/content/item/' + c.id) })) });
+    if (projects.length) groups.push({ label: _t('Projects'), rows: projects.map((p) => ({ key: p.id, icon: 'briefcase', title: p.name, meta: M.clientName(p.clientId) + (p.archived ? ' · Archived' : ''), badge: <StageBadge stage={p.stage} sm />, run: () => go('/freelance/projects/' + p.id) })) });
+    if (clients.length) groups.push({ label: _t('Clients'), rows: clients.map((c) => ({ key: c.id, icon: 'users', title: c.name, meta: [c.pic, c.archived ? 'Archived' : ''].filter(Boolean).join(' · '), run: () => go('/freelance/clients/' + c.id) })) });
     const posts = M.liveThreads().filter((t) => has(t.text, t.pillar)).slice(0, 6);
-    if (posts.length) groups.push({ label: 'Threads', rows: posts.map((t) => ({ key: t.id, icon: 'at', title: t.text.length > 90 ? t.text.slice(0, 90) + '…' : t.text, meta: [t.date ? relDay(t.date) + (t.time ? ' ' + t.time : '') : 'Idea', t.pillar, t.status === 'posted' ? 'Posted' : ''].filter(Boolean).join(' · '), run: () => go(t.date ? '/content/threads?d=' + t.date : '/content/threads?view=ideas') })) });
+    if (posts.length) groups.push({ label: _t('Threads'), rows: posts.map((t) => ({ key: t.id, icon: 'at', title: t.text.length > 90 ? t.text.slice(0, 90) + '…' : t.text, meta: [t.date ? relDay(t.date) + (t.time ? ' ' + t.time : '') : 'Idea', t.pillar, t.status === 'posted' ? 'Posted' : ''].filter(Boolean).join(' · '), run: () => go(t.date ? '/content/threads?d=' + t.date : '/content/threads?view=ideas') })) });
     const money = $.txSorted().filter((x) => (x.type === 'expense' || x.type === 'income' || x.type === 'transfer') && has(x.note, $.catLabel(x.catId), String(x.amount))).slice(0, 8);
-    if (money.length) groups.push({ label: 'Money', rows: money.map((x) => ({ key: x.id, icon: 'wallet', title: x.note || $.catLabel(x.catId) || 'Transfer', meta: `${relDay(x.date)} · ${x.type === 'expense' ? '−' : x.type === 'income' ? '+' : ''}${moneyRp(x.amount)}`, run: () => { close(); openTx({ tx: x }); } })) });
-    if (invoices.length) groups.push({ label: 'Invoices', rows: invoices.map((i) => { const c = M.calcInvoice(i); return { key: i.id, icon: 'file', title: i.number, meta: `${M.clientName(i.clientId)} · ${fmtMoney(c.total, i.currency)}`, badge: <InvoiceBadge status={c.status} sm />, run: () => go('/freelance/invoices/' + i.id) }; }) });
+    if (money.length) groups.push({ label: _t('Money'), rows: money.map((x) => ({ key: x.id, icon: 'wallet', title: x.note || $.catLabel(x.catId) || 'Transfer', meta: `${relDay(x.date)} · ${x.type === 'expense' ? '−' : x.type === 'income' ? '+' : ''}${moneyRp(x.amount)}`, run: () => { close(); openTx({ tx: x }); } })) });
+    if (invoices.length) groups.push({ label: _t('Invoices'), rows: invoices.map((i) => { const c = M.calcInvoice(i); return { key: i.id, icon: 'file', title: i.number, meta: `${M.clientName(i.clientId)} · ${fmtMoney(c.total, i.currency)}`, badge: <InvoiceBadge status={c.status} sm />, run: () => go('/freelance/invoices/' + i.id) }; }) });
   }
   const recent = (M.meta('recent', { items: [] }).items || []).map(recentRow).filter(Boolean).slice(0, 6);
   return (
     <>
-      <SheetHead title="Search" onClose={close} />
+      <SheetHead title={_t('Search')} onClose={close} />
       <SheetBody>
         <div class="search-box">
           <Icon name="search" size={18} class="muted" />
-          <input id="global-search" value={q} placeholder="Tasks, content, Threads, clients, invoices" onInput={(e) => setQ(e.currentTarget.value)} autoFocus ref={(el) => el && setTimeout(() => el.focus(), 50)}
+          <input id="global-search" value={q} placeholder={_t('Tasks, content, Threads, clients, invoices')} onInput={(e) => setQ(e.currentTarget.value)} autoFocus ref={(el) => el && setTimeout(() => el.focus(), 50)}
             onKeyDown={(e) => { if (e.key === 'Enter' && groups[0]) groups[0].rows[0].run(); }} />
-          {q && <button class="icon-btn ghost sm" aria-label="Clear" onClick={() => setQ('')}><Icon name="x" size={16} /></button>}
+          {q && <button class="icon-btn ghost sm" aria-label={_t('Clear')} onClick={() => setQ('')}><Icon name="x" size={16} /></button>}
         </div>
-        {term && !groups.length && <div class="empty"><div class="empty-title">Nothing matches “{q}”</div><div class="empty-text">Try a client name, an invoice number or a word from a script.</div></div>}
+        {term && !groups.length && <div class="empty"><div class="empty-title">{_t('Nothing matches “')}{q}”</div><div class="empty-text">{_t('Try a client name, an invoice number or a word from a script.')}</div></div>}
         {groups.map((g) => (
           <div class="result-group">
             <div class="result-label">{g.label}</div>
@@ -358,10 +359,10 @@ function Search({ close }) {
         ))}
         {!term && (
           <div class="result-group">
-            <div class="result-label">Recently opened</div>
+            <div class="result-label">{_t('Recently opened')}</div>
             {recent.length ? recent.map((r) => (
               <button class="list-row clickable" onClick={() => go(r.path)}><span class={'icon-btn sm ' + r.tone}><Icon name={r.icon} size={16} /></span><div class="row-main"><div class="row-title">{r.title}</div><div class="row-meta">{r.kind}</div></div></button>
-            )) : <div class="muted" style={{ padding: '8px 4px', fontSize: 13.5 }}>Things you open show up here.</div>}
+            )) : <div class="muted" style={{ padding: '8px 4px', fontSize: 13.5 }}>{_t('Things you open show up here.')}</div>}
           </div>
         )}
       </SheetBody>
@@ -369,9 +370,9 @@ function Search({ close }) {
   );
 }
 export function recentRow(x) {
-  if (x.type === 'content') { const c = get('contents', x.id); return c && !c.deletedAt && { title: c.title, kind: 'Content', icon: 'video', tone: 't-violet', path: '/content/item/' + c.id }; }
+  if (x.type === 'content') { const c = get('contents', x.id); return c && !c.deletedAt && { title: c.title, kind: _t('Content'), icon: 'video', tone: 't-violet', path: '/content/item/' + c.id }; }
   if (x.type === 'project') { const p = get('projects', x.id); return p && !p.deletedAt && { title: p.name, kind: 'Project · ' + M.clientName(p.clientId), icon: 'briefcase', tone: 't-orange', path: '/freelance/projects/' + p.id }; }
-  if (x.type === 'client') { const c = get('clients', x.id); return c && !c.deletedAt && { title: c.name, kind: 'Client', icon: 'users', tone: 't-pink', path: '/freelance/clients/' + c.id }; }
+  if (x.type === 'client') { const c = get('clients', x.id); return c && !c.deletedAt && { title: c.name, kind: _t('Client'), icon: 'users', tone: 't-pink', path: '/freelance/clients/' + c.id }; }
   if (x.type === 'invoice') { const i = get('invoices', x.id); return i && !i.deletedAt && { title: i.number, kind: 'Invoice · ' + M.clientName(i.clientId), icon: 'file', tone: 't-green', path: '/freelance/invoices/' + i.id }; }
   return null;
 }

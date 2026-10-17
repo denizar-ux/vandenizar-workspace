@@ -19,6 +19,7 @@ import { uploadMonthlyReview, monthLabel } from '../lib/drive.js';
 import { saveFile, saveMessage } from '../lib/files.js';
 import { sync } from '../lib/sync.js';
 import { pendingJournal, saveJournal } from '../lib/journal.js';
+import { t as _t, tn as _tn } from '../lib/i18n.js';
 
 // =====================================================================
 // TODAY
@@ -47,12 +48,12 @@ export function TodayPage() {
     <div class="page">
       <SubNav items={DAILY_NAV} active="today" />
       <div class="topbar">
-        <button class="avatar" aria-label="Settings" onClick={() => navigate('/settings')}>{(s.name || 'D')[0].toUpperCase()}</button>
+        <button class="avatar" aria-label={_t('Settings')} onClick={() => navigate('/settings')}>{(s.name || 'D')[0].toUpperCase()}</button>
         <div class="topbar-text">
           <div class="hello">{greeting()}, {s.name}</div>
-          <div class="hello-sub">{fmtDay(t0)} · {remaining ? `${remaining} thing${remaining === 1 ? '' : 's'} today` : 'Nothing scheduled'}</div>
+          <div class="hello-sub">{fmtDay(t0)} · {remaining ? _t('{0} thing{1} today', [remaining, remaining === 1 ? '' : 's']) : _t('Nothing scheduled')}</div>
         </div>
-        <button class="icon-btn glass" aria-label="Attention and reminders" onClick={() => openAttention()}>
+        <button class="icon-btn glass" aria-label={_t('Attention and reminders')} onClick={() => openAttention()}>
           <Icon name="bell" />{(attention > 0 || rem.morning || rem.evening) && <span class="notif-dot" />}
         </button>
       </div>
@@ -63,23 +64,23 @@ export function TodayPage() {
       {hasSample && (
         <div class="nudge blue">
           <Icon name="info" size={20} />
-          <div class="grow" style={{ fontSize: 14 }}>You're looking at <b>sample data</b>. Remove it any time in Settings, your own entries stay.</div>
-          <button class="btn sm" onClick={() => navigate('/settings/data')}>Settings</button>
+          <div class="grow" style={{ fontSize: 14 }}>{_t('You\'re looking at')}{' '}<b>{_t('sample data')}</b>{_t('. Remove it any time in Settings, your own entries stay.')}</div>
+          <button class="btn sm" onClick={() => navigate('/settings/data')}>{_t('Settings')}</button>
         </div>
       )}
       {rem.morning && <MorningBrief openToday={openToday} contentActs={contentActs} freelance={freelance} />}
       {rem.evening && (
         <div class="nudge blue">
           <Icon name="moonStars" size={22} />
-          <div class="grow"><b>Time to close the day.</b> <span class="muted">How was today?</span></div>
-          <button class="btn sm primary" onClick={() => { dismissReminder('evening'); const el = document.getElementById('today-journal'); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => el.focus(), 350); } }}>Write</button>
-          <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('evening')}><Icon name="x" size={16} /></button>
+          <div class="grow"><b>{_t('Time to close the day.')}</b> <span class="muted">{_t('How was today?')}</span></div>
+          <button class="btn sm primary" onClick={() => { dismissReminder('evening'); const el = document.getElementById('today-journal'); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => el.focus(), 350); } }}>{_t('Write')}</button>
+          <button class="icon-btn ghost sm" aria-label={_t('Dismiss')} onClick={() => dismissReminder('evening')}><Icon name="x" size={16} /></button>
         </div>
       )}
 
       <div class="hero today-hero">
         <HeroArt />
-        <h1 class="hero-title">Your day,<br /><span class="soft">in focus.</span></h1>
+        <h1 class="hero-title">{_t('Your day,')}<br /><span class="soft">{_t('in focus.')}</span></h1>
         <Capture />
       </div>
 
@@ -92,11 +93,11 @@ export function TodayPage() {
           {overdue.length > 0 && (
             <div class="card">
               <div class="card-head">
-                <div class="card-title" style={{ color: 'var(--bad)' }}>Overdue <span class="count">{overdue.length}</span></div>
-                <button class="btn sm soft" onClick={() => { overdue.forEach((t) => patch('tasks', t.id, { dueDate: t0 })); toast(`Moved ${overdue.length} to today`); }}>Move all to today</button>
+                <div class="card-title" style={{ color: 'var(--bad)' }}>{_t('Overdue')}{' '}<span class="count">{overdue.length}</span></div>
+                <button class="btn sm soft" onClick={() => { overdue.forEach((t) => patch('tasks', t.id, { dueDate: t0 })); toast(_t('Moved {0} to today', [overdue.length])); }}>{_t('Move all to today')}</button>
               </div>
               <div class="list">{overdue.slice(0, 8).map((t) => <TaskRow t={t} />)}</div>
-              {overdue.length > 8 && <a class="section-link" href="#/tasks?view=overdue">See all {overdue.length}</a>}
+              {overdue.length > 8 && <a class="section-link" href="#/tasks?view=overdue">{_t('See all')}{' '}{overdue.length}</a>}
             </div>
           )}
           {desktop && journal}
@@ -119,13 +120,13 @@ function WeekStrip() {
   const ws = startOfWeek(t0, s.weekStart);
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   return (
-    <nav class="wstrip" aria-label="This week">
+    <nav class="wstrip" aria-label={_t('This week')}>
       {days.map((d) => {
         const a = agendaItems(d);
         const its = [...a.allDay, ...a.timed].filter((i) => !i.done);
         const kinds = ['task', 'content', 'freelance'].filter((k) => its.some((i) => i.kind === k));
         return (
-          <a class={'ws-day' + (d === t0 ? ' today' : '') + (d < t0 ? ' past' : '')} href={'#/calendar?d=' + d + '&v=day'} aria-label={fmtDay(d) + (its.length ? `, ${its.length} planned` : '')}>
+          <a class={'ws-day' + (d === t0 ? ' today' : '') + (d < t0 ? ' past' : '')} href={'#/calendar?d=' + d + '&v=day'} aria-label={fmtDay(d) + (its.length ? _t(', {0} planned', [its.length]) : '')}>
             <span class="ws-dow">{fmtWeekdayShort(d)}</span>
             <b class="ws-num">{dayNum(d)}</b>
             <span class="ws-dots">{kinds.map((k) => <i class={'k-' + k} />)}</span>
@@ -141,32 +142,32 @@ function TodayTasks({ openToday, doneToday }) {
   const total = openToday.length + doneToday.length;
   const pct = total ? Math.round((doneToday.length / total) * 100) : 0;
   const inbox = M.liveTasks().filter((t) => M.isOpen(t) && !t.dueDate);
-  const planInbox = () => pickTask({ title: 'Plan for today', filter: (t) => !t.dueDate, allowNew: false, onPick: (t) => { patch('tasks', t.id, { dueDate: t0 }); toast('Added to today'); } });
+  const planInbox = () => pickTask({ title: _t('Plan for today'), filter: (t) => !t.dueDate, allowNew: false, onPick: (t) => { patch('tasks', t.id, { dueDate: t0 }); toast(_t('Added to today')); } });
   return (
     <div class="card">
       <div class="card-head">
-        <div class="card-title">Today <span class="count">{openToday.length}</span></div>
-        <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />Task</button>
+        <div class="card-title">{_t('Today')}{' '}<span class="count">{openToday.length}</span></div>
+        <button class="btn sm soft" onClick={() => openTaskSheet(null, { dueDate: t0 })}><Icon name="plus" size={16} />{_t('Task')}</button>
       </div>
       {total > 0 && (
         <div class="today-progress">
           <div class="th-bar grow"><i style={{ width: pct + '%' }} /></div>
-          <span class="tnum">{doneToday.length} of {total} done</span>
+          <span class="tnum">{doneToday.length}{' '}{_t('of')}{' '}{total}{' '}{_t('done')}</span>
         </div>
       )}
       {openToday.length ? <div class="list">{openToday.map((t) => <TaskRow t={t} hideDate />)}</div> : (
         <div class="today-empty">
           <span class={'mini-ic ' + (doneToday.length ? 't-green' : 't-accent')}><Icon name={doneToday.length ? 'check' : 'sun'} size={18} /></span>
           <div class="grow" style={{ minWidth: 0 }}>
-            <div class="row-title">{doneToday.length ? 'All done for today' : 'Nothing due today'}</div>
-            <div class="row-meta">{inbox.length ? `${inbox.length} task${inbox.length === 1 ? '' : 's'} in Inbox without a date.` : 'Type one in the box above, or block time in Calendar.'}</div>
+            <div class="row-title">{doneToday.length ? _t('All done for today') : _t('Nothing due today')}</div>
+            <div class="row-meta">{inbox.length ? _t('{0} task{1} in Inbox without a date.', [inbox.length, inbox.length === 1 ? '' : 's']) : _t('Type one in the box above, or block time in Calendar.')}</div>
           </div>
-          {inbox.length > 0 && <button class="btn sm soft" onClick={planInbox}>Plan from Inbox</button>}
+          {inbox.length > 0 && <button class="btn sm soft" onClick={planInbox}>{_t('Plan from Inbox')}</button>}
         </div>
       )}
       {doneToday.length > 0 && (
         <details class="done-today">
-          <summary>Completed today ({doneToday.length})</summary>
+          <summary>{_t('Completed today (')}{doneToday.length})</summary>
           <div class="list">{doneToday.map((t) => <TaskRow t={t} hideDate />)}</div>
         </details>
       )}
@@ -179,26 +180,26 @@ function Schedule() {
   const t0 = today();
   const { allDay, timed } = agendaItems(t0, { untimedTasks: false });
   const late = [
-    ...M.freelanceAgenda(t0, t0, true).filter((f) => f.overdue).map((f) => ({ kind: 'freelance', id: 'late:' + f.kind + (f.project?.id || f.invoice?.id), f, tone: 't-red', overdue: true, timeLabel: 'Late',
-      title: f.kind === 'invoice' ? `Follow up ${f.invoice.number}` : `${f.project.name}`, sub: f.kind === 'invoice' ? `${M.clientName(f.invoice.clientId)} · ${fmtMoney(f.calc.balance, f.invoice.currency)} unpaid since ${fmtShort(f.date)}` : `Delivery was due ${relDayLower(f.date)}` })),
-    ...M.contentActions(t0).filter((a) => a.overdue).map((a) => ({ kind: 'content', id: 'late:' + a.content.id + a.stage.id, c: a.content, stage: a.stage.id, tone: 't-red', overdue: true, timeLabel: 'Late',
-      title: `${a.stage.verb}: ${a.content.title}`, sub: `Content · was due ${relDayLower(a.date)}` })),
+    ...M.freelanceAgenda(t0, t0, true).filter((f) => f.overdue).map((f) => ({ kind: 'freelance', id: 'late:' + f.kind + (f.project?.id || f.invoice?.id), f, tone: 't-red', overdue: true, timeLabel: _t('Late'),
+      title: f.kind === 'invoice' ? _t('Follow up {0}', [f.invoice.number]) : f.project.name, sub: f.kind === 'invoice' ? _t('{0} · {1} unpaid since {2}', [M.clientName(f.invoice.clientId), fmtMoney(f.calc.balance, f.invoice.currency), fmtShort(f.date)]) : _t('Delivery was due {0}', [relDayLower(f.date)]) })),
+    ...M.contentActions(t0).filter((a) => a.overdue).map((a) => ({ kind: 'content', id: 'late:' + a.content.id + a.stage.id, c: a.content, stage: a.stage.id, tone: 't-red', overdue: true, timeLabel: _t('Late'),
+      title: `${a.stage.verb}: ${a.content.title}`, sub: _t('Content · was due {0}', [relDayLower(a.date)]) })),
   ];
   const n = late.length + allDay.length + timed.length;
   return (
     <div class="card">
       <div class="card-head">
-        <div class="card-title">Schedule {n > 0 && <span class="count">{n}</span>}</div>
-        <a class="section-link" href={'#/calendar?d=' + t0 + '&v=day'}>Calendar</a>
+        <div class="card-title">{_t('Schedule')}{' '}{n > 0 && <span class="count">{n}</span>}</div>
+        <a class="section-link" href={'#/calendar?d=' + t0 + '&v=day'}>{_t('Calendar')}</a>
       </div>
       {n ? <AgendaList d={t0} allDay={[...late, ...allDay]} timed={timed} /> : (
         <div class="today-empty">
           <span class="mini-ic t-violet"><Icon name="calendar" size={18} /></span>
           <div class="grow" style={{ minWidth: 0 }}>
-            <div class="row-title">Nothing on the clock</div>
-            <div class="row-meta">Give a task a time, or plan a shoot or upload. It lines up here.</div>
+            <div class="row-title">{_t('Nothing on the clock')}</div>
+            <div class="row-meta">{_t('Give a task a time, or plan a shoot or upload. It lines up here.')}</div>
           </div>
-          <a class="btn sm soft" href={'#/calendar?d=' + t0 + '&v=day'}>Open</a>
+          <a class="btn sm soft" href={'#/calendar?d=' + t0 + '&v=day'}>{_t('Open')}</a>
         </div>
       )}
     </div>
@@ -212,10 +213,10 @@ function JournalCard() {
   return (
     <div class="card journal-mini">
       <div class="card-head">
-        <div class="card-title"><Icon name="review" size={18} style={{ color: 'var(--accent)' }} />How was today?</div>
-        {saved ? <span class="save-hint">{saved}</span> : <a class="section-link" href="#/review">Journal</a>}
+        <div class="card-title"><Icon name="review" size={18} style={{ color: 'var(--accent)' }} />{_t('How was today?')}</div>
+        {saved ? <span class="save-hint">{saved}</span> : <a class="section-link" href="#/review">{_t('Journal')}</a>}
       </div>
-      <TextArea id="today-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder="A few lines about today. It goes into your journal and the monthly PDF." minRows={3} />
+      <TextArea id="today-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder={_t('A few lines about today. It goes into your journal and the monthly PDF.')} minRows={3} />
     </div>
   );
 }
@@ -243,14 +244,14 @@ function Capture() {
     if (!t) return;
     M.newTask({ title: t, dueDate: dest === 'today' ? today() : '' });
     setText('');
-    toast(dest === 'today' ? 'Added to today' : 'Added to Inbox');
+    toast(dest === 'today' ? _t('Added to today') : _t('Added to Inbox'));
   };
   return (
     <div class="capture">
-      <button class="icon-btn" aria-label="Create something else" onClick={openQuickAdd}><Icon name="plus" size={20} /></button>
-      <button class="capture-dest" onClick={() => setDest(dest === 'today' ? 'inbox' : 'today')} aria-label="Switch where new tasks go" title="Tap to switch">{dest === 'today' ? 'Today' : 'Inbox'}<Icon name="chevronDown" size={14} /></button>
-      <input id="capture" value={text} placeholder={dest === 'today' ? 'Add a task' : 'Capture for later'} onInput={(e) => setText(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} enterKeyHint="done" />
-      <button class="icon-btn accent" aria-label="Add task" onClick={add}><Icon name="send" size={18} /></button>
+      <button class="icon-btn" aria-label={_t('Create something else')} onClick={openQuickAdd}><Icon name="plus" size={20} /></button>
+      <button class="capture-dest" onClick={() => setDest(dest === 'today' ? 'inbox' : 'today')} aria-label={_t('Switch where new tasks go')} title={_t('Tap to switch')}>{dest === 'today' ? _t('Today') : _t('Inbox')}<Icon name="chevronDown" size={14} /></button>
+      <input id="capture" value={text} placeholder={dest === 'today' ? _t('Add a task') : _t('Capture for later')} onInput={(e) => setText(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} enterKeyHint="done" />
+      <button class="icon-btn accent" aria-label={_t('Add task')} onClick={add}><Icon name="send" size={18} /></button>
     </div>
   );
 }
@@ -260,7 +261,7 @@ function Recent() {
   if (!rows.length) return null;
   return (
     <div class="section">
-      <div class="section-head"><div class="section-title">Recently visited</div></div>
+      <div class="section-head"><div class="section-title">{_t('Recently visited')}</div></div>
       <div class="hscroll">
         {rows.map((r) => (
           <a class="mini-card" href={'#' + r.path}>
@@ -278,16 +279,16 @@ function MorningBrief({ openToday, contentActs, freelance }) {
   const timed = openToday.filter((t) => t.dueTime).sort((a, b) => a.dueTime.localeCompare(b.dueTime));
   const today_ = contentActs.filter((a) => !a.overdue);
   const bits = [];
-  bits.push(`${openToday.length} task${openToday.length === 1 ? '' : 's'} today${timed.length ? `, first at ${timed[0].dueTime}` : ''}.`);
+  bits.push(_tn(openToday.length, '{n} task today', '{n} tasks today') + (timed.length ? _t(', first at {0}', [timed[0].dueTime]) : '') + '.');
   const shoots = [...today_.filter((a) => a.stage.id === 'shoot'), ...freelance.filter((f) => f.kind === 'shoot')];
   const uploads = today_.filter((a) => a.stage.id === 'upload');
-  if (shoots.length) bits.push(`${shoots.length === 1 ? 'A shoot' : shoots.length + ' shoots'} planned.`);
-  if (uploads.length) bits.push(`${uploads.length} upload${uploads.length === 1 ? '' : 's'}${uploads[0].time ? ' at ' + uploads[0].time : ''}.`);
+  if (shoots.length) bits.push(shoots.length === 1 ? _t('A shoot planned.') : _t('{0} shoots planned.', [shoots.length]));
+  if (uploads.length) bits.push(_tn(uploads.length, '{n} upload', '{n} uploads') + (uploads[0].time ? _t(' at {0}', [uploads[0].time]) : '') + '.');
   return (
     <div class="nudge">
       <Icon name="coffee" size={22} />
-      <div class="grow" style={{ fontSize: 14 }}><b>Morning brief.</b> {bits.join(' ')}</div>
-      <button class="icon-btn ghost sm" aria-label="Dismiss" onClick={() => dismissReminder('morning')}><Icon name="x" size={16} /></button>
+      <div class="grow" style={{ fontSize: 14 }}><b>{_t('Morning brief.')}</b> {bits.join(' ')}</div>
+      <button class="icon-btn ghost sm" aria-label={_t('Dismiss')} onClick={() => dismissReminder('morning')}><Icon name="x" size={16} /></button>
     </div>
   );
 }
@@ -298,11 +299,11 @@ function Welcome() {
       <div class="row gap-12" style={{ alignItems: 'flex-start' }}>
         <span class="mini-ic t-accent" style={{ borderRadius: 12 }}><Icon name="spark" size={18} /></span>
         <div class="grow">
-          <div class="card-title">Welcome, {M.settings().name}</div>
-          <div class="muted" style={{ fontSize: 14, marginTop: 4 }}>Everything here is saved on this device. Want to look around with example data first? It is labeled as sample and you can remove it in one tap from Settings.</div>
+          <div class="card-title">{_t('Welcome,')}{' '}{M.settings().name}</div>
+          <div class="muted" style={{ fontSize: 14, marginTop: 4 }}>{_t('Everything here is saved on this device. Want to look around with example data first? It is labeled as sample and you can remove it in one tap from Settings.')}</div>
           <div class="row gap-8 wrap" style={{ marginTop: 12 }}>
-            <button class="btn sm primary" onClick={() => { loadSampleData(); toast('Sample data loaded'); }}>Load sample data</button>
-            <button class="btn sm soft" onClick={() => put('meta', { id: 'onboarding', done: true })}>Start empty</button>
+            <button class="btn sm primary" onClick={() => { loadSampleData(); toast(_t('Sample data loaded')); }}>{_t('Load sample data')}</button>
+            <button class="btn sm soft" onClick={() => put('meta', { id: 'onboarding', done: true })}>{_t('Start empty')}</button>
           </div>
         </div>
       </div>
@@ -323,13 +324,13 @@ function Attention({ close }) {
   const go = (p) => { close(); navigate(p); };
   return (
     <>
-      <SheetHead title="Needs attention" onClose={close} />
+      <SheetHead title={_t('Needs attention')} onClose={close} />
       <SheetBody>
         <div class="col gap-12">
-          {rem.morningDue && <div class="nudge"><Icon name="coffee" size={20} /><div class="grow">Morning brief at {rem.morningTime}. Check today's tasks and uploads.</div></div>}
-          {rem.eveningDue && <div class="nudge blue"><Icon name="moonStars" size={20} /><div class="grow">Daily review is open from {rem.eveningTime}.</div><button class="btn sm primary" onClick={() => { dismissReminder('evening'); go('/review'); }}>Review</button></div>}
-          {!overdue.length && !fl.length && !ca.length && <Empty icon="check" title="All clear">Nothing overdue and nothing waiting on you right now.</Empty>}
-          {overdue.length > 0 && <div class="card soft tight"><div class="card-title" style={{ marginBottom: 6 }}>{overdue.length} overdue task{overdue.length === 1 ? '' : 's'}</div><div class="list">{overdue.slice(0, 6).map((t) => <TaskRow t={t} />)}</div></div>}
+          {rem.morningDue && <div class="nudge"><Icon name="coffee" size={20} /><div class="grow">{_t('Morning brief at')}{' '}{rem.morningTime}{_t('. Check today\'s tasks and uploads.')}</div></div>}
+          {rem.eveningDue && <div class="nudge blue"><Icon name="moonStars" size={20} /><div class="grow">{_t('Daily review is open from')}{' '}{rem.eveningTime}.</div><button class="btn sm primary" onClick={() => { dismissReminder('evening'); go('/review'); }}>{_t('Review')}</button></div>}
+          {!overdue.length && !fl.length && !ca.length && <Empty icon="check" title={_t('All clear')}>{_t('Nothing overdue and nothing waiting on you right now.')}</Empty>}
+          {overdue.length > 0 && <div class="card soft tight"><div class="card-title" style={{ marginBottom: 6 }}>{overdue.length}{' '}{_t('overdue task')}{overdue.length === 1 ? '' : 's'}</div><div class="list">{overdue.slice(0, 6).map((t) => <TaskRow t={t} />)}</div></div>}
           {fl.map((f) => (
             <button class="list-row clickable" onClick={() => go(f.kind === 'invoice' ? '/freelance/invoices/' + f.invoice.id : '/freelance/projects/' + f.project.id)}>
               <span class={'mini-ic ' + (f.overdue ? 't-red' : 't-orange')}><Icon name={f.kind === 'invoice' ? 'file' : 'briefcase'} size={16} /></span>
@@ -342,7 +343,7 @@ function Attention({ close }) {
               <div class="row-main"><div class="row-title">{a.stage.verb}: {a.content.title}</div><div class="row-meta">{relDay(a.date)}{a.time ? ' · ' + a.time : ''}</div></div>
             </button>
           ))}
-          <div class="muted" style={{ fontSize: 12.5 }}>Reminders show inside the app at {rem.morningTime} and {rem.eveningTime}. Change them in Settings.</div>
+          <div class="muted" style={{ fontSize: 12.5 }}>{_t('Reminders show inside the app at')}{' '}{rem.morningTime}{' '}{_t('and')}{' '}{rem.eveningTime}{_t('. Change them in Settings.')}</div>
         </div>
       </SheetBody>
     </>
@@ -352,7 +353,7 @@ function Attention({ close }) {
 // =====================================================================
 // TASKS
 // =====================================================================
-const VIEWS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'inbox', label: 'Inbox' }, { id: 'overdue', label: 'Overdue' }, { id: 'all', label: 'All open' }, { id: 'done', label: 'Done' }, { id: 'other', label: 'Deferred & cancelled' }, { id: 'archived', label: 'Archived' }];
+const VIEWS = [{ id: 'today', get label() { return _t('Today'); } }, { id: 'upcoming', get label() { return _t('Upcoming'); } }, { id: 'inbox', get label() { return _t('Inbox'); } }, { id: 'overdue', get label() { return _t('Overdue'); } }, { id: 'all', get label() { return _t('All open'); } }, { id: 'done', get label() { return _t('Done'); } }, { id: 'other', get label() { return _t('Deferred & cancelled'); } }, { id: 'archived', get label() { return _t('Archived'); } }];
 function loadPref(k, d) { try { const v = localStorage.getItem('vz:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }
 function savePref(k, v) { try { localStorage.setItem('vz:' + k, JSON.stringify(v)); } catch {} }
 
@@ -422,24 +423,24 @@ export function TasksPage({ query }) {
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="tasks" />
-      <PageHeader title="Tasks" actions={<button class="btn primary" onClick={() => openTaskSheet(null, { dueDate: view === 'today' ? t0 : '', category: cat || s.defaultCategory })}><Icon name="plus" size={18} />New task</button>} />
+      <PageHeader title={_t('Tasks')} actions={<button class="btn primary" onClick={() => openTaskSheet(null, { dueDate: view === 'today' ? t0 : '', category: cat || s.defaultCategory })}><Icon name="plus" size={18} />{_t('New task')}</button>} />
       <div class="chips scroll">
         {VIEWS.map((v) => <button class={'chip ' + (view === v.id ? 'on' : '')} onClick={() => setView(v.id)}>{v.label}{counts[v.id] != null && counts[v.id] > 0 && <span class="chip-count">{counts[v.id]}</span>}</button>)}
       </div>
       <div class="row gap-8">
-        <div class="search-box grow" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-1)' }}><Icon name="search" size={17} class="muted" /><input id="task-q" value={q} placeholder="Search tasks" onInput={(e) => setQ(e.currentTarget.value)} />{q && <button class="icon-btn ghost xs" aria-label="Clear search" onClick={() => setQ('')}><Icon name="x" size={14} /></button>}</div>
-        <button class={'icon-btn ' + (filtersOn && !q ? 'dark' : '')} aria-label="Filters" aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" size={18} /></button>
-        <button class="icon-btn" aria-label="Sort" onClick={(e) => openMenu(e, [{ heading: 'Sort by' }, ...[['smart', 'Smart (status, date, priority)'], ['due', 'Due date'], ['priority', 'Priority'], ['manual', 'Manual (drag to reorder)'], ['created', 'Newest first'], ['title', 'Title A–Z']].map(([id, label]) => ({ label, active: sort === id, onSelect: () => setSort(id) }))])}><Icon name="sort" size={18} /></button>
+        <div class="search-box grow" style={{ background: 'var(--surface)', boxShadow: 'var(--shadow-1)' }}><Icon name="search" size={17} class="muted" /><input id="task-q" value={q} placeholder={_t('Search tasks')} onInput={(e) => setQ(e.currentTarget.value)} />{q && <button class="icon-btn ghost xs" aria-label={_t('Clear search')} onClick={() => setQ('')}><Icon name="x" size={14} /></button>}</div>
+        <button class={'icon-btn ' + (filtersOn && !q ? 'dark' : '')} aria-label={_t('Filters')} aria-expanded={showFilters} onClick={() => setShowFilters(!showFilters)}><Icon name="filter" size={18} /></button>
+        <button class="icon-btn" aria-label={_t('Sort')} onClick={(e) => openMenu(e, [{ heading: _t('Sort by') }, ...[['smart', _t('Smart (status, date, priority)')], ['due', _t('Due date')], ['priority', _t('Priority')], ['manual', _t('Manual (drag to reorder)')], ['created', _t('Newest first')], ['title', _t('Title A–Z')]].map(([id, label]) => ({ label, active: sort === id, onSelect: () => setSort(id) }))])}><Icon name="sort" size={18} /></button>
       </div>
       {showFilters && (
         <div class="card tight">
           <div class="form">
-            <Field label="Category"><Chips allowEmpty options={s.categories.map((c) => ({ id: c, label: c, dot: `var(--${catTone(c)})` }))} value={cat} onChange={(v) => setCat(v === cat ? '' : v)} /></Field>
+            <Field label={_t('Category')}><Chips allowEmpty options={s.categories.map((c) => ({ id: c, label: c, dot: `var(--${catTone(c)})` }))} value={cat} onChange={(v) => setCat(v === cat ? '' : v)} /></Field>
             <div class="form-row">
-              <Field label="Priority" htmlFor="f-prio"><Select id="f-prio" value={prio} onChange={setPrio} placeholder="Any" options={M.PRIORITIES} /></Field>
-              <Field label="Linked to" htmlFor="f-link"><Select id="f-link" value={link} onChange={setLink} placeholder="Anything" options={[{ id: 'goal', label: 'Any goal' }, { id: 'content', label: 'Any content' }, { id: 'project', label: 'Any project' }, { id: 'invoice', label: 'Any invoice' }, { id: 'none', label: 'Not linked' }, ...M.activeGoals().map((g) => ({ id: 'g:' + g.id, label: 'Goal: ' + g.title })), ...M.liveProjects().filter((p) => !p.archived).map((p) => ({ id: 'p:' + p.id, label: 'Project: ' + p.name }))]} /></Field>
+              <Field label={_t('Priority')} htmlFor="f-prio"><Select id="f-prio" value={prio} onChange={setPrio} placeholder={_t('Any')} options={M.PRIORITIES} /></Field>
+              <Field label={_t('Linked to')} htmlFor="f-link"><Select id="f-link" value={link} onChange={setLink} placeholder={_t('Anything')} options={[{ id: 'goal', label: _t('Any goal') }, { id: 'content', label: _t('Any content') }, { id: 'project', label: _t('Any project') }, { id: 'invoice', label: _t('Any invoice') }, { id: 'none', label: _t('Not linked') }, ...M.activeGoals().map((g) => ({ id: 'g:' + g.id, label: _t('Goal: {0}', [g.title]) })), ...M.liveProjects().filter((p) => !p.archived).map((p) => ({ id: 'p:' + p.id, label: _t('Project: {0}', [p.name]) }))]} /></Field>
             </div>
-            {filtersOn && <button class="btn sm soft" style={{ alignSelf: 'flex-start' }} onClick={() => { setCat(''); setPrio(''); setLink(''); setQ(''); }}>Clear filters</button>}
+            {filtersOn && <button class="btn sm soft" style={{ alignSelf: 'flex-start' }} onClick={() => { setCat(''); setPrio(''); setLink(''); setQ(''); }}>{_t('Clear filters')}</button>}
           </div>
         </div>
       )}
@@ -447,13 +448,13 @@ export function TasksPage({ query }) {
         {!['done', 'other', 'archived', 'overdue'].includes(view) && (
           <div class="cl-add" style={{ padding: '0 4px 8px', borderBottom: '1px solid var(--line)', marginBottom: 4 }}>
             <Icon name="plus" size={18} class="muted" />
-            <input class="cl-text" id="task-quick" value={draft} placeholder={view === 'inbox' ? 'Capture to Inbox' : view === 'today' ? 'Add a task for today' : view === 'upcoming' ? 'Add a task for tomorrow' : 'Add a task'} onInput={(e) => setDraft(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addQuick(); } }} />
-            {draft.trim() && <button class="btn sm primary" onClick={addQuick}>Add</button>}
+            <input class="cl-text" id="task-quick" value={draft} placeholder={view === 'inbox' ? _t('Capture to Inbox') : view === 'today' ? _t('Add a task for today') : view === 'upcoming' ? _t('Add a task for tomorrow') : _t('Add a task')} onInput={(e) => setDraft(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addQuick(); } }} />
+            {draft.trim() && <button class="btn sm primary" onClick={addQuick}>{_t('Add')}</button>}
           </div>
         )}
         {list.length === 0 ? (
-          <Empty icon={view === 'inbox' ? 'inbox' : 'check'} title={filtersOn ? 'No tasks match these filters' : view === 'today' ? 'Nothing due today' : view === 'inbox' ? 'Inbox is empty' : view === 'overdue' ? 'Nothing overdue' : 'No tasks here'}>
-            {view === 'inbox' && !filtersOn ? 'Things you capture without a date land here until you plan them.' : null}
+          <Empty icon={view === 'inbox' ? 'inbox' : 'check'} title={filtersOn ? _t('No tasks match these filters') : view === 'today' ? _t('Nothing due today') : view === 'inbox' ? _t('Inbox is empty') : view === 'overdue' ? _t('Nothing overdue') : _t('No tasks here')}>
+            {view === 'inbox' && !filtersOn ? _t('Things you capture without a date land here until you plan them.') : null}
           </Empty>
         ) : groups.map((g) => (
           <div>
@@ -464,9 +465,9 @@ export function TasksPage({ query }) {
           </div>
         ))}
       </div>
-      {view === 'archived' && list.length > 0 && <div class="muted" style={{ fontSize: 13 }}>Archived tasks stay out of every list. Open one and use the menu to reopen it, or restore below.</div>}
+      {view === 'archived' && list.length > 0 && <div class="muted" style={{ fontSize: 13 }}>{_t('Archived tasks stay out of every list. Open one and use the menu to reopen it, or restore below.')}</div>}
       {view === 'archived' && list.map((t) => null)}
-      {view === 'archived' && list.length > 0 && <button class="btn soft" onClick={() => { list.forEach((t) => patch('tasks', t.id, { archived: false })); toast('Restored'); }}>Restore all archived</button>}
+      {view === 'archived' && list.length > 0 && <button class="btn soft" onClick={() => { list.forEach((t) => patch('tasks', t.id, { archived: false })); toast(_t('Restored')); }}>{_t('Restore all archived')}</button>}
     </div>
   );
 }
@@ -488,14 +489,14 @@ export function GoalsPage() {
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="goals" />
-      <PageHeader title="Goals" actions={<button class="btn primary" onClick={() => openGoalSheet()}><Icon name="plus" size={18} />New goal</button>}>
-        <div class="muted" style={{ marginTop: 6 }}>Week of {fmtShort(weekStart)} – {fmtShort(addDays(weekStart, 6))}. Keep it to {s.weeklyGoalLimit} weekly goals or fewer.</div>
+      <PageHeader title={_t('Goals')} actions={<button class="btn primary" onClick={() => openGoalSheet()}><Icon name="plus" size={18} />{_t('New goal')}</button>}>
+        <div class="muted" style={{ marginTop: 6 }}>{_t('Week of')}{' '}{fmtShort(weekStart)} – {fmtShort(addDays(weekStart, 6))}{_t('. Keep it to')}{' '}{s.weeklyGoalLimit}{' '}{_t('weekly goals or fewer.')}</div>
       </PageHeader>
-      <Segmented options={[{ id: 'active', label: 'Active', count: all('goals').filter((g) => g.status === 'active' && !g.deletedAt).length }, { id: 'completed', label: 'Completed' }, { id: 'archived', label: 'Archived' }]} value={tab} onChange={setTab} />
-      {activeWeekly.length > s.weeklyGoalLimit && tab === 'active' && <div class="nudge"><Icon name="bulb" size={20} /><div>You have {activeWeekly.length} weekly goals. Fewer goals usually means more of them get done.</div></div>}
-      {!goals.length && <div class="card"><Empty icon="target" title={tab === 'active' ? 'No active goals' : `No ${tab} goals yet`} action={tab === 'active' && <button class="btn primary sm" onClick={() => openGoalSheet()}>Set a weekly goal</button>}>{tab === 'active' ? 'Pick one to three outcomes for this week, then turn each into a few tasks.' : null}</Empty></div>}
-      {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Weekly</div></div>{weekly.map((g) => <GoalCard g={g} />)}</div>}
-      {longer.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Monthly & longer</div></div>{longer.map((g) => <GoalCard g={g} />)}</div>}
+      <Segmented options={[{ id: 'active', label: _t('Active'), count: all('goals').filter((g) => g.status === 'active' && !g.deletedAt).length }, { id: 'completed', label: _t('Completed') }, { id: 'archived', label: _t('Archived') }]} value={tab} onChange={setTab} />
+      {activeWeekly.length > s.weeklyGoalLimit && tab === 'active' && <div class="nudge"><Icon name="bulb" size={20} /><div>{_t('You have')}{' '}{activeWeekly.length}{' '}{_t('weekly goals. Fewer goals usually means more of them get done.')}</div></div>}
+      {!goals.length && <div class="card"><Empty icon="target" title={tab === 'active' ? _t('No active goals') : (tab === 'weekly' ? _t('No weekly goals yet') : tab === 'monthly' ? _t('No monthly goals yet') : _t('No goals yet'))} action={tab === 'active' && <button class="btn primary sm" onClick={() => openGoalSheet()}>{_t('Set a weekly goal')}</button>}>{tab === 'active' ? _t('Pick one to three outcomes for this week, then turn each into a few tasks.') : null}</Empty></div>}
+      {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">{_t('Weekly')}</div></div>{weekly.map((g) => <GoalCard g={g} />)}</div>}
+      {longer.length > 0 && <div class="section"><div class="section-head"><div class="section-title">{_t('Monthly & longer')}</div></div>{longer.map((g) => <GoalCard g={g} />)}</div>}
     </div>
   );
 }
@@ -510,40 +511,40 @@ function GoalCard({ g }) {
       <div class="row gap-12" style={{ alignItems: 'flex-start' }}>
         <Ring pct={p.pct} size={52} stroke={5} />
         <div class="grow" style={{ minWidth: 0 }}>
-          <div class="row gap-6 wrap"><span class="badge sm t-yellow">{g.period === 'weekly' ? 'Weekly' : g.period === 'monthly' ? 'Monthly' : 'Custom'}</span>{ended && <span class="badge sm t-red">Period ended</span>}{g.status === 'completed' && <span class="badge sm t-green">Completed</span>}</div>
+          <div class="row gap-6 wrap"><span class="badge sm t-yellow">{g.period === 'weekly' ? _t('Weekly') : g.period === 'monthly' ? _t('Monthly') : _t('Custom')}</span>{ended && <span class="badge sm t-red">{_t('Period ended')}</span>}{g.status === 'completed' && <span class="badge sm t-green">{_t('Completed')}</span>}</div>
           <div class="card-title" style={{ marginTop: 6, fontSize: 17 }}>{g.title}</div>
           {g.description && <div class="muted" style={{ fontSize: 13.5, marginTop: 2 }}>{g.description}</div>}
           <div class="row-meta" style={{ marginTop: 4 }}>{p.label}{g.startDate ? ` · ${fmtShort(g.startDate)} – ${fmtShort(g.endDate)}` : ''}</div>
         </div>
-        <button class="icon-btn ghost sm" aria-label="Goal actions" onClick={(e) => openMenu(e, [
-          { label: 'Edit', icon: 'edit', onSelect: () => openGoalSheet(g.id) },
-          g.status !== 'completed' && { label: 'Mark completed', icon: 'check', onSelect: () => { patch('goals', g.id, { status: 'completed', completedAt: Date.now() }); toast('Goal completed'); } },
-          g.status !== 'active' && { label: 'Make active again', icon: 'restore', onSelect: () => patch('goals', g.id, { status: 'active' }) },
-          g.status !== 'archived' && { label: 'Archive', icon: 'archive', onSelect: () => patch('goals', g.id, { status: 'archived' }) },
-          { label: 'Delete', icon: 'trash', danger: true, onSelect: async () => { if (await confirmDialog({ title: 'Delete this goal?', body: 'Linked tasks stay, they just lose the link.', confirmLabel: 'Delete', danger: true })) { all('tasks').filter((t) => t.goalId === g.id).forEach((t) => patch('tasks', t.id, { goalId: '' })); remove('goals', g.id); toast('Goal deleted'); } } },
+        <button class="icon-btn ghost sm" aria-label={_t('Goal actions')} onClick={(e) => openMenu(e, [
+          { label: _t('Edit'), icon: 'edit', onSelect: () => openGoalSheet(g.id) },
+          g.status !== 'completed' && { label: _t('Mark completed'), icon: 'check', onSelect: () => { patch('goals', g.id, { status: 'completed', completedAt: Date.now() }); toast(_t('Goal completed')); } },
+          g.status !== 'active' && { label: _t('Make active again'), icon: 'restore', onSelect: () => patch('goals', g.id, { status: 'active' }) },
+          g.status !== 'archived' && { label: _t('Archive'), icon: 'archive', onSelect: () => patch('goals', g.id, { status: 'archived' }) },
+          { label: _t('Delete'), icon: 'trash', danger: true, onSelect: async () => { if (await confirmDialog({ title: _t('Delete this goal?'), body: _t('Linked tasks stay, they just lose the link.'), confirmLabel: _t('Delete'), danger: true })) { all('tasks').filter((t) => t.goalId === g.id).forEach((t) => patch('tasks', t.id, { goalId: '' })); remove('goals', g.id); toast(_t('Goal deleted')); } } },
         ], { title: g.title })}><Icon name="more" /></button>
       </div>
       {g.method === 'numeric' && g.status === 'active' && (
         <div class="row gap-8" style={{ marginTop: 14 }}>
-          <button class="icon-btn soft sm" aria-label="Decrease" onClick={() => patch('goals', g.id, { current: Math.max(0, (+g.current || 0) - 1) })}><span style={{ fontWeight: 800, fontSize: 18 }}>−</span></button>
+          <button class="icon-btn soft sm" aria-label={_t('Decrease')} onClick={() => patch('goals', g.id, { current: Math.max(0, (+g.current || 0) - 1) })}><span style={{ fontWeight: 800, fontSize: 18 }}>−</span></button>
           <Progress pct={p.pct} />
-          <button class="icon-btn dark sm" aria-label="Increase" onClick={() => patch('goals', g.id, { current: (+g.current || 0) + 1 })}><Icon name="plus" size={16} /></button>
+          <button class="icon-btn dark sm" aria-label={_t('Increase')} onClick={() => patch('goals', g.id, { current: (+g.current || 0) + 1 })}><Icon name="plus" size={16} /></button>
         </div>
       )}
       {g.method === 'manual' && g.status === 'active' && (
         <div class="row gap-10" style={{ marginTop: 14 }}>
-          <input type="range" min="0" max="100" step="5" value={+g.manual || 0} onInput={(e) => patch('goals', g.id, { manual: +e.currentTarget.value })} style={{ flex: 1, accentColor: 'var(--accent)' }} aria-label="Progress percent" />
+          <input type="range" min="0" max="100" step="5" value={+g.manual || 0} onInput={(e) => patch('goals', g.id, { manual: +e.currentTarget.value })} style={{ flex: 1, accentColor: 'var(--accent)' }} aria-label={_t('Progress percent')} />
           <span class="tnum" style={{ fontWeight: 800, width: 42, textAlign: 'right' }}>{+g.manual || 0}%</span>
         </div>
       )}
       {g.method === 'tasks' && (
         <div style={{ marginTop: 12 }}>
-          {tasks.length > 0 && <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setOpen(!open)}>{open ? 'Hide tasks' : `Show ${tasks.length} task${tasks.length === 1 ? '' : 's'}`}</button>}
+          {tasks.length > 0 && <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setOpen(!open)}>{open ? _t('Hide tasks') : _t('Show {0} task{1}', [tasks.length, tasks.length === 1 ? '' : 's'])}</button>}
           {open && <div class="list">{tasks.map((t) => <TaskRow t={t} />)}</div>}
           {g.status === 'active' && (
             <div class="row gap-8 wrap" style={{ marginTop: 8 }}>
-              <button class="btn sm soft" onClick={() => openTaskSheet(null, { goalId: g.id, dueDate: today() })}><Icon name="plus" size={15} />New task</button>
-              <button class="btn sm ghost" onClick={() => pickTask({ title: 'Link a task', filter: (t) => t.goalId !== g.id, allowNew: false, onPick: (t) => { patch('tasks', t.id, { goalId: g.id }); toast('Linked to goal'); } })}><Icon name="link" size={15} />Link existing</button>
+              <button class="btn sm soft" onClick={() => openTaskSheet(null, { goalId: g.id, dueDate: today() })}><Icon name="plus" size={15} />{_t('New task')}</button>
+              <button class="btn sm ghost" onClick={() => pickTask({ title: _t('Link a task'), filter: (t) => t.goalId !== g.id, allowNew: false, onPick: (t) => { patch('tasks', t.id, { goalId: g.id }); toast(_t('Linked to goal')); } })}><Icon name="link" size={15} />{_t('Link existing')}</button>
             </div>
           )}
         </div>
@@ -566,37 +567,37 @@ function GoalSheet({ id, close }) {
   const [g, setG] = useState(() => ex ? { ...ex } : { title: '', description: '', period: 'weekly', ...periodDates('weekly'), method: 'tasks', target: '', current: 0, unit: '', manual: 0, notes: '', status: 'active' });
   const set = (ch) => setG({ ...g, ...ch });
   const save = () => {
-    if (!g.title.trim()) return toast('Name the goal first.', { tone: 'warn' });
-    if (g.endDate && g.startDate && g.endDate < g.startDate) return toast('End date is before the start date.', { tone: 'warn' });
+    if (!g.title.trim()) return toast(_t('Name the goal first.'), { tone: 'warn' });
+    if (g.endDate && g.startDate && g.endDate < g.startDate) return toast(_t('End date is before the start date.'), { tone: 'warn' });
     put('goals', { ...g, id: ex?.id || uid(), title: g.title.trim() });
-    toast(ex ? 'Goal saved' : 'Goal added');
+    toast(ex ? _t('Goal saved') : _t('Goal added'));
     close();
   };
   return (
     <>
-      <SheetHead title={ex ? 'Edit goal' : 'New goal'} onClose={close} />
+      <SheetHead title={ex ? _t('Edit goal') : _t('New goal')} onClose={close} />
       <SheetBody>
         <div class="form">
-          <Field label="Goal" htmlFor="g-title"><TextInput id="g-title" value={g.title} onInput={(v) => set({ title: v })} placeholder="e.g. Publish 4 Reels" autoFocus={!ex} /></Field>
-          <Field label="Definition of done" htmlFor="g-desc"><TextArea id="g-desc" value={g.description} onInput={(v) => set({ description: v })} placeholder="How will you know it's done?" /></Field>
-          <Field label="Period"><Chips options={[{ id: 'weekly', label: 'This week' }, { id: 'monthly', label: 'This month' }, { id: 'custom', label: 'Custom' }]} value={g.period} onChange={(v) => set({ period: v, ...(v !== 'custom' ? periodDates(v) : {}) })} /></Field>
+          <Field label={_t('Goal')} htmlFor="g-title"><TextInput id="g-title" value={g.title} onInput={(v) => set({ title: v })} placeholder={_t('e.g. Publish 4 Reels')} autoFocus={!ex} /></Field>
+          <Field label={_t('Definition of done')} htmlFor="g-desc"><TextArea id="g-desc" value={g.description} onInput={(v) => set({ description: v })} placeholder={_t('How will you know it\'s done?')} /></Field>
+          <Field label={_t('Period')}><Chips options={[{ id: 'weekly', label: _t('This week') }, { id: 'monthly', label: _t('This month') }, { id: 'custom', label: _t('Custom') }]} value={g.period} onChange={(v) => set({ period: v, ...(v !== 'custom' ? periodDates(v) : {}) })} /></Field>
           <div class="form-row">
-            <Field label="Start" htmlFor="g-start"><DateInput id="g-start" value={g.startDate} onChange={(v) => set({ startDate: v, period: 'custom' })} clearable={false} /></Field>
-            <Field label="End" htmlFor="g-end"><DateInput id="g-end" value={g.endDate} onChange={(v) => set({ endDate: v, period: 'custom' })} clearable={false} /></Field>
+            <Field label={_t('Start')} htmlFor="g-start"><DateInput id="g-start" value={g.startDate} onChange={(v) => set({ startDate: v, period: 'custom' })} clearable={false} /></Field>
+            <Field label={_t('End')} htmlFor="g-end"><DateInput id="g-end" value={g.endDate} onChange={(v) => set({ endDate: v, period: 'custom' })} clearable={false} /></Field>
           </div>
-          <Field label="Track progress by"><Segmented options={[{ id: 'tasks', label: 'Linked tasks' }, { id: 'numeric', label: 'A number' }, { id: 'manual', label: 'Manual %' }]} value={g.method} onChange={(v) => set({ method: v })} /></Field>
+          <Field label={_t('Track progress by')}><Segmented options={[{ id: 'tasks', label: _t('Linked tasks') }, { id: 'numeric', label: _t('A number') }, { id: 'manual', label: _t('Manual %') }]} value={g.method} onChange={(v) => set({ method: v })} /></Field>
           {g.method === 'numeric' && (
             <div class="form-row three">
-              <Field label="Target" htmlFor="g-target"><NumberInput id="g-target" value={g.target} onChange={(v) => set({ target: v })} placeholder="4" /></Field>
-              <Field label="Current" htmlFor="g-cur"><NumberInput id="g-cur" value={g.current} onChange={(v) => set({ current: v })} /></Field>
-              <Field label="Unit" htmlFor="g-unit"><TextInput id="g-unit" value={g.unit} onInput={(v) => set({ unit: v })} placeholder="posts" /></Field>
+              <Field label={_t('Target')} htmlFor="g-target"><NumberInput id="g-target" value={g.target} onChange={(v) => set({ target: v })} placeholder="4" /></Field>
+              <Field label={_t('Current')} htmlFor="g-cur"><NumberInput id="g-cur" value={g.current} onChange={(v) => set({ current: v })} /></Field>
+              <Field label={_t('Unit')} htmlFor="g-unit"><TextInput id="g-unit" value={g.unit} onInput={(v) => set({ unit: v })} placeholder={_t('posts')} /></Field>
             </div>
           )}
-          {g.method === 'tasks' && <div class="field-hint">Progress counts each linked task once, when it's done. Add tasks from the goal card after saving.</div>}
-          <Field label="Notes / review" htmlFor="g-notes"><TextArea id="g-notes" value={g.notes} onInput={(v) => set({ notes: v })} placeholder="What helped, what got in the way" /></Field>
+          {g.method === 'tasks' && <div class="field-hint">{_t('Progress counts each linked task once, when it\'s done. Add tasks from the goal card after saving.')}</div>}
+          <Field label={_t('Notes / review')} htmlFor="g-notes"><TextArea id="g-notes" value={g.notes} onInput={(v) => set({ notes: v })} placeholder={_t('What helped, what got in the way')} /></Field>
         </div>
       </SheetBody>
-      <SheetFoot><button class="btn ghost" onClick={close}>Cancel</button><button class="btn primary" onClick={save}>{ex ? 'Save' : 'Add goal'}</button></SheetFoot>
+      <SheetFoot><button class="btn ghost" onClick={close}>{_t('Cancel')}</button><button class="btn primary" onClick={save}>{ex ? _t('Save') : _t('Add goal')}</button></SheetFoot>
     </>
   );
 }
@@ -610,20 +611,20 @@ export function ReviewPage({ mode, date }) {
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="review" />
       <BackRow />
-      <PageHeader title="Monthly journal" />
+      <PageHeader title={_t('Monthly journal')} />
       <MonthlyReview month={date} />
     </div>
   );
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="review" />
-      <PageHeader title="Daily journal" actions={<a class="btn sm soft" href="#/review/monthly"><Icon name="file" size={15} />Monthly PDF</a>} />
+      <PageHeader title={_t('Daily journal')} actions={<a class="btn sm soft" href="#/review/monthly"><Icon name="file" size={15} />{_t('Monthly PDF')}</a>} />
       <DailyReview date={date} />
     </div>
   );
 }
 function BackRow() {
-  return <a class="set-back" style={{ display: 'inline-flex' }} href="#/review"><Icon name="chevronLeft" size={18} />Daily journal</a>;
+  return <a class="set-back" style={{ display: 'inline-flex' }} href="#/review"><Icon name="chevronLeft" size={18} />{_t('Daily journal')}</a>;
 }
 
 function useAutosave(coll, id, initial) {
@@ -655,13 +656,13 @@ function DailyReview({ date }) {
   return (
     <>
       <div class="row gap-8">
-        <button class="icon-btn" aria-label="Previous day" onClick={() => go(addDays(d, -1))}><Icon name="chevronLeft" /></button>
+        <button class="icon-btn" aria-label={_t('Previous day')} onClick={() => go(addDays(d, -1))}><Icon name="chevronLeft" /></button>
         <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{relDay(d)}</div><div class="muted" style={{ fontSize: 13 }}>{fmtFull(d)}</div></div>
-        <button class="icon-btn" aria-label="Next day" disabled={d >= t0} onClick={() => go(addDays(d, 1))}><Icon name="chevronRight" /></button>
+        <button class="icon-btn" aria-label={_t('Next day')} disabled={d >= t0} onClick={() => go(addDays(d, 1))}><Icon name="chevronRight" /></button>
       </div>
       <div class="card journal-card">
-        <div class="card-head"><div class="card-title">How was today?</div><span class="save-hint">{saved}</span></div>
-        <TextArea id="dr-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder="Write anything: what happened, how it felt, what you noticed." minRows={8} />
+        <div class="card-head"><div class="card-title">{_t('How was today?')}</div><span class="save-hint">{saved}</span></div>
+        <TextArea id="dr-journal" value={r.journal} onInput={(v) => set({ journal: v })} placeholder={_t('Write anything: what happened, how it felt, what you noticed.')} minRows={8} />
       </div>
     </>
   );
@@ -679,45 +680,45 @@ export function MonthlyReview({ month }) {
   const download = async () => {
     setBusy('pdf');
     try { const pdf = await buildMonthlyPdf(ym); const r = await saveFile(pdf.name, pdf.blob, 'application/pdf'); const [msg, tone] = saveMessage(r, 'Saved ' + pdf.name); toast(msg, { tone }); }
-    catch (e) { toast(e.message || 'Could not make the PDF.', { tone: 'warn' }); }
+    catch (e) { toast(e.message || _t('Could not make the PDF.'), { tone: 'warn' }); }
     setBusy('');
   };
   const toDrive = async () => {
     setBusy('drive');
-    try { const r = await saveJournal(ym); toast('Saved to Google Drive · ' + r.path); }
-    catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); }
+    try { const r = await saveJournal(ym); toast(_t('Saved to Google Drive · {0}', [r.path])); }
+    catch (e) { toast(e.message || _t('Could not save to Google Drive.'), { tone: 'warn', duration: 6000 }); }
     setBusy('');
   };
 
   return (
     <>
       <div class="row gap-8">
-        <button class="icon-btn" aria-label="Previous month" onClick={() => go(addMonths(ym, -1))}><Icon name="chevronLeft" /></button>
-        <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{monthLabel(ym)}</div><div class="muted" style={{ fontSize: 13 }}>{ym === cur ? 'This month' : ym === addMonths(cur, -1) ? 'Last month' : ''}</div></div>
-        <button class="icon-btn" aria-label="Next month" disabled={ym >= cur} onClick={() => go(addMonths(ym, 1))}><Icon name="chevronRight" /></button>
+        <button class="icon-btn" aria-label={_t('Previous month')} onClick={() => go(addMonths(ym, -1))}><Icon name="chevronLeft" /></button>
+        <div class="grow" style={{ textAlign: 'center' }}><div class="card-title" style={{ justifyContent: 'center' }}>{monthLabel(ym)}</div><div class="muted" style={{ fontSize: 13 }}>{ym === cur ? _t('This month') : ym === addMonths(cur, -1) ? _t('Last month') : ''}</div></div>
+        <button class="icon-btn" aria-label={_t('Next month')} disabled={ym >= cur} onClick={() => go(addMonths(ym, 1))}><Icon name="chevronRight" /></button>
       </div>
       <div class="stats">
-        <div class="stat"><div class="stat-label">Days written</div><div class="stat-value">{d.days.length}</div></div>
-        <div class="stat"><div class="stat-label">Tasks done</div><div class="stat-value">{d.doneCount}</div></div>
-        <div class="stat"><div class="stat-label">Uploads</div><div class="stat-value">{d.uploads}</div></div>
-        <div class="stat"><div class="stat-label">Words written</div><div class="stat-value">{d.days.reduce((n, x) => n + ((x.review.journal || '').trim().match(/\S+/g) || []).length, 0).toLocaleString('id-ID')}</div></div>
+        <div class="stat"><div class="stat-label">{_t('Days written')}</div><div class="stat-value">{d.days.length}</div></div>
+        <div class="stat"><div class="stat-label">{_t('Tasks done')}</div><div class="stat-value">{d.doneCount}</div></div>
+        <div class="stat"><div class="stat-label">{_t('Uploads')}</div><div class="stat-value">{d.uploads}</div></div>
+        <div class="stat"><div class="stat-label">{_t('Words written')}</div><div class="stat-value">{d.days.reduce((n, x) => n + ((x.review.journal || '').trim().match(/\S+/g) || []).length, 0).toLocaleString('id-ID')}</div></div>
       </div>
       <div class="card export-card">
         <div class="export-icon"><Icon name="file" size={22} /></div>
         <div class="grow" style={{ minWidth: 0 }}>
-          <div class="row-title">Daily Review - {monthLabel(ym)}.pdf</div>
-          <div class="row-meta">{saved ? <>Saved to Drive {fmtAgo(saved.at)}{saved.url && <> · <a href={saved.url} target="_blank" rel="noopener">Open</a></>}</> : (d.days.length ? `${d.days.length} daily review${d.days.length === 1 ? '' : 's'}${d.habits.length ? ' + habits' : ''} in one PDF` : d.habits.length ? 'Habit recap in one PDF' : 'No reviews yet') + ` · Saves to Daily Review / ${ym.slice(0, 4)} / ${monthLabel(ym).split(' ')[0]}`}</div>
+          <div class="row-title">{_t('Daily Review -')}{' '}{monthLabel(ym)}{_t('.pdf')}</div>
+          <div class="row-meta">{saved ? <>{_t('Saved to Drive')}{' '}{fmtAgo(saved.at)}{saved.url && <> · <a href={saved.url} target="_blank" rel="noopener">{_t('Open')}</a></>}</> : (d.days.length ? (d.habits.length ? _t('{0} daily review(s) + habits in one PDF', [d.days.length]) : _t('{0} daily review(s) in one PDF', [d.days.length])) : d.habits.length ? _t('Habit recap in one PDF') : _t('No reviews yet')) + ` · Saves to Daily Review / ${ym.slice(0, 4)} / ${monthLabel(ym).split(' ')[0]}`}</div>
         </div>
         <div class="export-actions">
-          <button class="btn sm ghost" disabled={!!busy} onClick={download}><Icon name="download" size={15} />{busy === 'pdf' ? 'Making…' : 'PDF'}</button>
-          <button class="btn sm primary" disabled={!!busy || (!d.days.length && !d.habits.length)} onClick={() => (sync.user ? toDrive() : navigate('/settings/account'))}><Icon name="upload" size={15} />{busy === 'drive' ? 'Saving…' : saved ? 'Save again' : 'Save to Drive'}</button>
+          <button class="btn sm ghost" disabled={!!busy} onClick={download}><Icon name="download" size={15} />{busy === 'pdf' ? _t('Making…') : _t('PDF')}</button>
+          <button class="btn sm primary" disabled={!!busy || (!d.days.length && !d.habits.length)} onClick={() => (sync.user ? toDrive() : navigate('/settings/account'))}><Icon name="upload" size={15} />{busy === 'drive' ? _t('Saving…') : saved ? _t('Save again') : _t('Save to Drive')}</button>
         </div>
       </div>
       {d.habits.length > 0 && (
         <a class="card hb-review-link" href={'#/habits?view=month' + (ym !== cur ? '&m=' + ym : '')}>
           <div class="export-icon"><Icon name="habit" size={22} /></div>
           <div class="grow" style={{ minWidth: 0 }}>
-            <div class="row-title">Habits · {d.habitPct}% consistent</div>
+            <div class="row-title">{_t('Habits ·')}{' '}{d.habitPct}{_t('% consistent')}</div>
             <div class="row-meta">{d.habits.map((x) => x.h.title + ' ' + x.r.pct + '%').join(' · ')}</div>
           </div>
           <Icon name="chevronRight" size={18} />
@@ -728,13 +729,13 @@ export function MonthlyReview({ month }) {
           <a class="card journal-day" href={'#/review?d=' + x.date}>
             <div class="row between gap-8"><div class="card-title">{fmtDay(x.date)}</div>{x.review.energy ? <span class="badge sm t-orange">{ENERGY[x.review.energy - 1]}</span> : null}</div>
             {x.review.journal && <div class="jd-line">{x.review.journal}</div>}
-            {x.done.length > 0 && <div class="jd-line"><span class="jd-label">Done</span>{x.done.map((t) => t.title).join(', ')}</div>}
-            {x.review.wins && <div class="jd-line"><span class="jd-label">Wins</span>{x.review.wins}</div>}
-            {x.review.blockers && <div class="jd-line"><span class="jd-label">Blockers</span>{x.review.blockers}</div>}
-            {x.review.lesson && <div class="jd-line"><span class="jd-label">Lesson</span>{x.review.lesson}</div>}
+            {x.done.length > 0 && <div class="jd-line"><span class="jd-label">{_t('Done')}</span>{x.done.map((t) => t.title).join(', ')}</div>}
+            {x.review.wins && <div class="jd-line"><span class="jd-label">{_t('Wins')}</span>{x.review.wins}</div>}
+            {x.review.blockers && <div class="jd-line"><span class="jd-label">{_t('Blockers')}</span>{x.review.blockers}</div>}
+            {x.review.lesson && <div class="jd-line"><span class="jd-label">{_t('Lesson')}</span>{x.review.lesson}</div>}
           </a>
         ))}</div>
-      ) : <div class="card"><Empty icon="review" title="No journal entries this month">Write a few lines on Today or in Daily journal. Every entry this month lands here and in the PDF.</Empty></div>}
+      ) : <div class="card"><Empty icon="review" title={_t('No journal entries this month')}>{_t('Write a few lines on Today or in Daily journal. Every entry this month lands here and in the PDF.')}</Empty></div>}
     </>
   );
 }
@@ -747,8 +748,8 @@ function JournalNudge() {
   return (
     <div class="nudge blue">
       <Icon name="file" size={20} />
-      <div class="grow" style={{ fontSize: 14 }}><b>{monthLabel(ym)} journal is ready.</b> <span class="muted">Save all of last month's daily reviews to Google Drive as one PDF.</span></div>
-      <button class="btn sm primary" disabled={busy} onClick={async () => { setBusy(true); try { await saveJournal(ym); toast(monthLabel(ym) + ' journal saved to Google Drive'); } catch (e) { toast(e.message || 'Could not save to Google Drive.', { tone: 'warn', duration: 6000 }); } setBusy(false); }}>{busy ? 'Saving…' : 'Save to Drive'}</button>
+      <div class="grow" style={{ fontSize: 14 }}><b>{monthLabel(ym)}{' '}{_t('journal is ready.')}</b> <span class="muted">{_t('Save all of last month\'s daily reviews to Google Drive as one PDF.')}</span></div>
+      <button class="btn sm primary" disabled={busy} onClick={async () => { setBusy(true); try { await saveJournal(ym); toast(_t('{0} journal saved to Google Drive', [monthLabel(ym)])); } catch (e) { toast(e.message || _t('Could not save to Google Drive.'), { tone: 'warn', duration: 6000 }); } setBusy(false); }}>{busy ? _t('Saving…') : _t('Save to Drive')}</button>
     </div>
   );
 }
@@ -760,9 +761,9 @@ function SyncNudge() {
   return (
     <div class="nudge blue">
       <Icon name="restore" size={20} />
-      <div class="grow" style={{ fontSize: 14 }}><b>Turn on sync.</b> <span class="muted">Sign in once so your data is backed up and shows on every device.</span></div>
-      <button class="btn sm primary" onClick={() => navigate('/settings/account')}>Sign in</button>
-      <button class="icon-btn ghost sm" aria-label="Hide" onClick={() => { setHidden(true); try { localStorage.setItem('vz:hideSyncNudge', '1'); } catch {} }}><Icon name="x" size={16} /></button>
+      <div class="grow" style={{ fontSize: 14 }}><b>{_t('Turn on sync.')}</b> <span class="muted">{_t('Sign in once so your data is backed up and shows on every device.')}</span></div>
+      <button class="btn sm primary" onClick={() => navigate('/settings/account')}>{_t('Sign in')}</button>
+      <button class="icon-btn ghost sm" aria-label={_t('Hide')} onClick={() => { setHidden(true); try { localStorage.setItem('vz:hideSyncNudge', '1'); } catch {} }}><Icon name="x" size={16} /></button>
     </div>
   );
 }

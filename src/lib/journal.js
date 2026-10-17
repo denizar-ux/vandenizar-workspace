@@ -6,6 +6,7 @@ import * as M from './model.js';
 import { monthData, buildMonthlyPdf } from './reviewpdf.js';
 import { uploadMonthlyReview, monthLabel } from './drive.js';
 import { toast } from '../ui/overlay.jsx';
+import { t as _t, tn as _tn } from './i18n.js';
 
 export const prevMonth = (iso = today()) => { const [y, m] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7); };
 export const journalSaved = (ym) => !!(M.meta('driveExports', {}).months || {})[ym];
@@ -46,7 +47,7 @@ export async function autoSaveJournal() {
     if (!ym) return;
     try { localStorage.setItem(flag, today()); } catch {}
     const r = await saveJournal(ym);
-    toast(`${monthLabel(ym)} journal saved to Google Drive`, { action: r.url ? { label: 'Open', run: () => window.open(r.url, '_blank', 'noopener') } : undefined, duration: 7000 });
+    toast(_t('{0} journal saved to Google Drive', [monthLabel(ym)]), { action: r.url ? { label: _t('Open'), run: () => window.open(r.url, '_blank', 'noopener') } : undefined, duration: 7000 });
   } catch { /* the Today card offers a manual save */ }
   finally { running = false; }
 }

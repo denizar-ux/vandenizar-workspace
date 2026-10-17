@@ -1,21 +1,22 @@
 // Shared data model, defaults, derived values and cross-module actions.
 import { get, all, put, patch, remove, uid } from './db.js';
 import { today, addDays, diffDays, startOfWeek, nextOccurrence, isoOf, monthKey, daysInMonth } from './date.js';
+import { t as _t, tn as _tn } from './i18n.js';
 
 // ---------- constants ----------
 export const TASK_STATUSES = [
-  { id: 'todo', label: 'To do' }, { id: 'in_progress', label: 'In progress' }, { id: 'done', label: 'Done' },
-  { id: 'deferred', label: 'Deferred' }, { id: 'cancelled', label: 'Cancelled' },
+  { id: 'todo', get label() { return _t('To do'); } }, { id: 'in_progress', get label() { return _t('In progress'); } }, { id: 'done', get label() { return _t('Done'); } },
+  { id: 'deferred', get label() { return _t('Deferred'); } }, { id: 'cancelled', get label() { return _t('Cancelled'); } },
 ];
-export const PRIORITIES = [{ id: 'high', label: 'High' }, { id: 'medium', label: 'Medium' }, { id: 'low', label: 'Low' }, { id: 'none', label: 'None' }];
+export const PRIORITIES = [{ id: 'high', get label() { return _t('High'); } }, { id: 'medium', get label() { return _t('Medium'); } }, { id: 'low', get label() { return _t('Low'); } }, { id: 'none', get label() { return _t('None'); } }];
 export const PRIORITY_RANK = { high: 0, medium: 1, low: 2, none: 3 };
 export const CONTENT_STATUSES = [
-  { id: 'idea', label: 'Idea' }, { id: 'scripting', label: 'Scripting' }, { id: 'filming', label: 'Filming' },
-  { id: 'editing', label: 'Editing' }, { id: 'ready', label: 'Ready' }, { id: 'published', label: 'Uploaded' },
+  { id: 'idea', get label() { return _t('Idea'); } }, { id: 'scripting', get label() { return _t('Scripting'); } }, { id: 'filming', get label() { return _t('Filming'); } },
+  { id: 'editing', get label() { return _t('Editing'); } }, { id: 'ready', get label() { return _t('Ready'); } }, { id: 'published', get label() { return _t('Uploaded'); } },
 ];
 export const CONTENT_NEXT = {
-  idea: { to: 'scripting', label: 'Start scripting' }, scripting: { to: 'filming', label: 'Script done, start filming' },
-  filming: { to: 'editing', label: 'Footage done, start editing' }, editing: { to: 'ready', label: 'Mark ready' }, ready: { to: 'published', label: 'Mark uploaded' },
+  idea: { to: 'scripting', get label() { return _t('Start scripting'); } }, scripting: { to: 'filming', get label() { return _t('Script done, start filming'); } },
+  filming: { to: 'editing', get label() { return _t('Footage done, start editing'); } }, editing: { to: 'ready', get label() { return _t('Mark ready'); } }, ready: { to: 'published', get label() { return _t('Mark uploaded'); } },
 };
 export const ACTIVE_CONTENT = ['scripting', 'filming', 'editing'];
 // Older data used a single "in_progress" status; it maps to Scripting.
@@ -23,13 +24,13 @@ export const normalizeContentStatus = (s) => (s === 'in_progress' ? 'scripting' 
 const M_STATUS_IDS = ['idea', 'scripting', 'filming', 'editing', 'ready', 'published'];
 export const contentStatusIdx = (s) => M_STATUS_IDS.indexOf(s);
 export const STAGES = [
-  { id: 'script', label: 'Script', verb: 'Write script' }, { id: 'shoot', label: 'Shoot', verb: 'Shoot' },
-  { id: 'edit', label: 'Edit', verb: 'Edit' }, { id: 'ready', label: 'Ready', verb: 'Review' }, { id: 'upload', label: 'Upload', verb: 'Upload' },
+  { id: 'script', get label() { return _t('Script'); }, get verb() { return _t('Write script'); } }, { id: 'shoot', get label() { return _t('Shoot'); }, get verb() { return _t('Shoot'); } },
+  { id: 'edit', get label() { return _t('Edit'); }, get verb() { return _t('Edit'); } }, { id: 'ready', get label() { return _t('Ready'); }, get verb() { return _t('Review'); } }, { id: 'upload', get label() { return _t('Upload'); }, get verb() { return _t('Upload'); } },
 ];
 export const PIPELINE = ['Lead', 'Contacted', 'Negotiation', 'Booked', 'Production', 'Editing', 'Delivered', 'Paid'];
 export const PRE_PAYMENT_STAGES = PIPELINE.slice(0, 7);
 export const ACTIVE_STAGES = ['Booked', 'Production', 'Editing', 'Delivered'];
-export const LINK_TYPES = [{ id: 'reference', label: 'Reference' }, { id: 'final', label: 'Final video' }, { id: 'additional', label: 'Additional' }];
+export const LINK_TYPES = [{ id: 'reference', get label() { return _t('Reference'); } }, { id: 'final', get label() { return _t('Final video'); } }, { id: 'additional', get label() { return _t('Additional'); } }];
 export const PAYMENT_METHODS = ['Bank transfer', 'E-wallet', 'QRIS', 'Cash', 'PayPal', 'Other'];
 export const PAYMENT_KINDS = ['Full payment', 'DP / deposit', 'Partial payment', 'Final payment'];
 
@@ -175,7 +176,7 @@ export function goalProgress(g) {
     if (t.status === 'done' || (t.completions || []).some((c) => inPeriod(c.at))) done++;
   }
   const total = ids.size;
-  return { pct: total ? Math.round((done / total) * 100) : 0, label: total ? `${done} of ${total} tasks` : 'No tasks linked', done, total };
+  return { pct: total ? Math.round((done / total) * 100) : 0, label: total ? _t('{0} of {1} tasks', [done, total]) : _t('No tasks linked'), done, total };
 }
 export const activeGoals = () => all('goals').filter((g) => g.status === 'active' && !g.deletedAt);
 
@@ -185,7 +186,7 @@ export function newContent(p = {}) {
   const s = settings();
   const statusItems = liveContents().filter((c) => c.status === (p.status || 'idea'));
   const c = {
-    id: uid(), title: 'Untitled content', description: '', status: 'idea', platforms: [s.platforms[0]].filter(Boolean), pillar: '', format: '', cover: '',
+    id: uid(), title: _t('Untitled content'), description: '', status: 'idea', platforms: [s.platforms[0]].filter(Boolean), pillar: '', format: '', cover: '',
     hook: '', script: '', shotlist: [], caption: '', links: [], notes: '',
     checklist: s.checklistTemplate.map((text) => ({ id: uid(), text, done: false })),
     schedule: { script: {}, shoot: {}, edit: {}, ready: {}, upload: {} }, stageDone: {},
@@ -288,7 +289,7 @@ export function calcInvoice(inv) {
   else status = 'sent';
   return { items, subtotal, discount, total, paid, balance, status, payments: pays };
 }
-export const INVOICE_STATUS = { draft: 'Draft', sent: 'Sent', partial: 'Partial', paid: 'Paid', overdue: 'Overdue' };
+export const INVOICE_STATUS = { get draft() { return _t('Draft'); }, get sent() { return _t('Sent'); }, get partial() { return _t('Partial'); }, get paid() { return _t('Paid'); }, get overdue() { return _t('Overdue'); } };
 
 export function formatInvoiceNumber(fmt, seq, iso = today()) {
   const [y, m] = iso.split('-');
@@ -361,7 +362,7 @@ export function moveProject(id, stage, order) {
   if (order != null) ch.order = order;
   else if (pr.stage !== stage) { const col = liveProjects().filter((p) => p.stage === stage && p.id !== id); ch.order = col.length ? Math.max(...col.map((p) => p.order || 0)) + 1 : 0; }
   if (pr.stage !== stage) {
-    ch.history = [...(pr.history || []), { at: Date.now(), text: `Stage: ${pr.stage} → ${stage}` }];
+    ch.history = [...(pr.history || []), { at: Date.now(), text: _t('Stage: {0} → {1}', [pr.stage, stage]) }];
     ch.stageChangedAt = Date.now();
     logActivity(`${pr.name} moved to ${stage}`, { refType: 'project', refId: id, projectId: id, stage });
   }
@@ -373,7 +374,7 @@ export function newProject(p = {}) {
   const col = liveProjects().filter((x) => x.stage === stage);
   const pr = put('projects', {
     id: uid(), name: '', clientId: '', pic: '', contact: '', type: '', fee: 0, currency: s.defaultCurrency, shootDate: '', startDate: '', deadline: '', location: '',
-    stage, order: col.length ? Math.max(...col.map((x) => x.order || 0)) + 1 : 0, tags: [], deliverables: [], notes: '', links: [], archived: false, history: [{ at: Date.now(), text: `Created in ${stage}` }], ...p,
+    stage, order: col.length ? Math.max(...col.map((x) => x.order || 0)) + 1 : 0, tags: [], deliverables: [], notes: '', links: [], archived: false, history: [{ at: Date.now(), text: _t('Created in {0}', [stage]) }], ...p,
   });
   logActivity(`Project ${pr.name} created`, { refType: 'project', refId: pr.id, projectId: pr.id });
   return pr;
@@ -421,18 +422,18 @@ export function freelanceAgenda(fromIso, toIso, includeOverdue = false) {
   const inRange = (d) => d && d >= fromIso && d <= toIso;
   for (const p of liveProjects()) {
     if (p.archived) continue;
-    if (inRange(p.shootDate) && stageIdx(p.stage) <= stageIdx('Production')) out.push({ kind: 'shoot', label: 'Shoot', date: p.shootDate, project: p, overdue: false });
+    if (inRange(p.shootDate) && stageIdx(p.stage) <= stageIdx('Production')) out.push({ kind: 'shoot', label: _t('Shoot'), date: p.shootDate, project: p, overdue: false });
     if (p.deadline && stageIdx(p.stage) < stageIdx('Delivered')) {
-      if (inRange(p.deadline)) out.push({ kind: 'deadline', label: 'Delivery', date: p.deadline, project: p, overdue: false });
-      else if (includeOverdue && diffDays(p.deadline, t) < 0) out.push({ kind: 'deadline', label: 'Delivery overdue', date: p.deadline, project: p, overdue: true });
+      if (inRange(p.deadline)) out.push({ kind: 'deadline', label: _t('Delivery'), date: p.deadline, project: p, overdue: false });
+      else if (includeOverdue && diffDays(p.deadline, t) < 0) out.push({ kind: 'deadline', label: _t('Delivery overdue'), date: p.deadline, project: p, overdue: true });
     }
   }
   for (const i of liveInvoices()) {
     if (i.archived) continue;
     const c = calcInvoice(i);
     if (c.status === 'draft' || c.balance <= 0) continue;
-    if (inRange(i.dueDate)) out.push({ kind: 'invoice', label: 'Invoice due', date: i.dueDate, invoice: i, calc: c, overdue: false });
-    else if (includeOverdue && c.status === 'overdue') out.push({ kind: 'invoice', label: 'Payment overdue', date: i.dueDate, invoice: i, calc: c, overdue: true });
+    if (inRange(i.dueDate)) out.push({ kind: 'invoice', label: _t('Invoice due'), date: i.dueDate, invoice: i, calc: c, overdue: false });
+    else if (includeOverdue && c.status === 'overdue') out.push({ kind: 'invoice', label: _t('Payment overdue'), date: i.dueDate, invoice: i, calc: c, overdue: true });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }

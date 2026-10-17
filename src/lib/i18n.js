@@ -6,6 +6,7 @@ import ID from './lang-id.js';
 
 export const LANGS = [{ id: 'en', label: 'English' }, { id: 'id', label: 'Bahasa Indonesia' }];
 let cached = (() => { try { return localStorage.getItem('vz:lang') || 'en'; } catch { return 'en'; } })();
+try { document.documentElement.lang = cached; } catch {}
 
 export function lang() {
   const s = get('meta', 'settings');

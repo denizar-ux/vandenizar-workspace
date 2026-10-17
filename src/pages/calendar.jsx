@@ -9,6 +9,7 @@ import { navigate } from '../lib/router.js';
 import { patch, useStore } from '../lib/db.js';
 import { today, addDays, diffDays, startOfWeek, startOfMonth, addMonths, daysInMonth, fmtDay, fmtShort, fmtMonth, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes } from '../lib/date.js';
 import * as M from '../lib/model.js';
+import { t as _t, tn as _tn } from '../lib/i18n.js';
 
 const H = 56; // px per hour
 const SNAP = 15;
@@ -35,7 +36,7 @@ export function dayItems(d) {
       if (!v?.date || v.date !== d) continue;
       const done = M.stageIsDone(c, st.id);
       const s = toMin(v.time);
-      const item = { kind: 'content', id: c.id + ':' + st.id, title: `${st.verb}: ${c.title}`, tone: 't-violet', done, c, stage: st.id, sub: 'Content' + (c.pillar ? ' · ' + c.pillar : '') };
+      const item = { kind: 'content', id: c.id + ':' + st.id, title: `${st.verb}: ${c.title}`, tone: 't-violet', done, c, stage: st.id, sub: _t('Content{0}', [c.pillar ? ' · ' + c.pillar : '']) };
       if (s == null) { if (!done) allDay.push(item); } else timed.push({ ...item, start: s, dur: 60 });
     }
   }
@@ -43,7 +44,7 @@ export function dayItems(d) {
     if (th.date !== d) continue;
     const s = toMin(th.time);
     if (s == null) continue;
-    timed.push({ kind: 'threads', id: th.id, title: th.text || 'Threads post', start: s, dur: 20, tone: 't-blue', done: th.status === 'posted', sub: 'Threads', th });
+    timed.push({ kind: 'threads', id: th.id, title: th.text || 'Threads post', start: s, dur: 20, tone: 't-blue', done: th.status === 'posted', sub: _t('Threads'), th });
   }
   for (const f of M.freelanceAgenda(d, d)) {
     const name = f.project ? f.project.name : f.invoice?.number;
@@ -93,8 +94,8 @@ export function openItem(it) {
 }
 
 function toggleItem(it, on) {
-  if (it.kind === 'task') { if (on) { M.completeTask(it.t.id); toast('Done'); } else M.reopenTask(it.t.id); }
-  else if (it.kind === 'content') { if (on) { M.completeStage(it.c, it.stage); toast(it.stage === 'upload' ? 'Marked uploaded' : 'Step done'); } else M.uncompleteStage(it.c, it.stage); }
+  if (it.kind === 'task') { if (on) { M.completeTask(it.t.id); toast(_t('Done')); } else M.reopenTask(it.t.id); }
+  else if (it.kind === 'content') { if (on) { M.completeStage(it.c, it.stage); toast(it.stage === 'upload' ? _t('Marked uploaded') : _t('Step done')); } else M.uncompleteStage(it.c, it.stage); }
   else if (it.kind === 'threads') M.markThreadPosted(it.th.id, on);
 }
 
@@ -112,7 +113,7 @@ export function AgendaList({ d, allDay = [], timed = [] }) {
   return <div class="agenda">{rows}</div>;
 }
 function NowLine({ min }) {
-  return <div class="ag-now" aria-label={'Now, ' + toHHMM(min)}><span>{toHHMM(min)}</span></div>;
+  return <div class="ag-now" aria-label={_t('Now, {0}', [toHHMM(min)])}><span>{toHHMM(min)}</span></div>;
 }
 function AgendaRow({ it, past }) {
   const timed = it.start != null;
@@ -120,12 +121,12 @@ function AgendaRow({ it, past }) {
   const sub = it.kind === 'task' ? [it.t.category, timed ? fmtMinutes(it.dur) : ''].filter(Boolean).join(' · ') : it.sub;
   return (
     <div class={'ag-row' + (it.done ? ' done' : '') + (past ? ' past' : '')}>
-      <div class={'ag-time' + (it.overdue ? ' bad' : '')}>{it.timeLabel || (timed ? toHHMM(it.start) : 'All day')}</div>
+      <div class={'ag-time' + (it.overdue ? ' bad' : '')}>{it.timeLabel || (timed ? toHHMM(it.start) : _t('All day'))}</div>
       <button class={'ag-card ' + it.tone} onClick={() => openItem(it)}>
         <span class="ag-title">{it.title}</span>
         {sub && <span class="ag-sub">{sub}</span>}
       </button>
-      {checkable ? <Check checked={!!it.done} onChange={(v) => toggleItem(it, v)} label={(it.done ? 'Mark not done: ' : 'Mark done: ') + it.title} /> : <span class="ag-go" aria-hidden="true"><Icon name="chevronRight" size={16} /></span>}
+      {checkable ? <Check checked={!!it.done} onChange={(v) => toggleItem(it, v)} label={(it.done ? _t('Mark not done: {0}', [it.title]) : _t('Mark done: {0}', [it.title]))} /> : <span class="ag-go" aria-hidden="true"><Icon name="chevronRight" size={16} /></span>}
     </div>
   );
 }
@@ -150,23 +151,23 @@ export function CalendarPage({ query }) {
     <div class="page cal-page">
       <SubNav items={DAILY_NAV} active="calendar" />
       <div class="cal-head">
-        <h1 class="ph-title">Calendar</h1>
-        <Segmented value={view} onChange={pickView} options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} />
+        <h1 class="ph-title">{_t('Calendar')}</h1>
+        <Segmented value={view} onChange={pickView} options={[{ id: 'day', label: _t('Day') }, { id: 'week', label: _t('Week') }, { id: 'month', label: _t('Month') }]} />
       </div>
       <div class="cal-nav">
-        <button class="icon-btn sm" aria-label="Previous" onClick={() => shift(-1)}><Icon name="chevronLeft" size={18} /></button>
+        <button class="icon-btn sm" aria-label={_t('Previous')} onClick={() => shift(-1)}><Icon name="chevronLeft" size={18} /></button>
         <div class="cal-label">{label}</div>
-        <button class="icon-btn sm" aria-label="Next" onClick={() => shift(1)}><Icon name="chevronRight" size={18} /></button>
+        <button class="icon-btn sm" aria-label={_t('Next')} onClick={() => shift(1)}><Icon name="chevronRight" size={18} /></button>
         <span class="grow" />
-        {!onToday && <button class="btn sm soft" onClick={() => go(t0)}>Today</button>}
-        <button class="btn sm primary cal-add" onClick={() => openTaskSheet(null, { dueDate: d })}><Icon name="plus" size={15} />Task</button>
+        {!onToday && <button class="btn sm soft" onClick={() => go(t0)}>{_t('Today')}</button>}
+        <button class="btn sm primary cal-add" onClick={() => openTaskSheet(null, { dueDate: d })}><Icon name="plus" size={15} />{_t('Task')}</button>
       </div>
       {view === 'month'
         ? <MonthView d={d} desktop={desktop} onSelect={(iso) => go(iso)} onOpenDay={openDay} />
         : <Grid days={days} week={view === 'week'} onPickDay={openDay} />}
       <div class="cal-hint">{view === 'month'
-        ? (desktop ? 'Click a day to open it. Click an item to edit it.' : 'Tap a day to see its plan below.')
-        : `Tap an empty slot to add a task. Drag a task to move it${desktop ? '' : ' (hold first)'}, drag its bottom edge to change how long it takes.`}</div>
+        ? (desktop ? _t('Click a day to open it. Click an item to edit it.') : _t('Tap a day to see its plan below.'))
+        : _t('Tap an empty slot to add a task. Drag a task to move it{0}, drag its bottom edge to change how long it takes.', [desktop ? '' : _t(' (hold first)')])}</div>
     </div>
   );
 }
@@ -197,7 +198,7 @@ function MonthView({ d, desktop, onSelect, onOpenDay }) {
             const open = its.filter((i) => !i.done);
             return (
               <div class={'day' + (x.slice(0, 7) !== month.slice(0, 7) ? ' out' : '') + (x === t0 ? ' today' : '') + (!desktop && x === sel ? ' sel' : '')}
-                role="button" tabIndex={0} aria-label={fmtDay(x) + (open.length ? `, ${open.length} planned` : '')}
+                role="button" tabIndex={0} aria-label={fmtDay(x) + (open.length ? _t(', {0} planned', [open.length]) : '')}
                 onClick={() => (desktop ? onOpenDay(x) : onSelect(x))} onKeyDown={(e) => e.key === 'Enter' && (desktop ? onOpenDay(x) : onSelect(x))}>
                 <span class="day-num">{dayNum(x)}</span>
                 <div class="day-dots">{open.slice(0, 4).map((i) => <i class={i.tone} />)}</div>
@@ -207,7 +208,7 @@ function MonthView({ d, desktop, onSelect, onOpenDay }) {
                       {i.start != null && <span class="t">{toHHMM(i.start)}</span>}<span>{i.title}</span>
                     </button>
                   ))}
-                  {its.length > 3 && <div class="day-more">+{its.length - 3} more</div>}
+                  {its.length > 3 && <div class="day-more">+{its.length - 3}{' '}{_t('more')}</div>}
                 </div>
               </div>
             );
@@ -218,11 +219,11 @@ function MonthView({ d, desktop, onSelect, onOpenDay }) {
         <div class="card">
           <div class="card-head">
             <div class="card-title">{relDay(sel)}<span class="count">{fmtShort(sel)}</span></div>
-            <button class="btn xs soft" onClick={() => onOpenDay(sel)}>Open day</button>
+            <button class="btn xs soft" onClick={() => onOpenDay(sel)}>{_t('Open day')}</button>
           </div>
           {(selItems.allDay.length + selItems.timed.length)
             ? <AgendaList d={sel} allDay={selItems.allDay} timed={selItems.timed} />
-            : <div class="muted" style={{ fontSize: 14 }}>Nothing planned. <button class="link-btn" onClick={() => openTaskSheet(null, { dueDate: sel })}>Add a task</button></div>}
+            : <div class="muted" style={{ fontSize: 14 }}>{_t('Nothing planned.')}{' '}<button class="link-btn" onClick={() => openTaskSheet(null, { dueDate: sel })}>{_t('Add a task')}</button></div>}
         </div>
       )}
     </>
@@ -287,8 +288,8 @@ function Grid({ days, week, onPickDay }) {
       clearTimeout(timer);
       cleanup();
       if (active && moved && cur) {
-        if (mode === 'resize') { patch('tasks', it.id, { estimate: cur.dur }); toast(`Duration ${fmtMinutes(cur.dur)}`); }
-        else { patch('tasks', it.id, { dueDate: cur.day, dueTime: toHHMM(cur.start) }); toast(`Moved to ${toHHMM(cur.start)}${cur.day !== d ? ' · ' + fmtDay(cur.day) : ''}`); }
+        if (mode === 'resize') { patch('tasks', it.id, { estimate: cur.dur }); toast(_t('Duration {0}', [fmtMinutes(cur.dur)])); }
+        else { patch('tasks', it.id, { dueDate: cur.day, dueTime: toHHMM(cur.start) }); toast(_t('Moved to {0}{1}', [toHHMM(cur.start), cur.day !== d ? ' · ' + fmtDay(cur.day) : ''])); }
       } else if (!active || !moved) openItem(it);
       setDrag(null);
     };
@@ -311,11 +312,11 @@ function Grid({ days, week, onPickDay }) {
       )}
       {hasAllDay && (
         <div class="cal-allday" style={{ '--n': days.length }}>
-          <div class="cal-gutter-label">All day</div>
+          <div class="cal-gutter-label">{_t('All day')}</div>
           {data.map((x) => (
             <div class="cal-allday-col">
               {x.allDay.slice(0, cap).map((it) => <button class={'cal-chip ' + it.tone} onClick={() => openItem(it)}>{it.title}</button>)}
-              {x.allDay.length > cap && <button class="cal-more" onClick={() => onPickDay(x.d)}>+{x.allDay.length - cap} more</button>}
+              {x.allDay.length > cap && <button class="cal-more" onClick={() => onPickDay(x.d)}>+{x.allDay.length - cap}{' '}{_t('more')}</button>}
             </div>
           ))}
         </div>

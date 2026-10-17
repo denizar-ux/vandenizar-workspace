@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'preact/hooks';
 import { Icon } from './Icon.jsx';
+import { t as _t, tn as _tn } from '../lib/i18n.js';
 
 // ---------- global overlay stack (sheets, dialogs, menus) ----------
 let overlays = [];
@@ -119,7 +120,7 @@ export function SheetHead({ title, onClose, right, sub }) {
       </div>
       <div class="row gap-6">
         {right}
-        {onClose && <button class="icon-btn ghost" onClick={() => onClose()} aria-label="Close"><Icon name="x" /></button>}
+        {onClose && <button class="icon-btn ghost" onClick={() => onClose()} aria-label={_t('Close')}><Icon name="x" /></button>}
       </div>
     </div>
   );
@@ -132,7 +133,7 @@ export function openSheet(Comp, props = {}, opts = {}) {
 }
 
 // ---------- confirm ----------
-export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = false, cancelLabel = 'Cancel' }) {
+export function confirmDialog({ title, body, confirmLabel = _t('Confirm'), danger = false, cancelLabel = _t('Cancel') }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (!done) { done = true; resolve(v); } };

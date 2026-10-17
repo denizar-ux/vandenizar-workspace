@@ -7,16 +7,17 @@ import { navigate } from '../lib/router.js';
 import { get, patch, remove, useStore } from '../lib/db.js';
 import { today, addDays, startOfWeek, fmtShort, fmtDay, fmtWeekdayShort, dayNum, weekday } from '../lib/date.js';
 import * as M from '../lib/model.js';
+import { t as _t, tn as _tn } from '../lib/i18n.js';
 
 const STARTERS = [
-  { title: 'Workout', emoji: '🏋️', freq: 'weekly', target: 3 },
-  { title: 'Read 20 minutes', emoji: '📖', freq: 'daily' },
-  { title: 'Drink 2L water', emoji: '💧', freq: 'daily' },
-  { title: 'Sleep before 12', emoji: '🌙', freq: 'daily' },
-  { title: 'Shoot B-roll', emoji: '🎥', freq: 'weekly', target: 2 },
+  { get title() { return _t('Workout'); }, emoji: '🏋️', freq: 'weekly', target: 3 },
+  { get title() { return _t('Read 20 minutes'); }, emoji: '📖', freq: 'daily' },
+  { get title() { return _t('Drink 2L water'); }, emoji: '💧', freq: 'daily' },
+  { get title() { return _t('Sleep before 12'); }, emoji: '🌙', freq: 'daily' },
+  { get title() { return _t('Shoot B-roll'); }, emoji: '🎥', freq: 'weekly', target: 2 },
 ];
 
-const freqLabel = (h) => (h.freq === 'weekly' ? `${M.habitTarget(h)}× a week` : 'Every day');
+const freqLabel = (h) => (h.freq === 'weekly' ? _t('{0}× a week', [M.habitTarget(h)]) : _t('Every day'));
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 function HabitMark({ h }) {
@@ -46,19 +47,17 @@ export function HabitsPage({ query = {} }) {
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="habits" />
-      <PageHeader title="Habits" actions={<button class="btn primary" onClick={() => openHabitSheet()}><Icon name="plus" size={18} />New habit</button>}>
-        <div class="muted" style={{ marginTop: 6 }}>{view === 'month' ? 'Monthly recap. It also goes into the monthly PDF in Review.' : <>Week of {fmtShort(ws)} – {fmtShort(addDays(ws, 6))}{habits.length ? ` · ${doneToday} of ${habits.length} checked today` : ''}</>}</div>
+      <PageHeader title={_t('Habits')} actions={<button class="btn primary" onClick={() => openHabitSheet()}><Icon name="plus" size={18} />{_t('New habit')}</button>}>
+        <div class="muted" style={{ marginTop: 6 }}>{view === 'month' ? _t('Monthly recap. It also goes into the monthly PDF in Review.') : <>{_t('Week of')}{' '}{fmtShort(ws)} – {fmtShort(addDays(ws, 6))}{habits.length ? _t(' · {0} of {1} checked today', [doneToday, habits.length]) : ''}</>}</div>
       </PageHeader>
-      {any && <Segmented options={[{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={view} onChange={setView} />}
+      {any && <Segmented options={[{ id: 'week', label: _t('Week') }, { id: 'month', label: _t('Month') }]} value={view} onChange={setView} />}
 
       {!habits.length && view === 'week' && (
         <div class="card">
-          <Empty icon="habit" title="No habits yet" action={<button class="btn primary sm" onClick={() => openHabitSheet()}><Icon name="plus" size={15} />New habit</button>}>
-            Daily habits are checked every day. Weekly habits have a target, like gym 3× a week. Tap one below to start fast.
-          </Empty>
+          <Empty icon="habit" title={_t('No habits yet')} action={<button class="btn primary sm" onClick={() => openHabitSheet()}><Icon name="plus" size={15} />{_t('New habit')}</button>}>{_t('Daily habits are checked every day. Weekly habits have a target, like gym 3× a week. Tap one below to start fast.')}</Empty>
           <div class="hb-starters">
             {STARTERS.map((st) => (
-              <button class="chip" onClick={() => { M.newHabit(st); toast(`Added ${st.title}`); }}>{st.emoji} {st.title}<span class="muted"> · {st.freq === 'weekly' ? `${st.target}×/wk` : 'daily'}</span></button>
+              <button class="chip" onClick={() => { M.newHabit(st); toast(_t('Added {0}', [st.title])); }}>{st.emoji} {st.title}<span class="muted"> · {st.freq === 'weekly' ? _t('{0}×/wk', [st.target]) : _t('daily')}</span></button>
             ))}
           </div>
         </div>
@@ -66,11 +65,11 @@ export function HabitsPage({ query = {} }) {
 
       {view === 'month' ? <HabitsMonth ym={ym} cur={cur} /> : (
         <>
-          {daily.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Daily</div></div>{daily.map((h) => <HabitCard h={h} />)}</div>}
-          {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Weekly</div></div>{weekly.map((h) => <HabitCard h={h} />)}</div>}
+          {daily.length > 0 && <div class="section"><div class="section-head"><div class="section-title">{_t('Daily')}</div></div>{daily.map((h) => <HabitCard h={h} />)}</div>}
+          {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">{_t('Weekly')}</div></div>{weekly.map((h) => <HabitCard h={h} />)}</div>}
           {archived.length > 0 && (
             <div class="section">
-              <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Hide archived' : `Archived (${archived.length})`}</button>
+              <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setShowArchived(!showArchived)}>{showArchived ? _t('Hide archived') : _t('Archived ({0})', [archived.length])}</button>
               {showArchived && archived.map((h) => <HabitCard h={h} />)}
             </div>
           )}
@@ -98,23 +97,23 @@ function HabitsMonth({ ym, cur }) {
   return (
     <>
       <div class="row gap-8">
-        <button class="icon-btn" aria-label="Previous month" onClick={() => go(shiftMonth(ym, -1))}><Icon name="chevronLeft" /></button>
+        <button class="icon-btn" aria-label={_t('Previous month')} onClick={() => go(shiftMonth(ym, -1))}><Icon name="chevronLeft" /></button>
         <div class="grow" style={{ textAlign: 'center' }}>
           <div class="card-title" style={{ justifyContent: 'center' }}>{monthTitle(ym)}</div>
-          <div class="muted" style={{ fontSize: 13 }}>{ym === cur ? 'This month, so far' : ym === shiftMonth(cur, -1) ? 'Last month' : ''}</div>
+          <div class="muted" style={{ fontSize: 13 }}>{ym === cur ? _t('This month, so far') : ym === shiftMonth(cur, -1) ? _t('Last month') : ''}</div>
         </div>
-        <button class="icon-btn" aria-label="Next month" disabled={ym >= cur} onClick={() => go(shiftMonth(ym, 1))}><Icon name="chevronRight" /></button>
+        <button class="icon-btn" aria-label={_t('Next month')} disabled={ym >= cur} onClick={() => go(shiftMonth(ym, 1))}><Icon name="chevronRight" /></button>
       </div>
       {sum.list.length ? (
         <>
           <div class="stats hb-stats">
-            <div class="stat"><div class="stat-label">Consistency</div><div class="stat-value">{sum.pct}%</div></div>
-            <div class="stat"><div class="stat-label">Check-ins</div><div class="stat-value">{sum.checkins}</div></div>
-            <div class="stat"><div class="stat-label">Longest run</div><div class="stat-value">{sum.best}<span class="stat-unit"> {sum.best === 1 ? 'day' : 'days'}</span></div></div>
+            <div class="stat"><div class="stat-label">{_t('Consistency')}</div><div class="stat-value">{sum.pct}%</div></div>
+            <div class="stat"><div class="stat-label">{_t('Check-ins')}</div><div class="stat-value">{sum.checkins}</div></div>
+            <div class="stat"><div class="stat-label">{_t('Longest run')}</div><div class="stat-value">{sum.best}<span class="stat-unit"> {sum.best === 1 ? 'day' : 'days'}</span></div></div>
           </div>
           <div class="hb-month-list">{sum.list.map(({ h, r }) => <HabitMonthCard h={h} r={r} />)}</div>
         </>
-      ) : <div class="card"><Empty icon="habit" title={`No habits in ${monthTitle(ym)}`}>Habits you track show up here with a calendar for the month.</Empty></div>}
+      ) : <div class="card"><Empty icon="habit" title={_t('No habits in {0}', [monthTitle(ym)])}>{_t('Habits you track show up here with a calendar for the month.')}</Empty></div>}
     </>
   );
 }
@@ -125,8 +124,8 @@ function HabitMonthCard({ h, r }) {
   const lead = (weekday(r.days[0]) - M.settings().weekStart + 7) % 7;
   const dows = Array.from({ length: 7 }, (_, i) => fmtWeekdayShort(addDays(startOfWeek(t0, M.settings().weekStart), i)).slice(0, 2));
   const summary = r.weekly
-    ? `${r.met} of ${r.weeks.length} week${r.weeks.length === 1 ? '' : 's'} hit ${r.target}×`
-    : `${r.done} of ${r.counted} day${r.counted === 1 ? '' : 's'}`;
+    ? _t('{0} of {1} week(s) hit {2}×', [r.met, r.weeks.length, r.target])
+    : _t('{0} of {1} day(s)', [r.done, r.counted]);
   return (
     <div class={'card hb-mcard' + (h.archived ? ' archived' : '')}>
       <button class="hb-mhead" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -135,8 +134,8 @@ function HabitMonthCard({ h, r }) {
           <div class="hb-meta">
             <span>{summary}</span>
             {r.weekly && <span>{plural(r.done, 'check-in')}</span>}
-            {!r.weekly && r.best > 1 && <span class="hb-streak"><Icon name="flame" size={13} />best {r.best} days</span>}
-            {h.archived && <span>Archived</span>}
+            {!r.weekly && r.best > 1 && <span class="hb-streak"><Icon name="flame" size={13} />{_t('best')}{' '}{r.best}{' '}{_t('days')}</span>}
+            {h.archived && <span>{_t('Archived')}</span>}
           </div>
         </div>
         <span class={'hb-pct' + (r.pct >= 80 ? ' good' : '')}>{r.pct}%</span>
@@ -160,11 +159,11 @@ function HabitMonthCard({ h, r }) {
 
 function habitMenu(e, h) {
   openMenu(e, [
-    { label: 'Edit', icon: 'edit', onSelect: () => openHabitSheet(h.id) },
+    { label: _t('Edit'), icon: 'edit', onSelect: () => openHabitSheet(h.id) },
     h.archived
-      ? { label: 'Restore', icon: 'restore', onSelect: () => { patch('habits', h.id, { archived: false }); toast('Habit restored'); } }
-      : { label: 'Archive', icon: 'archive', onSelect: () => { patch('habits', h.id, { archived: true }); toast('Habit archived. History is kept.'); } },
-    { label: 'Delete', icon: 'trash', danger: true, onSelect: async () => { if (await confirmDialog({ title: 'Delete this habit?', body: 'Its check history goes too. Archive keeps the history.', confirmLabel: 'Delete', danger: true })) { remove('habits', h.id); toast('Habit deleted'); } } },
+      ? { label: _t('Restore'), icon: 'restore', onSelect: () => { patch('habits', h.id, { archived: false }); toast(_t('Habit restored')); } }
+      : { label: _t('Archive'), icon: 'archive', onSelect: () => { patch('habits', h.id, { archived: true }); toast(_t('Habit archived. History is kept.')); } },
+    { label: _t('Delete'), icon: 'trash', danger: true, onSelect: async () => { if (await confirmDialog({ title: _t('Delete this habit?'), body: _t('Its check history goes too. Archive keeps the history.'), confirmLabel: _t('Delete'), danger: true })) { remove('habits', h.id); toast(_t('Habit deleted')); } } },
   ], { title: h.title });
 }
 
@@ -181,21 +180,21 @@ function HabitCard({ h }) {
   return (
     <div class={'card habit-card' + (h.archived ? ' archived' : '')}>
       <div class="hb-head">
-        <button class={'hb-today' + (done ? ' on' : '')} aria-pressed={done} aria-label={(done ? 'Uncheck ' : 'Check ') + h.title + ' for today'} disabled={h.archived} onClick={() => M.toggleHabit(h.id, t0)}>
+        <button class={'hb-today' + (done ? ' on' : '')} aria-pressed={done} aria-label={(done ? _t('Uncheck {0} for today', [h.title]) : _t('Check {0} for today', [h.title]))} disabled={h.archived} onClick={() => M.toggleHabit(h.id, t0)}>
           <Icon name="check" size={20} stroke={2.6} />
         </button>
         <div class="grow" style={{ minWidth: 0 }}>
           <div class="hb-title"><HabitMark h={h} />{h.title}</div>
           <div class="hb-meta">
             <span>{freqLabel(h)}</span>
-            {weekly && <span class={met ? 'ok' : ''}>{count}/{target} this week</span>}
+            {weekly && <span class={met ? 'ok' : ''}>{count}/{target}{' '}{_t('this week')}</span>}
             {streak > 0 && <span class="hb-streak"><Icon name="flame" size={13} />{weekly ? plural(streak, 'week') : plural(streak, 'day')}</span>}
-            <span>{M.habitRate(h, t0)}% last 30 days</span>
+            <span>{M.habitRate(h, t0)}{_t('% last 30 days')}</span>
           </div>
         </div>
-        <button class="icon-btn ghost sm" aria-label="Habit actions" onClick={(e) => habitMenu(e, h)}><Icon name="more" /></button>
+        <button class="icon-btn ghost sm" aria-label={_t('Habit actions')} onClick={(e) => habitMenu(e, h)}><Icon name="more" /></button>
       </div>
-      <div class="hb-week" role="group" aria-label={'This week for ' + h.title}>
+      <div class="hb-week" role="group" aria-label={_t('This week for {0}', [h.title])}>
         {days.map((d) => {
           const on = M.habitDone(h, d), future = d > t0;
           return (
@@ -220,12 +219,12 @@ export function HabitsTodayCard() {
   if (!habits.length) {
     return (
       <div class="card">
-        <div class="card-head"><div class="card-title">Habits</div><a class="btn sm soft" href="#/habits?new=1"><Icon name="plus" size={16} />Habit</a></div>
+        <div class="card-head"><div class="card-title">{_t('Habits')}</div><a class="btn sm soft" href="#/habits?new=1"><Icon name="plus" size={16} />{_t('Habit')}</a></div>
         <div class="today-empty">
           <span class="mini-ic t-accent"><Icon name="habit" size={18} /></span>
           <div class="grow" style={{ minWidth: 0 }}>
-            <div class="row-title">Track daily and weekly habits</div>
-            <div class="row-meta">Check them off here every day. Streaks build up on the Habits page.</div>
+            <div class="row-title">{_t('Track daily and weekly habits')}</div>
+            <div class="row-meta">{_t('Check them off here every day. Streaks build up on the Habits page.')}</div>
           </div>
         </div>
       </div>
@@ -240,12 +239,12 @@ export function HabitsTodayCard() {
   return (
     <div class="card">
       <div class="card-head">
-        <div class="card-title">Habits <span class="count">{doneN}/{rows.length}</span></div>
-        <a class="btn sm soft" href="#/habits">All</a>
+        <div class="card-title">{_t('Habits')}{' '}<span class="count">{doneN}/{rows.length}</span></div>
+        <a class="btn sm soft" href="#/habits">{_t('All')}</a>
       </div>
       <div class="today-progress">
         <div class="th-bar grow"><i style={{ width: pct + '%' }} /></div>
-        <span class="tnum">{doneN} of {rows.length} done</span>
+        <span class="tnum">{doneN}{' '}{_t('of')}{' '}{rows.length}{' '}{_t('done')}</span>
       </div>
       <div class="list">
         {rows.map(({ h, open, done }) => {
@@ -258,10 +257,10 @@ export function HabitsTodayCard() {
               <div class="task-body" onClick={() => navigate('/habits')}>
                 <div class="task-title"><HabitMark h={h} />{h.title}</div>
                 <div class="task-meta">
-                  {weekly && <span class={'m' + (count >= target ? ' today' : '')}>{count}/{target} this week</span>}
-                  {!weekly && <span class="m">Daily</span>}
+                  {weekly && <span class={'m' + (count >= target ? ' today' : '')}>{count}/{target}{' '}{_t('this week')}</span>}
+                  {!weekly && <span class="m">{_t('Daily')}</span>}
                   {streak > 0 && <span class="m hb-streak"><Icon name="flame" />{weekly ? plural(streak, 'week') : plural(streak, 'day')}</span>}
-                  {!open && !done && <span class="m">Target met</span>}
+                  {!open && !done && <span class="m">{_t('Target met')}</span>}
                 </div>
               </div>
             </div>
@@ -283,29 +282,29 @@ function HabitSheet({ id, close }) {
   const set = (ch) => setH({ ...h, ...ch });
   const save = () => {
     const title = h.title.trim();
-    if (!title) return toast('Name the habit first.', { tone: 'warn' });
+    if (!title) return toast(_t('Name the habit first.'), { tone: 'warn' });
     const data = { title, emoji: (h.emoji || '').trim().slice(0, 4), freq: h.freq, target: h.freq === 'weekly' ? Math.max(1, Math.min(7, +h.target || 1)) : 1 };
     if (ex) patch('habits', ex.id, data); else M.newHabit(data);
-    toast(ex ? 'Habit saved' : 'Habit added');
+    toast(ex ? _t('Habit saved') : _t('Habit added'));
     close();
   };
   return (
     <>
-      <SheetHead title={ex ? 'Edit habit' : 'New habit'} onClose={close} />
+      <SheetHead title={ex ? _t('Edit habit') : _t('New habit')} onClose={close} />
       <SheetBody>
         <div class="form">
           <div class="hb-name-row">
-            <Field label="Icon" htmlFor="hb-emoji"><TextInput id="hb-emoji" class="hb-emoji-input" value={h.emoji} onInput={(v) => set({ emoji: v })} placeholder="🙂" maxLength={4} /></Field>
-            <Field label="Habit" htmlFor="hb-title"><TextInput id="hb-title" value={h.title} onInput={(v) => set({ title: v })} placeholder="e.g. Workout, Read 20 minutes" autoFocus={!ex} onEnter={save} /></Field>
+            <Field label={_t('Icon')} htmlFor="hb-emoji"><TextInput id="hb-emoji" class="hb-emoji-input" value={h.emoji} onInput={(v) => set({ emoji: v })} placeholder="🙂" maxLength={4} /></Field>
+            <Field label={_t('Habit')} htmlFor="hb-title"><TextInput id="hb-title" value={h.title} onInput={(v) => set({ title: v })} placeholder={_t('e.g. Workout, Read 20 minutes')} autoFocus={!ex} onEnter={save} /></Field>
           </div>
-          <Field label="How often"><Segmented options={[{ id: 'daily', label: 'Daily' }, { id: 'weekly', label: 'Weekly' }]} value={h.freq} onChange={(v) => set({ freq: v })} /></Field>
+          <Field label={_t('How often')}><Segmented options={[{ id: 'daily', label: _t('Daily') }, { id: 'weekly', label: _t('Weekly') }]} value={h.freq} onChange={(v) => set({ freq: v })} /></Field>
           {h.freq === 'weekly'
-            ? <Field label="Times per week"><Chips options={[1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: n, label: n + '×' }))} value={+h.target || 1} onChange={(v) => set({ target: v })} /></Field>
-            : <div class="field-hint">Check it once a day. Missing a day resets the streak.</div>}
-          {h.freq === 'weekly' && <div class="field-hint">Check it on the days you do it. The week counts when you hit the target.</div>}
+            ? <Field label={_t('Times per week')}><Chips options={[1, 2, 3, 4, 5, 6, 7].map((n) => ({ id: n, label: n + '×' }))} value={+h.target || 1} onChange={(v) => set({ target: v })} /></Field>
+            : <div class="field-hint">{_t('Check it once a day. Missing a day resets the streak.')}</div>}
+          {h.freq === 'weekly' && <div class="field-hint">{_t('Check it on the days you do it. The week counts when you hit the target.')}</div>}
         </div>
       </SheetBody>
-      <SheetFoot><button class="btn ghost" onClick={close}>Cancel</button><button class="btn primary" onClick={save}>{ex ? 'Save' : 'Add habit'}</button></SheetFoot>
+      <SheetFoot><button class="btn ghost" onClick={close}>{_t('Cancel')}</button><button class="btn primary" onClick={save}>{ex ? _t('Save') : _t('Add habit')}</button></SheetFoot>
     </>
   );
 }
