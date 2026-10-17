@@ -173,12 +173,25 @@ export function MoneyOverview() {
               <button class="mn-action" onClick={() => openTx({ type: 'transfer' })}><Icon name="swap" size={18} />{t('Transfer')}</button>
             </div>
           </div>
+          <ActiveTagBar />
           {left}
         </div>
         {desktop && <div class="stack">{right}</div>}
       </div>
       <button class="btn ghost" style={{ alignSelf: 'center' }} onClick={openCustomize}><Icon name="layout" size={17} />{t('Customize overview')}</button>
     </Shell>
+  );
+}
+function ActiveTagBar() {
+  const a = $.moneySettings().activeTag;
+  if (!a) return null;
+  const info = $.tagInfo(a);
+  return (
+    <div class="banner mn-tagbar">
+      <Icon name="tag" size={18} />
+      <button class="grow mn-plain" style={{ textAlign: 'left' }} onClick={() => openTag(a)}><b>{t('Tagging new transactions: {name}', { name: a })}</b><small>{t('{amount} so far', { amount: rp(info ? info.out : 0) })}</small></button>
+      <button class="btn sm" onClick={() => { $.setMoneySettings({ activeTag: '' }); toast(t('Tag turned off')); }}>{t('Turn off')}</button>
+    </div>
   );
 }
 const Head = ({ title, count, action, onAction, href }) => (
@@ -345,6 +358,8 @@ function txView(x) {
 }
 function TxRow({ x }) {
   const v = txView(x);
+  const tg = $.txTags(x);
+  if (tg.length) v.meta = [v.meta, tg.map((n) => '#' + n).join(' ')].filter(Boolean).join(' · ');
   const open = () => (x.type === 'adjust' ? openAdjust(x) : x.type === 'debt' ? openDebt(x.debtId) : openTx({ tx: x }));
   return (
     <button class="list-row clickable mn-tx" onClick={open}>
@@ -655,6 +670,7 @@ export function MoneyInsights({ query = {} }) {
           );
         }) : <Empty icon="pie" title={kind === 'expense' ? t('No spending in {month}', { month: monthName(ym) }) : t('No income in {month}', { month: monthName(ym) })} />}
       </div>
+      <TagsCard />
     </Shell>
   );
 }
@@ -678,6 +694,91 @@ function AmountField({ id, value, onChange, autoFocus }) {
     </label>
   );
 }
+// Tags: free labels for an event or trip ("Bali trip", "Lebaran"), across categories and months
+function TagField({ value, onChange }) {
+  const [text, setText] = useState('');
+  const [adding, setAdding] = useState(false);
+  const has = (n) => value.some((x) => x.toLowerCase() === n.toLowerCase());
+  const add = (raw) => { const n = $.normTag(raw); if (n && !has(n)) onChange([...value, n]); setText(''); };
+  const q = text.trim().toLowerCase().replace(/^#/, '');
+  const sugg = $.allTags().filter((g) => !has(g.name) && (!q || g.key.includes(q))).slice(0, 6);
+  return (
+    <Field label={<>{t('Tags')} <span class="muted" style={{ fontWeight: 600 }}>{t('optional, for an event or trip')}</span></>}>
+      <div class="chips">
+        {value.map((n) => <button class="chip on" aria-label={t('Remove tag {name}', { name: n })} onClick={() => onChange(value.filter((x) => x !== n))}><Icon name="tag" size={14} />{n}<Icon name="x" size={13} /></button>)}
+        {!adding && sugg.slice(0, value.length ? 3 : 5).map((g) => <button class="chip" onClick={() => add(g.name)}><Icon name="plus" size={13} />{g.name}</button>)}
+        {!adding && <button class="chip mn-tagadd" onClick={() => setAdding(true)}><Icon name="tag" size={14} />{t('New tag')}</button>}
+      </div>
+      {adding && <>
+        <input class="input" id="mn-tag" autoFocus autoComplete="off" value={text} placeholder={t('e.g. Bali trip, Lebaran, Wedding Raka')}
+          onInput={(e) => { const v = e.currentTarget.value; if (/[,\n]/.test(v)) add(v.replace(/[,\n]/g, '')); else setText(v); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (text.trim()) add(text); else setAdding(false); } if (e.key === 'Escape') { e.stopPropagation(); setAdding(false); setText(''); } }}
+          onBlur={() => setTimeout(() => { setText((cur) => { if (cur.trim()) add(cur); return ''; }); setAdding(false); }, 150)} />
+        {sugg.length > 0 && <div class="chips sm">{sugg.map((g) => <button class="chip" onMouseDown={(e) => e.preventDefault()} onClick={() => add(g.name)}><Icon name="tag" size={13} />{g.name}</button>)}</div>}
+      </>}
+    </Field>
+  );
+}
+export function openTag(name) { openOverlay((close) => <TagSheet name={name} close={close} />, { kind: 'sheet' }); }
+function TagSheet({ name: name0, close }) {
+  useStore();
+  const [name, setName] = useState(name0);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(name0);
+  const info = $.tagInfo(name);
+  const list = $.txWithTag(name);
+  const active = ($.moneySettings().activeTag || '').toLowerCase() === name.toLowerCase();
+  const byCat = {};
+  for (const x of list) if (x.type === 'expense') { const k = $.topCatId(x.catId); byCat[k] = (byCat[k] || 0) + x.amount; } else if (x.type === 'transfer' && x.fee) byCat.fee = (byCat.fee || 0) + x.fee;
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const doRename = () => { const n = $.normTag(draft); if (n && n !== name) { $.renameTag(name, n); setName(n); toast(t('Tag renamed')); } setRenaming(false); };
+  const del = async () => {
+    if (!(await confirmDialog({ title: t('Remove tag “{name}”?', { name }), body: t('The transactions stay, only the tag is removed from them.'), confirmLabel: t('Remove tag'), danger: true }))) return;
+    $.removeTag(name); close(); toast(t('Tag removed'));
+  };
+  return (
+    <>
+      <SheetHead title={<span class="row gap-8"><Icon name="tag" size={18} />{name}</span>} onClose={close} />
+      <SheetBody>
+        <div class="form">
+          {renaming ? <div class="row gap-8"><input class="input grow" id="mn-tag-name" autoFocus value={draft} onInput={(e) => setDraft(e.currentTarget.value)} onKeyDown={(e) => e.key === 'Enter' && doRename()} /><button class="btn primary" onClick={doRename}>{t('Save')}</button></div> : null}
+          <div class="mn-figs">
+            <div><span class="stat-label">{t('Spent')}</span><b>{rp(info ? info.out : 0)}</b></div>
+            <div><span class="stat-label">{info && info.in ? t('Money in') : t('Transactions')}</span><b class={info && info.in ? 'mn-pos' : ''}>{info && info.in ? rp(info.in) : (info ? info.count : 0)}</b></div>
+          </div>
+          {info && <div class="mn-note">{info.first === info.last ? fmtLong(info.first) : `${fmtShort(info.first)} – ${fmtShort(info.last)}`} · {tn(info.count, '{n} transaction', '{n} transactions')}</div>}
+          {cats.length > 0 && <div class="list">{cats.map(([id, amt]) => { const c = $.cat(id); return <div class="list-row"><CatIc c={c} /><div class="row-main"><div class="row-title">{$.catName(c)}</div></div><b class="tnum mn-amt">{rp(amt)}</b></div>; })}</div>}
+          <div class="mn-toggle-row"><span class="grow"><b>{t('Add to new transactions')}</b><small>{t('Turn on during the event, every new transaction gets this tag. Turn off when it ends.')}</small></span>
+            <button class={'toggle ' + (active ? 'on' : '')} role="switch" aria-checked={active} aria-label={t('Add to new transactions')} onClick={() => $.setMoneySettings({ activeTag: active ? '' : name })} /></div>
+          <div class="card mn-inner"><TxGroups list={list} empty={t('No transactions with this tag')} /></div>
+          <div class="row gap-8">
+            <button class="btn soft grow" onClick={() => { setDraft(name); setRenaming(true); }}><Icon name="edit" size={16} />{t('Rename')}</button>
+            <button class="btn danger-soft grow" onClick={del}><Icon name="trash" size={16} />{t('Remove tag')}</button>
+          </div>
+        </div>
+      </SheetBody>
+    </>
+  );
+}
+function TagsCard() {
+  const tags = $.allTags();
+  if (!tags.length) return (
+    <div class="card"><Head title={t('Tags')} /><div class="mn-note">{t('Add a tag like “Bali trip” to transactions to see what an event cost, across categories and months.')}</div></div>
+  );
+  return (
+    <div class="card">
+      <Head title={t('Tags')} count={tags.length} />
+      <div class="list">{tags.map((g) => (
+        <button class="list-row clickable" onClick={() => openTag(g.name)}>
+          <span class="mini-ic t-accent"><Icon name="tag" size={17} /></span>
+          <div class="row-main"><div class="row-title">{g.name}</div><div class="row-meta">{(g.first === g.last ? fmtShort(g.first) : `${fmtShort(g.first)} – ${fmtShort(g.last)}`) + ' · ' + tn(g.count, '{n} transaction', '{n} transactions')}</div></div>
+          <b class="tnum mn-amt">{rp(g.out)}</b>
+        </button>
+      ))}</div>
+    </div>
+  );
+}
+
 function TxSheet({ close, tx: ex, type: type0, prefill = {}, accountId: accPreset, payCardId, billId, billYm }) {
   useStore();
   const bal = $.balances();
@@ -700,6 +801,7 @@ function TxSheet({ close, tx: ex, type: type0, prefill = {}, accountId: accPrese
   const [date, setDate] = useState(ex ? ex.date : prefill.date || today());
   const [time, setTime] = useState(ex ? ex.time || nowTime() : nowTime());
   const [noteFocus, setNoteFocus] = useState(false);
+  const [tags, setTags] = useState(() => (ex ? $.txTags(ex) : prefill.tags || ($.moneySettings().activeTag ? [$.moneySettings().activeTag] : [])));
   const [spin, setSpin] = useState(false);
   const isT = type === 'transfer';
   const kind = type === 'income' ? 'income' : 'expense';
@@ -724,6 +826,7 @@ function TxSheet({ close, tx: ex, type: type0, prefill = {}, accountId: accPrese
   const save = () => {
     if (missing) return;
     const rec = { ...(ex || {}), id: ex ? ex.id : uid(), type, amount, date, time, note: note.trim() };
+    if (tags.length) rec.tags = tags; else delete rec.tags;
     if (isT) { rec.accountId = fromId; rec.toAccountId = toId; rec.fee = fee || 0; delete rec.catId; last.set({ from: fromId, to: toId }); }
     else { rec.accountId = accId; rec.catId = sub || top; delete rec.toAccountId; delete rec.fee; last.set({ [type]: accId }); }
     $.saveTx(rec);
@@ -804,6 +907,7 @@ function TxSheet({ close, tx: ex, type: type0, prefill = {}, accountId: accPrese
               ); })}</div>
             )}
           </Field>
+          <TagField value={tags} onChange={setTags} />
         </div>
       </SheetBody>
       <SheetFoot>

@@ -1319,3 +1319,13 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .sheet-foot .btn.grow { flex: 1 1 auto; }
 html.overlay-open .toasts { bottom: auto; top: calc(var(--sat) + 12px); }
 .sc-url { font-size: 12px; word-break: break-all; }
+.mn-toggle-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); }
+.mn-toggle-row b { display: block; font-size: 14.5px; }
+.mn-toggle-row small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.4; }
+.mn-inner { padding: 4px 12px; box-shadow: none; border: 1px solid var(--line); }
+.mn-tagbar { background: var(--t-blue-bg); align-items: center; }
+.mn-tagbar b { display: block; font-size: 14px; }
+.mn-tagbar small { display: block; color: var(--muted); font-size: 12.5px; }
+.mn-tagbar .mn-plain { display: block; min-width: 0; }
+.mn-tagadd { border-style: dashed; }
+.mn-tagbar .ic { color: var(--accent); }

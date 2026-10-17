@@ -67,7 +67,7 @@ export const catLabel = (id) => { const c = cat(id); if (!c) return t('Other'); 
 // Make sure categories exist in storage before the first edit (until then the defaults are virtual)
 export function ensureCats() { if (!all(C.cat).length) for (const c of DEFAULT_CATS) put(C.cat, { ...c }); }
 
-export const moneySettings = () => ({ widgets: null, allowanceAcc: '', totalBudget: 0, ...(get('meta', 'money') || {}) });
+export const moneySettings = () => ({ widgets: null, allowanceAcc: '', totalBudget: 0, activeTag: '', ...(get('meta', 'money') || {}) });
 export const setMoneySettings = (ch) => put('meta', { ...moneySettings(), ...ch, id: 'money' });
 
 export const liveTx = memo(() => [all(C.tx)], () => all(C.tx).filter((x) => !x.deletedAt));
@@ -251,13 +251,44 @@ export const SUGGESTED = [
   { key: 'spay', name: 'ShopeePay', bank: '', type: 'ewallet', tone: 't-orange', on: false },
 ];
 
+// ---------- tags (free labels for events or trips, e.g. "Bali trip", "Lebaran") ----------
+export const normTag = (s) => String(s || '').replace(/^#+/, '').replace(/\s+/g, ' ').trim().slice(0, 32);
+const tagKey = (s) => normTag(s).toLowerCase();
+export const txTags = (x) => (Array.isArray(x && x.tags) ? x.tags : []);
+// Spending under a tag = expenses + transfer admin fees; money in = income. Transfers and debts are not counted.
+export const tagIndex = memo(() => [all(C.tx)], () => {
+  const m = {};
+  for (const x of liveTx()) for (const tg of txTags(x)) {
+    const k = tagKey(tg); if (!k) continue;
+    const r = m[k] || (m[k] = { key: k, name: normTag(tg), count: 0, out: 0, in: 0, first: x.date, last: x.date });
+    r.count++;
+    if (x.type === 'expense') r.out += x.amount; else if (x.type === 'transfer') r.out += x.fee || 0; else if (x.type === 'income') r.in += x.amount;
+    if (x.date < r.first) r.first = x.date;
+    if (x.date > r.last) { r.last = x.date; r.name = normTag(tg); }
+  }
+  return m;
+});
+export const allTags = () => Object.values(tagIndex()).sort((a, b) => (a.last < b.last ? 1 : a.last > b.last ? -1 : b.count - a.count));
+export const tagInfo = (name) => tagIndex()[tagKey(name)] || null;
+export const hasTag = (x, name) => txTags(x).some((tg) => tagKey(tg) === tagKey(name));
+export const txWithTag = (name) => txSorted().filter((x) => hasTag(x, name));
+export function renameTag(from, to) {
+  const n = normTag(to); if (!n) return;
+  for (const x of txWithTag(from)) put(C.tx, { ...x, tags: [...new Set(txTags(x).map((tg) => (tagKey(tg) === tagKey(from) ? n : tg)))] });
+  const a = moneySettings().activeTag; if (a && tagKey(a) === tagKey(from)) setMoneySettings({ activeTag: n });
+}
+export function removeTag(name) {
+  for (const x of txWithTag(name)) put(C.tx, { ...x, tags: txTags(x).filter((tg) => tagKey(tg) !== tagKey(name)) });
+  const a = moneySettings().activeTag; if (a && tagKey(a) === tagKey(name)) setMoneySettings({ activeTag: '' });
+}
+
 export function toCsv() {
-  const rows = [['Date', 'Time', 'Type', 'Amount', 'Admin fee', 'Category', 'Account', 'To account', 'Debt', 'Note']];
+  const rows = [['Date', 'Time', 'Type', 'Amount', 'Admin fee', 'Category', 'Account', 'To account', 'Debt', 'Note', 'Tags']];
   const J = { expense: 'Expense', income: 'Income', transfer: 'Transfer', adjust: 'Adjustment', debt: 'Debt' };
   const accName = (id) => { const a = account(id); return a ? (a.bank ? a.bank + ' ' : '') + a.name : ''; };
   for (const x of [...txSorted()].reverse()) {
     const d = x.debtId ? get(C.debt, x.debtId) : null;
-    rows.push([x.date, x.time || '', J[x.type] || x.type, x.amount, x.fee || 0, x.type === 'expense' || x.type === 'income' ? catLabel(x.catId) : '', accName(x.accountId), accName(x.toAccountId), d ? `${d.person} (${x.action})` : '', x.note || '']);
+    rows.push([x.date, x.time || '', J[x.type] || x.type, x.amount, x.fee || 0, x.type === 'expense' || x.type === 'income' ? catLabel(x.catId) : '', accName(x.accountId), accName(x.toAccountId), d ? `${d.person} (${x.action})` : '', x.note || '', txTags(x).join('; ')]);
   }
   return rows.map((r) => r.map((v) => { const s = String(v); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
 }
