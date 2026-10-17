@@ -43,7 +43,7 @@ export function App() {
   if (!p0) { page = <TodayPage />; sub = 'today'; }
   else if (p0 === 'tasks') { page = <TasksPage query={r.query} />; sub = 'tasks'; }
   else if (p0 === 'calendar') { page = <CalendarPage query={r.query} />; sub = 'calendar'; }
-  else if (p0 === 'habits') { page = <HabitsPage />; sub = 'habits'; }
+  else if (p0 === 'habits') { page = <HabitsPage query={r.query} />; sub = 'habits'; }
   else if (p0 === 'goals') { page = <GoalsPage />; sub = 'goals'; }
   else if (p0 === 'review') { page = <ReviewPage mode={p1 === 'weekly' || p1 === 'monthly' ? p1 : 'daily'} date={r.query.d} />; sub = 'review'; }
   else if (p0 === 'content') {

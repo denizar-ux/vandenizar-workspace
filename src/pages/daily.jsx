@@ -706,13 +706,23 @@ export function MonthlyReview({ month }) {
         <div class="export-icon"><Icon name="file" size={22} /></div>
         <div class="grow" style={{ minWidth: 0 }}>
           <div class="row-title">Daily Review - {monthLabel(ym)}.pdf</div>
-          <div class="row-meta">{saved ? <>Saved to Drive {fmtAgo(saved.at)}{saved.url && <> · <a href={saved.url} target="_blank" rel="noopener">Open</a></>}</> : (d.days.length ? `${d.days.length} daily review${d.days.length === 1 ? '' : 's'} in one PDF` : 'No reviews yet') + ` · Saves to Daily Review / ${ym.slice(0, 4)} / ${monthLabel(ym).split(' ')[0]}`}</div>
+          <div class="row-meta">{saved ? <>Saved to Drive {fmtAgo(saved.at)}{saved.url && <> · <a href={saved.url} target="_blank" rel="noopener">Open</a></>}</> : (d.days.length ? `${d.days.length} daily review${d.days.length === 1 ? '' : 's'}${d.habits.length ? ' + habits' : ''} in one PDF` : d.habits.length ? 'Habit recap in one PDF' : 'No reviews yet') + ` · Saves to Daily Review / ${ym.slice(0, 4)} / ${monthLabel(ym).split(' ')[0]}`}</div>
         </div>
         <div class="export-actions">
           <button class="btn sm ghost" disabled={!!busy} onClick={download}><Icon name="download" size={15} />{busy === 'pdf' ? 'Making…' : 'PDF'}</button>
-          <button class="btn sm primary" disabled={!!busy || !d.days.length} onClick={() => (sync.user ? toDrive() : navigate('/settings/account'))}><Icon name="upload" size={15} />{busy === 'drive' ? 'Saving…' : saved ? 'Save again' : 'Save to Drive'}</button>
+          <button class="btn sm primary" disabled={!!busy || (!d.days.length && !d.habits.length)} onClick={() => (sync.user ? toDrive() : navigate('/settings/account'))}><Icon name="upload" size={15} />{busy === 'drive' ? 'Saving…' : saved ? 'Save again' : 'Save to Drive'}</button>
         </div>
       </div>
+      {d.habits.length > 0 && (
+        <a class="card hb-review-link" href={'#/habits?view=month' + (ym !== cur ? '&m=' + ym : '')}>
+          <div class="export-icon"><Icon name="habit" size={22} /></div>
+          <div class="grow" style={{ minWidth: 0 }}>
+            <div class="row-title">Habits · {d.habitPct}% consistent</div>
+            <div class="row-meta">{d.habits.map((x) => x.h.title + ' ' + x.r.pct + '%').join(' · ')}</div>
+          </div>
+          <Icon name="chevronRight" size={18} />
+        </a>
+      )}
       {d.days.length ? (
         <div class="col gap-12">{d.days.map((x) => (
           <a class="card journal-day" href={'#/review?d=' + x.date}>

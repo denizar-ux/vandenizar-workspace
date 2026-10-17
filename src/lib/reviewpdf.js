@@ -24,7 +24,9 @@ export function monthData(ym) {
   const uploads = M.liveContents().filter((c) => c.status === 'published' && c.publishedAt && inMonth(isoOf(c.publishedAt))).length;
   const en = reviews.filter((r) => r.energy).map((r) => r.energy);
   const avgEnergy = en.length ? en.reduce((a, b) => a + b, 0) / en.length : 0;
-  return { ym, days, doneCount, uploads, avgEnergy };
+  const habits = M.habitsForMonth(ym).map((h) => ({ h, r: M.habitMonth(h, ym) })).filter((x) => x.r.counted > 0 || x.r.done > 0);
+  const habitPct = habits.length ? Math.round(habits.reduce((n, x) => n + x.r.pct, 0) / habits.length) : 0;
+  return { ym, days, doneCount, uploads, avgEnergy, habits, habitPct };
 }
 
 export async function buildMonthlyPdf(ym) {
@@ -58,8 +60,39 @@ export async function buildMonthlyPdf(ym) {
   yy += 9;
   const stats = [`${d.days.length} day${d.days.length === 1 ? '' : 's'} reviewed`, `${d.doneCount} task${d.doneCount === 1 ? '' : 's'} done`, `${d.uploads} upload${d.uploads === 1 ? '' : 's'}`];
   if (d.avgEnergy) stats.push(`average energy ${ENERGY[Math.round(d.avgEnergy) - 1]}`);
+  if (d.habits.length) stats.push(`habits ${d.habitPct}% consistent`);
   para(stats.join('  ·  '), 10, MUTED);
   yy += 4; doc.setDrawColor(...LINE); doc.setLineWidth(0.4); doc.line(L, yy, R, yy); yy += 9;
+
+  // Habits: one row per habit with a square for every day of the month
+  if (d.habits.length) {
+    const plain = (t) => String(t || '').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '').replace(/\s+/g, ' ').trim();
+    need(12);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text('HABITS', L, yy); yy += 6;
+    for (const { h, r } of d.habits) {
+      need(17);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...INK);
+      doc.text(doc.splitTextToSize(plain(h.title) || 'Habit', TW * 0.55)[0], L, yy);
+      const sum = r.weekly ? `${r.met} of ${r.weeks.length} weeks hit ${r.target}x · ${r.done} check-ins` : `${r.done} of ${r.counted} days` + (r.best > 1 ? ` · best run ${r.best} days` : '');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED);
+      doc.text(sum, R - 13, yy, { align: 'right' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...(r.pct >= 80 ? [31, 157, 87] : INK));
+      doc.text(r.pct + '%', R, yy, { align: 'right' });
+      yy += 3;
+      const n = r.days.length, step = TW / n, sz = Math.min(4.6, step - 0.9);
+      r.days.forEach((day, i) => {
+        const x = L + i * step;
+        const on = r.set.has(day), off = day > r.to || day < r.from;
+        if (on) { doc.setFillColor(...ACCENT); doc.roundedRect(x, yy, sz, sz, 0.9, 0.9, 'F'); }
+        else if (off) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.roundedRect(x, yy, sz, sz, 0.9, 0.9, 'S'); }
+        else { doc.setFillColor(...LINE); doc.roundedRect(x, yy, sz, sz, 0.9, 0.9, 'F'); }
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.2); doc.setTextColor(...MUTED);
+        doc.text(String(i + 1), x + sz / 2, yy + sz + 2.6, { align: 'center' });
+      });
+      yy += sz + 8;
+    }
+    yy += 1; doc.setDrawColor(...LINE); doc.setLineWidth(0.4); doc.line(L, yy, R, yy); yy += 9;
+  }
 
   if (!d.days.length) para('No daily reviews were written this month.', 11, MUTED);
 

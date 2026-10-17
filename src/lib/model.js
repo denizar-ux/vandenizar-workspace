@@ -1,6 +1,6 @@
 // Shared data model, defaults, derived values and cross-module actions.
 import { get, all, put, patch, remove, uid } from './db.js';
-import { today, addDays, diffDays, startOfWeek, nextOccurrence, isoOf, monthKey } from './date.js';
+import { today, addDays, diffDays, startOfWeek, nextOccurrence, isoOf, monthKey, daysInMonth } from './date.js';
 
 // ---------- constants ----------
 export const TASK_STATUSES = [
@@ -508,4 +508,45 @@ export function habitRate(h, iso = today()) {
   const hits = checks.filter((d) => d >= start).length;
   const expected = h.freq === 'weekly' ? Math.ceil(days / 7) * habitTarget(h) : days;
   return Math.min(100, Math.round((hits / expected) * 100));
+}
+// When a habit started counting: the day it was created, or an earlier back-filled check.
+export function habitStart(h) {
+  const created = h.createdAt ? isoOf(h.createdAt) : '0000-00-00';
+  const first = (h.checks || [])[0];
+  return first && first < created ? first : created;
+}
+// Month recap for one habit. Only days from the habit's start up to today count.
+// Daily: checked days / counted days, best run of days in a row inside the month.
+// Weekly: weeks that start inside the month (and have started) where the target was hit.
+export function habitMonth(h, ym, iso = today()) {
+  const first = ym + '-01', last = ym + '-' + String(daysInMonth(first)).padStart(2, '0');
+  const start = habitStart(h);
+  const from = start > first ? start : first, to = iso < last ? iso : last;
+  const checks = (h.checks || []).filter((d) => d >= first && d <= last);
+  const set = new Set(checks);
+  const days = Array.from({ length: daysInMonth(first) }, (_, i) => addDays(first, i));
+  const counted = to >= from ? diffDays(to, from) + 1 : 0;
+  let best = 0, run = 0;
+  for (const d of days) { if (set.has(d)) { run++; best = Math.max(best, run); } else run = 0; }
+  if (h.freq === 'weekly') {
+    const target = habitTarget(h), ws0 = settings().weekStart;
+    const weeks = [];
+    for (let d = startOfWeek(first, ws0); d <= last; d = addDays(d, 7)) {
+      // a week belongs to the month it starts in; skip weeks not started yet or that ended before the habit began
+      if (d < first || d > iso || addDays(d, 6) < from) continue;
+      const count = habitWeekCount(h, d);
+      // the running week only counts once its target is hit, so mid-week isn't marked as a miss
+      if (addDays(d, 6) >= iso && count < target) continue;
+      weeks.push({ start: d, count, met: count >= target });
+    }
+    const met = weeks.filter((w) => w.met).length;
+    return { ym, days, set, done: checks.length, counted, best, weekly: true, target, weeks, met, pct: weeks.length ? Math.round((met / weeks.length) * 100) : 0, from, to };
+  }
+  const done = checks.filter((d) => d >= from && d <= to).length;
+  return { ym, days, set, done, counted, best, weekly: false, pct: counted ? Math.round((done / counted) * 100) : 0, from, to };
+}
+// Habits worth showing for a month: existed by month end, and not archived unless checked that month.
+export function habitsForMonth(ym) {
+  const first = ym + '-01', last = ym + '-' + String(daysInMonth(first)).padStart(2, '0');
+  return allHabits().filter((h) => habitStart(h) <= last && (!h.archived || (h.checks || []).some((d) => d >= first && d <= last)));
 }

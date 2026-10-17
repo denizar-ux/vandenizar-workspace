@@ -5,7 +5,7 @@ import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, Shee
 import { PageHeader, SubNav, DAILY_NAV } from '../ui/parts.jsx';
 import { navigate } from '../lib/router.js';
 import { get, patch, remove, useStore } from '../lib/db.js';
-import { today, addDays, startOfWeek, fmtShort, fmtDay, fmtWeekdayShort, dayNum } from '../lib/date.js';
+import { today, addDays, startOfWeek, fmtShort, fmtDay, fmtWeekdayShort, dayNum, weekday } from '../lib/date.js';
 import * as M from '../lib/model.js';
 
 const STARTERS = [
@@ -26,26 +26,32 @@ function HabitMark({ h }) {
 // =====================================================================
 // PAGE
 // =====================================================================
-export function HabitsPage() {
+export function HabitsPage({ query = {} }) {
   useStore();
   const t0 = today();
   const s = M.settings();
   const [showArchived, setShowArchived] = useState(false);
   useEffect(() => { if (location.hash.includes('new=1')) { navigate('/habits', { replace: true }); setTimeout(() => openHabitSheet(), 30); } }, []);
+  const cur = t0.slice(0, 7);
+  const view = query.view === 'month' ? 'month' : 'week';
+  const ym = /^\d{4}-\d{2}$/.test(query.m || '') && query.m <= cur ? query.m : cur;
+  const setView = (v) => navigate(v === 'month' ? '/habits?view=month' + (ym !== cur ? '&m=' + ym : '') : '/habits', { replace: true });
   const habits = M.liveHabits();
   const archived = M.allHabits().filter((h) => h.archived);
   const daily = habits.filter((h) => h.freq !== 'weekly');
   const weekly = habits.filter((h) => h.freq === 'weekly');
   const ws = startOfWeek(t0, s.weekStart);
   const doneToday = habits.filter((h) => M.habitDone(h, t0)).length;
+  const any = habits.length + archived.length > 0;
   return (
     <div class="page narrow">
       <SubNav items={DAILY_NAV} active="habits" />
       <PageHeader title="Habits" actions={<button class="btn primary" onClick={() => openHabitSheet()}><Icon name="plus" size={18} />New habit</button>}>
-        <div class="muted" style={{ marginTop: 6 }}>Week of {fmtShort(ws)} – {fmtShort(addDays(ws, 6))}{habits.length ? ` · ${doneToday} of ${habits.length} checked today` : ''}</div>
+        <div class="muted" style={{ marginTop: 6 }}>{view === 'month' ? 'Monthly recap. It also goes into the monthly PDF in Review.' : <>Week of {fmtShort(ws)} – {fmtShort(addDays(ws, 6))}{habits.length ? ` · ${doneToday} of ${habits.length} checked today` : ''}</>}</div>
       </PageHeader>
+      {any && <Segmented options={[{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={view} onChange={setView} />}
 
-      {!habits.length && (
+      {!habits.length && view === 'week' && (
         <div class="card">
           <Empty icon="habit" title="No habits yet" action={<button class="btn primary sm" onClick={() => openHabitSheet()}><Icon name="plus" size={15} />New habit</button>}>
             Daily habits are checked every day. Weekly habits have a target, like gym 3× a week. Tap one below to start fast.
@@ -58,13 +64,94 @@ export function HabitsPage() {
         </div>
       )}
 
-      {daily.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Daily</div></div>{daily.map((h) => <HabitCard h={h} />)}</div>}
-      {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Weekly</div></div>{weekly.map((h) => <HabitCard h={h} />)}</div>}
+      {view === 'month' ? <HabitsMonth ym={ym} cur={cur} /> : (
+        <>
+          {daily.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Daily</div></div>{daily.map((h) => <HabitCard h={h} />)}</div>}
+          {weekly.length > 0 && <div class="section"><div class="section-head"><div class="section-title">Weekly</div></div>{weekly.map((h) => <HabitCard h={h} />)}</div>}
+          {archived.length > 0 && (
+            <div class="section">
+              <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Hide archived' : `Archived (${archived.length})`}</button>
+              {showArchived && archived.map((h) => <HabitCard h={h} />)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
-      {archived.length > 0 && (
-        <div class="section">
-          <button class="section-link" style={{ fontWeight: 700 }} onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Hide archived' : `Archived (${archived.length})`}</button>
-          {showArchived && archived.map((h) => <HabitCard h={h} />)}
+// =====================================================================
+// MONTH RECAP
+// =====================================================================
+const monthTitle = (ym) => new Date(ym + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const shiftMonth = (ym, n) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); };
+
+export function habitMonthSummary(ym) {
+  const list = M.habitsForMonth(ym).map((h) => ({ h, r: M.habitMonth(h, ym) })).filter((x) => x.r.counted > 0 || x.r.done > 0);
+  const pct = list.length ? Math.round(list.reduce((n, x) => n + x.r.pct, 0) / list.length) : 0;
+  return { list, pct, checkins: list.reduce((n, x) => n + x.r.done, 0), best: list.filter((x) => !x.r.weekly).reduce((n, x) => Math.max(n, x.r.best), 0) };
+}
+
+function HabitsMonth({ ym, cur }) {
+  const go = (v) => navigate('/habits?view=month' + (v !== cur ? '&m=' + v : ''), { replace: true });
+  const sum = habitMonthSummary(ym);
+  return (
+    <>
+      <div class="row gap-8">
+        <button class="icon-btn" aria-label="Previous month" onClick={() => go(shiftMonth(ym, -1))}><Icon name="chevronLeft" /></button>
+        <div class="grow" style={{ textAlign: 'center' }}>
+          <div class="card-title" style={{ justifyContent: 'center' }}>{monthTitle(ym)}</div>
+          <div class="muted" style={{ fontSize: 13 }}>{ym === cur ? 'This month, so far' : ym === shiftMonth(cur, -1) ? 'Last month' : ''}</div>
+        </div>
+        <button class="icon-btn" aria-label="Next month" disabled={ym >= cur} onClick={() => go(shiftMonth(ym, 1))}><Icon name="chevronRight" /></button>
+      </div>
+      {sum.list.length ? (
+        <>
+          <div class="stats hb-stats">
+            <div class="stat"><div class="stat-label">Consistency</div><div class="stat-value">{sum.pct}%</div></div>
+            <div class="stat"><div class="stat-label">Check-ins</div><div class="stat-value">{sum.checkins}</div></div>
+            <div class="stat"><div class="stat-label">Longest run</div><div class="stat-value">{sum.best}<span class="stat-unit"> {sum.best === 1 ? 'day' : 'days'}</span></div></div>
+          </div>
+          <div class="hb-month-list">{sum.list.map(({ h, r }) => <HabitMonthCard h={h} r={r} />)}</div>
+        </>
+      ) : <div class="card"><Empty icon="habit" title={`No habits in ${monthTitle(ym)}`}>Habits you track show up here with a calendar for the month.</Empty></div>}
+    </>
+  );
+}
+
+function HabitMonthCard({ h, r }) {
+  const t0 = today();
+  const [open, setOpen] = useState(true);
+  const lead = (weekday(r.days[0]) - M.settings().weekStart + 7) % 7;
+  const dows = Array.from({ length: 7 }, (_, i) => fmtWeekdayShort(addDays(startOfWeek(t0, M.settings().weekStart), i)).slice(0, 2));
+  const summary = r.weekly
+    ? `${r.met} of ${r.weeks.length} week${r.weeks.length === 1 ? '' : 's'} hit ${r.target}×`
+    : `${r.done} of ${r.counted} day${r.counted === 1 ? '' : 's'}`;
+  return (
+    <div class={'card hb-mcard' + (h.archived ? ' archived' : '')}>
+      <button class="hb-mhead" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <div class="grow" style={{ minWidth: 0, textAlign: 'left' }}>
+          <div class="hb-title"><HabitMark h={h} />{h.title}</div>
+          <div class="hb-meta">
+            <span>{summary}</span>
+            {r.weekly && <span>{plural(r.done, 'check-in')}</span>}
+            {!r.weekly && r.best > 1 && <span class="hb-streak"><Icon name="flame" size={13} />best {r.best} days</span>}
+            {h.archived && <span>Archived</span>}
+          </div>
+        </div>
+        <span class={'hb-pct' + (r.pct >= 80 ? ' good' : '')}>{r.pct}%</span>
+        <Icon name="chevronDown" size={18} class={'hb-chev' + (open ? ' open' : '')} />
+      </button>
+      {open && (
+        <div class="hb-cal" role="group" aria-label={h.title + ', ' + monthTitle(r.ym)}>
+          {dows.map((d) => <span class="hb-cal-dow">{d}</span>)}
+          {Array.from({ length: lead }, () => <span />)}
+          {r.days.map((d) => {
+            const on = r.set.has(d), future = d > t0, before = d < r.from;
+            return (
+              <button class={'hb-cell' + (on ? ' on' : '') + (d === t0 ? ' today' : '') + (future || before ? ' off' : '')} disabled={future || h.archived} aria-pressed={on} aria-label={fmtDay(d) + (on ? ', done' : '')} onClick={() => M.toggleHabit(h.id, d)}>{dayNum(d)}</button>
+            );
+          })}
         </div>
       )}
     </div>

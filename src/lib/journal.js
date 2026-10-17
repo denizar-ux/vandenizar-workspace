@@ -15,7 +15,8 @@ export function pendingJournal() {
   if (Number(today().slice(8, 10)) > 10) return null;
   const ym = prevMonth();
   if (journalSaved(ym)) return null;
-  return monthData(ym).days.length ? ym : null;
+  const d = monthData(ym);
+  return d.days.length || d.habits.length ? ym : null;
 }
 
 export async function saveJournal(ym) {
