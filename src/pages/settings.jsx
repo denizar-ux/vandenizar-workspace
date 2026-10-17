@@ -12,6 +12,7 @@ import { saveFile, saveMessage } from '../lib/files.js';
 import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
 import { driveStatus, monthLabel } from '../lib/drive.js';
 import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
+import { MoneySettingsSection, moneySettingsSummary } from './money.jsx';
 
 // ---------- theme ----------
 export function getTheme() { try { return localStorage.getItem('vz:theme') || 'system'; } catch { return 'system'; } }
@@ -145,6 +146,7 @@ const SECTIONS = [
   { id: 'daily', label: 'Daily system', icon: 'tasks', tone: 't-green' },
   { id: 'content', label: 'Content OS', icon: 'video', tone: 't-violet' },
   { id: 'freelance', label: 'Freelance & invoices', icon: 'briefcase', tone: 't-pink' },
+  { id: 'money', label: 'Money', icon: 'wallet', tone: 't-green' },
   { id: 'drive', label: 'Google Drive', icon: 'upload', tone: 't-blue' },
   { id: 'data', label: 'Backup & data', icon: 'archive', tone: 't-grey' },
 ];
@@ -158,6 +160,7 @@ function sectionSummary(id, s) {
     case 'daily': return s.categories.length + ' categories';
     case 'content': return s.platforms.join(', ');
     case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
+    case 'money': return moneySettingsSummary();
     case 'drive': return M.meta('driveStatus', {}).connected ? 'Connected' : 'Monthly review PDFs';
     case 'data': return 'Export, import, trash';
     default: return '';
@@ -196,6 +199,7 @@ export function SettingsPage({ section }) {
           {cur === 'daily' && <DailySection s={s} />}
           {cur === 'content' && <ContentSection s={s} />}
           {cur === 'freelance' && <FreelanceSection s={s} />}
+          {cur === 'money' && <MoneySettingsSection />}
           {cur === 'drive' && <DriveSection />}
           {cur === 'data' && <DataSection />}
         </div>

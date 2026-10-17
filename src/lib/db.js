@@ -3,9 +3,9 @@
 // Failures are surfaced (status = 'error') and the pending writes are kept and retried.
 import { useEffect, useReducer } from 'preact/hooks';
 
-export const COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'clients', 'projects', 'invoices', 'payments', 'templates', 'activity', 'meta', 'threads', 'habits'];
+export const COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'clients', 'projects', 'invoices', 'payments', 'templates', 'activity', 'meta', 'threads', 'habits', 'mAccounts', 'mTx', 'mCats', 'mBills', 'mDebts'];
 const DB_NAME = 'vandenizar-workspace';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 const data = Object.fromEntries(COLLECTIONS.map((c) => [c, new Map()]));
 let version = 0;

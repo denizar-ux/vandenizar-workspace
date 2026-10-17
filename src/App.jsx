@@ -16,6 +16,9 @@ import { ThreadsPage } from './pages/threads.jsx';
 import { CalendarPage } from './pages/calendar.jsx';
 import { SettingsPage, TrashPage, useReminders, useTheme, useSync, syncLabel } from './pages/settings.jsx';
 import { htmlToText } from './ui/kit.jsx';
+import { MoneyOverview, MoneyHistory, MoneyBudget, MoneyAccounts, MoneyDebts, MoneyInsights, openTx, rp as moneyRp } from './pages/money.jsx';
+import * as $ from './lib/money-data.js';
+import { t } from './lib/i18n.js';
 
 export function App() {
   useStore();
@@ -38,6 +41,19 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => { closeAll(); }, [r.path]);
+  // Deep links for iPhone Shortcuts: #/money?add=expense, #/?add=task and so on
+  useEffect(() => {
+    const add = r.query.add;
+    if (!add) return;
+    const q = { ...r.query }; delete q.add;
+    const rest = new URLSearchParams(q).toString();
+    navigate(r.path + (rest ? '?' + rest : ''), { replace: true });
+    setTimeout(() => {
+      if (add === 'task') openTaskSheet(null, { dueDate: today() });
+      else if (['expense', 'income', 'transfer'].includes(add)) openTx({ type: add });
+      else if (add === 'search') openSearch();
+    }, 120);
+  }, [r.full]);
 
   let page, section = 'today', sub = '';
   if (!p0) { page = <TodayPage />; sub = 'today'; }
@@ -63,6 +79,14 @@ export function App() {
     else if (p1 === 'invoices') { page = p2 ? <InvoiceEditor id={p2} key={p2} /> : <InvoicesPage query={r.query} />; sub = 'invoices'; }
     else if (p1 === 'finance') { page = <FinancePage />; sub = 'finance'; }
     else if (p1 === 'templates') { page = <TemplatesPage />; sub = 'templates'; }
+  } else if (p0 === 'money') {
+    section = 'money';
+    if (!p1) { page = <MoneyOverview />; sub = 'overview'; }
+    else if (p1 === 'history') { page = <MoneyHistory query={r.query} />; sub = 'history'; }
+    else if (p1 === 'budget') { page = <MoneyBudget query={r.query} />; sub = 'budget'; }
+    else if (p1 === 'accounts') { page = <MoneyAccounts />; sub = 'accounts'; }
+    else if (p1 === 'debts') { page = <MoneyDebts />; sub = 'debts'; }
+    else if (p1 === 'insights') { page = <MoneyInsights query={r.query} />; sub = 'insights'; }
   } else if (p0 === 'settings') { section = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { section = 'settings'; page = <TrashPage />; }
   if (!page) page = <NotFound />;
@@ -127,6 +151,7 @@ function FocusBar() {
 const SIDE = [
   { group: 'Daily', items: [{ id: 'today', label: 'Today', icon: 'home', path: '/' }, { id: 'tasks', label: 'Tasks', icon: 'tasks', path: '/tasks' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' }, { id: 'habits', label: 'Habits', icon: 'habit', path: '/habits' }, { id: 'goals', label: 'Goals', icon: 'target', path: '/goals' }, { id: 'review', label: 'Review', icon: 'review', path: '/review' }] },
   { group: 'Content OS', key: 'content', items: [{ id: 'overview', label: 'Overview', icon: 'spark', path: '/content' }, { id: 'board', label: 'Content board', icon: 'kanban', path: '/content/board' }, { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/content/calendar' }, { id: 'threads', label: 'Threads', icon: 'at', path: '/content/threads' }, { id: 'resources', label: 'Resources', icon: 'link', path: '/content/resources' }] },
+  { group: 'Money', key: 'money', items: [{ id: 'overview', label: 'Overview', icon: 'wallet', path: '/money' }, { id: 'history', label: 'History', icon: 'calendar', path: '/money/history' }, { id: 'budget', label: 'Budget', icon: 'target', path: '/money/budget' }, { id: 'accounts', label: 'Accounts', icon: 'card', path: '/money/accounts' }, { id: 'debts', label: 'Debts', icon: 'handshake', path: '/money/debts' }, { id: 'insights', label: 'Insights', icon: 'pie', path: '/money/insights' }] },
   { group: 'Freelance OS', key: 'freelance', items: [{ id: 'overview', label: 'Overview', icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', label: 'Pipeline', icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', label: 'Projects', icon: 'video', path: '/freelance/projects' }, { id: 'clients', label: 'Clients', icon: 'users', path: '/freelance/clients' }, { id: 'invoices', label: 'Invoices', icon: 'file', path: '/freelance/invoices' }, { id: 'finance', label: 'Finance', icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', label: 'Templates', icon: 'template', path: '/freelance/templates' }] },
 ];
 
@@ -187,6 +212,7 @@ function BottomNav({ section }) {
     { id: 'daily', label: 'Daily', icon: 'calCheck', path: '/', on: section === 'today' },
     { id: 'content', label: 'Content', icon: 'video', path: '/content', on: section === 'content' },
     { id: 'freelance', label: 'Freelance', icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
+    { id: 'money', label: 'Money', icon: 'wallet', path: '/money', on: section === 'money' },
     { id: 'search', label: 'Search', icon: 'search', action: openSearch, on: false },
   ];
   const idx = tabs.findIndex((t) => t.on);
@@ -254,6 +280,7 @@ export function openQuickAdd() {
 export function createActions() {
   return [
     { label: 'Task', sub: 'Today or later', icon: 'tasks', tone: 't-blue', run: () => openTaskSheet(null, { dueDate: today() }) },
+    { label: 'Expense', sub: 'Or income, transfer', icon: 'wallet', tone: 't-orange', run: () => openTx({ type: 'expense' }) },
     { label: 'Content', sub: 'New idea in Content OS', icon: 'video', tone: 't-violet', run: () => createContentAndOpen({}) },
     { label: 'Threads post', sub: 'Add to today', icon: 'at', tone: 't-grey', run: () => { navigate('/content/threads'); setTimeout(() => { const el = document.querySelector('.th-composer textarea'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 250); } },
     { label: 'Project', sub: 'Freelance job or lead', icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
@@ -301,6 +328,8 @@ function Search({ close }) {
     if (clients.length) groups.push({ label: 'Clients', rows: clients.map((c) => ({ key: c.id, icon: 'users', title: c.name, meta: [c.pic, c.archived ? 'Archived' : ''].filter(Boolean).join(' · '), run: () => go('/freelance/clients/' + c.id) })) });
     const posts = M.liveThreads().filter((t) => has(t.text, t.pillar)).slice(0, 6);
     if (posts.length) groups.push({ label: 'Threads', rows: posts.map((t) => ({ key: t.id, icon: 'at', title: t.text.length > 90 ? t.text.slice(0, 90) + '…' : t.text, meta: [t.date ? relDay(t.date) + (t.time ? ' ' + t.time : '') : 'Idea', t.pillar, t.status === 'posted' ? 'Posted' : ''].filter(Boolean).join(' · '), run: () => go(t.date ? '/content/threads?d=' + t.date : '/content/threads?view=ideas') })) });
+    const money = $.txSorted().filter((x) => (x.type === 'expense' || x.type === 'income' || x.type === 'transfer') && has(x.note, $.catLabel(x.catId), String(x.amount))).slice(0, 8);
+    if (money.length) groups.push({ label: 'Money', rows: money.map((x) => ({ key: x.id, icon: 'wallet', title: x.note || $.catLabel(x.catId) || 'Transfer', meta: `${relDay(x.date)} · ${x.type === 'expense' ? '−' : x.type === 'income' ? '+' : ''}${moneyRp(x.amount)}`, run: () => { close(); openTx({ tx: x }); } })) });
     if (invoices.length) groups.push({ label: 'Invoices', rows: invoices.map((i) => { const c = M.calcInvoice(i); return { key: i.id, icon: 'file', title: i.number, meta: `${M.clientName(i.clientId)} · ${fmtMoney(c.total, i.currency)}`, badge: <InvoiceBadge status={c.status} sm />, run: () => go('/freelance/invoices/' + i.id) }; }) });
   }
   const recent = (M.meta('recent', { items: [] }).items || []).map(recentRow).filter(Boolean).slice(0, 6);
