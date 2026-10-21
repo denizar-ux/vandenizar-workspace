@@ -1,9 +1,9 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon.jsx';
-import { Check, Field, TextInput, TextArea, Select, DateInput, TimeInput, Chips, NumberInput } from './kit.jsx';
+import { Check, Field, TextInput, TextArea, Select, DateInput, TimeInput, Chips, NumberInput, ChecklistEditor } from './kit.jsx';
 import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot, openSheet } from './overlay.jsx';
 import { navigate } from '../lib/router.js';
-import { get, all, patch, put, remove, useStore } from '../lib/db.js';
+import { get, all, patch, put, remove, uid, useStore } from '../lib/db.js';
 import { today, addDays, relDay, diffDays, fmtDay, fmtMinutes, recurrenceLabel, startOfWeek } from '../lib/date.js';
 import * as M from '../lib/model.js';
 import { t as _t, tn as _tn } from '../lib/i18n.js';
@@ -116,6 +116,7 @@ export function TaskRow({ t, hideDate, hideCat, compact, dragProps }) {
             {!hideDate && dueLabel(t)}
             {hideDate && t.dueTime && <span class="m" style={{ color: 'var(--accent-text)', fontWeight: 700 }}>{t.dueTime}</span>}
             {!hideCat && t.category && <span class="m"><Dot tone={catTone(t.category)} />{t.category}</span>}
+            {(t.subtasks || []).length > 0 && <span class="m"><Icon name="check" />{t.subtasks.filter((x) => x.done).length}/{t.subtasks.length}</span>}
             {t.priority === 'high' && <span class="m" style={{ color: 'var(--accent-text)' }}><Icon name="flag" />{_t('High')}</span>}
             {t.recurrence?.freq && <span class="m"><Icon name="repeat" />{recurrenceLabel(t.recurrence)}</span>}
             {t.estimate > 0 && <span class="m"><Icon name="clock" />{fmtMinutes(t.estimate)}</span>}
@@ -149,7 +150,7 @@ export function taskMenu(e, t) {
     t.status !== 'deferred' && open && { label: _t('Mark deferred'), icon: 'clock', onSelect: () => patch('tasks', t.id, { status: 'deferred' }) },
     (t.status === 'deferred' || t.status === 'cancelled' || t.status === 'done') && { label: _t('Reopen'), icon: 'restore', onSelect: () => patch('tasks', t.id, { status: 'todo', completedAt: null }) },
     t.status !== 'cancelled' && t.status !== 'done' && { label: _t('Cancel task'), icon: 'x', onSelect: () => patch('tasks', t.id, { status: 'cancelled' }) },
-    { label: _t('Duplicate'), icon: 'copy', onSelect: () => { const c = { ...t }; delete c.id; delete c.createdAt; M.newTask({ ...c, title: t.title + ' (copy)', status: 'todo', completedAt: null, completions: [], focusSessions: [], focusStartedAt: null }); toast(_t('Duplicated')); } },
+    { label: _t('Duplicate'), icon: 'copy', onSelect: () => { const c = { ...t }; delete c.id; delete c.createdAt; M.newTask({ ...c, title: t.title + ' (copy)', status: 'todo', completedAt: null, completions: [], focusSessions: [], focusStartedAt: null, subtasks: (t.subtasks || []).map((x) => ({ ...x, id: uid(), done: false })) }); toast(_t('Duplicated')); } },
     { label: _t('Archive'), icon: 'archive', onSelect: () => { patch('tasks', t.id, { archived: true }); toast(_t('Archived'), { action: { label: _t('Undo'), run: () => patch('tasks', t.id, { archived: false }) } }); } },
     { label: _t('Delete'), icon: 'trash', danger: true, onSelect: () => { M.trashTask(t.id); toast(_t('Moved to Trash'), { action: { label: _t('Undo'), run: () => patch('tasks', t.id, { deletedAt: null }) } }); } },
   ], { title: t.title });
@@ -237,11 +238,11 @@ function TaskSheet({ id, preset, close }) {
             <Field label={_t('Due date')} htmlFor="t-due"><DateInput id="t-due" value={live.dueDate} onChange={(v) => set({ dueDate: v, ...(v ? {} : { dueTime: '' }) })} /></Field>
             <Field label={_t('Time (optional)')} htmlFor="t-time"><TimeInput id="t-time" value={live.dueTime} onChange={(v) => set({ dueTime: v })} /></Field>
           </div>
-          <div class="chips sm">
-            <button class="chip" onClick={() => set({ dueDate: today() })}>{_t('Today')}</button>
-            <button class="chip" onClick={() => set({ dueDate: addDays(today(), 1) })}>{_t('Tomorrow')}</button>
-            <button class="chip" onClick={() => set({ dueDate: addDays(startOfWeek(today(), 1), 7) })}>{_t('Next week')}</button>
-            {live.dueDate && <button class="chip" onClick={() => set({ dueDate: '', dueTime: '' })}>{_t('Inbox')}</button>}
+          <div class="chips sm" role="group" aria-label={_t('Quick dates')}>
+            {[['Today', today()], ['Tomorrow', addDays(today(), 1)], ['Next week', addDays(startOfWeek(today(), 1), 7)]].map(([label, d]) => (
+              <button type="button" class={'chip ' + (live.dueDate === d ? 'on' : '')} aria-pressed={live.dueDate === d} onClick={() => set({ dueDate: d })}>{_t(label)}</button>
+            ))}
+            <button type="button" class={'chip ' + (!live.dueDate ? 'on' : '')} aria-pressed={!live.dueDate} onClick={() => set({ dueDate: '', dueTime: '' })}>{_t('Inbox')}</button>
           </div>
           <Field label={_t('Category')}><Chips options={s.categories.map((c) => ({ id: c, label: c, dot: `var(--${catTone(c)})` }))} value={live.category} onChange={(v) => set({ category: v })} /></Field>
           <div class="form-row">
@@ -257,6 +258,9 @@ function TaskSheet({ id, preset, close }) {
               <NumberInput id="t-int" value={rec.interval || 1} min={1} onChange={(v) => set({ recurrence: { ...rec, interval: Math.max(1, +v || 1) } })} />
             </Field>
           )}
+          <Field label={_t('Subtasks')}>
+            <ChecklistEditor items={live.subtasks || []} onChange={(v) => set({ subtasks: v })} placeholder={_t('Add a subtask')} idPrefix="st" />
+          </Field>
           <Field label={_t('Notes')} htmlFor="t-notes"><TextArea id="t-notes" value={live.notes} onInput={(v) => set({ notes: v })} placeholder={_t('Details, links, context')} /></Field>
           <details class="card soft tight" open={!!(live.goalId || live.contentId || live.projectId || live.invoiceId)}>
             <summary style={{ fontWeight: 800, cursor: 'pointer' }}>{_t('Link to goal, content, project or invoice')}</summary>

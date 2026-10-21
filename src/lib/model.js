@@ -89,7 +89,7 @@ export const isOpen = (t) => t && !t.deletedAt && !t.archived && (t.status === '
 export const liveTasks = () => all('tasks').filter((t) => !t.deletedAt && !t.archived);
 export function newTask(p = {}) {
   const s = settings();
-  const t = { id: uid(), title: '', notes: '', category: s.defaultCategory, status: 'todo', priority: s.defaultPriority, dueDate: '', dueTime: '', estimate: 0, recurrence: null, goalId: '', contentId: '', projectId: '', invoiceId: '', order: Date.now(), completions: [], completedAt: null, focusSessions: [], ...p };
+  const t = { id: uid(), title: '', notes: '', category: s.defaultCategory, status: 'todo', priority: s.defaultPriority, dueDate: '', dueTime: '', estimate: 0, recurrence: null, goalId: '', contentId: '', projectId: '', invoiceId: '', order: Date.now(), completions: [], completedAt: null, focusSessions: [], subtasks: [], ...p };
   return put('tasks', t);
 }
 export function completeTask(id) {
@@ -102,7 +102,7 @@ export function completeTask(id) {
     let next = nextOccurrence(t.recurrence, from);
     while (next && diffDays(next, today()) < 0) next = nextOccurrence(t.recurrence, next); // skip missed occurrences
     const endOk = !t.recurrence.until || diffDays(next, t.recurrence.until) <= 0;
-    patch('tasks', id, { completions: [...(t.completions || []), { date: from, at: now }], dueDate: endOk ? next : t.dueDate, status: endOk ? 'todo' : 'done', completedAt: endOk ? t.completedAt : now, lastCompletedAt: now, focusSessions: sessions, focusStartedAt: null });
+    patch('tasks', id, { completions: [...(t.completions || []), { date: from, at: now }], dueDate: endOk ? next : t.dueDate, status: endOk ? 'todo' : 'done', completedAt: endOk ? t.completedAt : now, lastCompletedAt: now, focusSessions: sessions, focusStartedAt: null, ...(endOk && (t.subtasks || []).length ? { subtasks: t.subtasks.map((x) => ({ ...x, done: false })) } : {}) });
   } else {
     patch('tasks', id, { status: 'done', completedAt: now, focusSessions: sessions, focusStartedAt: null });
   }

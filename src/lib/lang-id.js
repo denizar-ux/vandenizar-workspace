@@ -1512,5 +1512,8 @@ export default {
 "{what} of {amount} saved": "{what} {amount} tersimpan",
 "· Last change": "· Terakhir diubah",
 "· Saved automatically": "· Tersimpan otomatis",
-"· due": "· jatuh tempo"
+"· due": "· jatuh tempo",
+"Subtasks": "Subtugas",
+"Add a subtask": "Tambah subtugas",
+"Quick dates": "Tanggal cepat"
 };
