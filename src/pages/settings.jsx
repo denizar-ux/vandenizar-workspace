@@ -12,7 +12,6 @@ import { saveFile, saveMessage } from '../lib/files.js';
 import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
 import { driveStatus, monthLabel } from '../lib/drive.js';
 import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
-import { MoneySettingsSection, moneySettingsSummary } from './money.jsx';
 import { t as _t, tn as _tn, lang as _lang } from '../lib/i18n.js';
 import { notifyAll } from '../lib/db.js';
 
@@ -149,7 +148,6 @@ const SECTIONS = [
   { id: 'daily', get label() { return _t('Daily system'); }, icon: 'tasks', tone: 't-green' },
   { id: 'content', get label() { return _t('Content OS'); }, icon: 'video', tone: 't-violet' },
   { id: 'freelance', get label() { return _t('Freelance & invoices'); }, icon: 'briefcase', tone: 't-pink' },
-  { id: 'money', get label() { return _t('Money'); }, icon: 'wallet', tone: 't-green' },
   { id: 'drive', get label() { return _t('Google Drive'); }, icon: 'upload', tone: 't-blue' },
   { id: 'data', get label() { return _t('Backup & data'); }, icon: 'archive', tone: 't-grey' },
 ];
@@ -164,7 +162,6 @@ function sectionSummary(id, s) {
     case 'daily': return _t('{0} categories', [s.categories.length]);
     case 'content': return s.platforms.join(', ');
     case 'freelance': return _t('Next invoice {0}', [M.nextInvoiceNumber().num]);
-    case 'money': return moneySettingsSummary();
     case 'drive': return M.meta('driveStatus', {}).connected ? _t('Connected') : _t('Monthly review PDFs');
     case 'data': return _t('Export, import, trash');
     default: return '';
@@ -204,7 +201,6 @@ export function SettingsPage({ section }) {
           {cur === 'daily' && <DailySection s={s} />}
           {cur === 'content' && <ContentSection s={s} />}
           {cur === 'freelance' && <FreelanceSection s={s} />}
-          {cur === 'money' && <MoneySettingsSection />}
           {cur === 'drive' && <DriveSection />}
           {cur === 'data' && <DataSection />}
         </div>
@@ -294,11 +290,8 @@ function GeneralSection({ s }) {
 
 // Links that open one screen or form directly. Used by the iPhone Shortcuts app, Siri, Back Tap or the Action Button.
 const SHORTCUT_LINKS = () => [
-  { id: 'expense', icon: 'arrowUp', tone: 't-orange', label: _t('Add expense'), hash: '#/money?add=expense' },
-  { id: 'income', icon: 'arrowDown', tone: 't-green', label: _t('Add income'), hash: '#/money?add=income' },
-  { id: 'transfer', icon: 'swap', tone: 't-blue', label: _t('Transfer between accounts'), hash: '#/money?add=transfer' },
   { id: 'task', icon: 'tasks', tone: 't-violet', label: _t('New task'), hash: '#/?add=task' },
-  { id: 'money', icon: 'wallet', tone: 't-green', label: _t('Money overview'), hash: '#/money' },
+  { id: 'search', icon: 'search', tone: 't-blue', label: _t('Search'), hash: '#/?add=search' },
   { id: 'today', icon: 'home', tone: 't-grey', label: _t('Today'), hash: '#/' },
 ];
 function ShortcutsSection() {

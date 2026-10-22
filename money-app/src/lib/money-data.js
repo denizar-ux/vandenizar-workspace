@@ -1,7 +1,7 @@
 // Personal money: accounts (bank pockets, e-wallets, cash, credit cards), transactions, categories with
 // sub-categories and monthly budgets, recurring bills and debts (money lent or borrowed).
 // Amounts are whole rupiah (IDR has no minor units). Dates are 'YYYY-MM-DD' in WIB, like the rest of the app.
-import { get, all, put, patch, remove, uid } from './db.js';
+import { get, all, put, patch, remove, uid } from './store.js';
 import { today, addDays, diffDays, daysInMonth } from './date.js';
 import { t } from './i18n.js';
 

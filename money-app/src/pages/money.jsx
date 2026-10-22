@@ -4,13 +4,15 @@ import { Field, TextInput, Segmented, MoneyInput, Empty, DateInput } from '../ui
 import { openOverlay, toast, confirmDialog, SheetHead, SheetBody, SheetFoot, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
 import { PageHeader, SubNav } from '../ui/parts.jsx';
 import { navigate } from '../lib/router.js';
-import { get, put, patch, remove, uid, useStore, notifyAll } from '../lib/db.js';
+import { get, put, patch, remove, uid, useStore, notifyAll, store } from '../lib/store.js';
 import { today, addDays, diffDays, daysInMonth, nowTime, fmtShort, fmtDay, fmtLong, dayNum, weekday, startOfWeek, fmtWeekdayShort, fmtMonth, relDay } from '../lib/date.js';
 import { fmtMoney } from '../lib/money.js';
 import { t, tn, isID } from '../lib/i18n.js';
 import * as $ from '../lib/money-data.js';
 import { saveFile, saveMessage } from '../lib/files.js';
-import * as M from '../lib/model.js';
+import * as M from '../lib/model-lite.js';
+import { LANGS, lang } from '../lib/i18n.js';
+import { copyText } from '../ui/kit.jsx';
 
 // =====================================================================
 // helpers
@@ -38,6 +40,7 @@ export const MONEY_NAV = () => [
   { id: 'overview', label: t('Overview'), path: '/money' }, { id: 'history', label: t('History'), path: '/money/history' },
   { id: 'budget', label: t('Budget'), path: '/money/budget' }, { id: 'accounts', label: t('Accounts'), path: '/money/accounts' },
   { id: 'debts', label: t('Debts'), path: '/money/debts' }, { id: 'insights', label: t('Insights'), path: '/money/insights' },
+  { id: 'settings', label: t('Settings'), path: '/money/settings' },
 ];
 
 const CatIc = ({ c, size = 18, cls = '' }) => <span class={'mini-ic ' + $.catTone(c) + ' ' + cls}><Icon name={$.catIcon(c)} size={size} /></span>;
@@ -65,7 +68,7 @@ function Shell({ active, title, sub, actions, children, narrow = true }) {
     <div class={'page' + (narrow ? ' narrow' : '')}>
       <SubNav items={MONEY_NAV()} active={active} />
       <PageHeader eyebrow={t('Money')} title={title} actions={actions}>{sub && <div class="muted" style={{ marginTop: 6 }}>{sub}</div>}</PageHeader>
-      {$.hasMoneySetup() ? children : <MoneySetup />}
+      {$.hasMoneySetup() || active === 'settings' ? children : store.ready ? <MoneySetup /> : <div class="card"><div class="empty"><div class="empty-title">{t('Loading your money…')}</div></div></div>}
     </div>
   );
 }
@@ -157,7 +160,7 @@ export function MoneyOverview() {
   const blocks = widgetList().filter((w) => w.on && W[w.id]).map((w) => { const C2 = W[w.id]; return <C2 key={w.id} ym={ym} ms={ms} bal={bal} />; });
   const left = desktop ? blocks.filter((_, i) => i % 2 === 0) : blocks, right = desktop ? blocks.filter((_, i) => i % 2 === 1) : [];
   return (
-    <Shell active="overview" title={t('Your money')} narrow={false} actions={$.hasMoneySetup() && <><HideBtn /><button class="icon-btn glass" aria-label={t('Money settings')} onClick={() => navigate('/settings/money')}><Icon name="settings" /></button></>}>
+    <Shell active="overview" title={t('Your money')} narrow={false} actions={$.hasMoneySetup() && <><HideBtn /><button class="icon-btn glass" aria-label={t('Money settings')} onClick={() => navigate('/money/settings')}><Icon name="settings" /></button></>}>
       <div class="two-col even">
         <div class="stack">
           <div class="card mn-hero">
@@ -1366,7 +1369,7 @@ export function MoneySettingsSection() {
     toast(msg, { tone });
   };
   const reset = async () => {
-    if (!(await confirmDialog({ title: t('Reset all money data?'), body: t('This deletes {accounts}, {tx}, {bills} and {debts}, plus your money categories and budgets, on every device. Tasks, content and freelance data stay. You can’t undo this, so export a CSV first if you want a copy.', { accounts: tn(c.accounts, '{n} account', '{n} accounts'), tx: tn(c.tx, '{n} transaction', '{n} transactions'), bills: tn(c.bills, '{n} bill', '{n} bills'), debts: tn(c.debts, '{n} debt', '{n} debts') }), confirmLabel: t('Delete everything'), danger: true }))) return;
+    if (!(await confirmDialog({ title: t('Reset all money data?'), body: t('This deletes {accounts}, {tx}, {bills} and {debts}, plus your categories and budgets, on every device. You can’t undo this, so export a CSV first if you want a copy.', { accounts: tn(c.accounts, '{n} account', '{n} accounts'), tx: tn(c.tx, '{n} transaction', '{n} transactions'), bills: tn(c.bills, '{n} bill', '{n} bills'), debts: tn(c.debts, '{n} debt', '{n} debts') }), confirmLabel: t('Delete everything'), danger: true }))) return;
     $.resetMoney(); toast(t('Money data deleted')); navigate('/money');
   };
   const SetRow = ({ icon, tone, title, sub, onClick, end }) => (
@@ -1375,7 +1378,7 @@ export function MoneySettingsSection() {
   return (
     <>
       <div class="set-nav">
-        <SetRow icon="layout" tone="t-blue" title={t('Customize overview')} sub={t('Choose and order what shows on Money overview')} onClick={openCustomize} />
+        <SetRow icon="layout" tone="t-blue" title={t('Customize overview')} sub={t('Choose and order what shows on Overview')} onClick={openCustomize} />
         <SetRow icon="tag" tone="t-orange" title={t('Categories & sub-categories')} sub={t('Names, icons, sub-categories and budgets')} onClick={() => openCategories('expense')} />
         <SetRow icon="repeat" tone="t-violet" title={t('Bills & subscriptions')} sub={c.bills ? tn(c.bills, '{n} bill each month', '{n} bills each month') : t('Installments, rent, streaming')} onClick={openBills} />
         <SetRow icon="eyeOff" tone="t-grey" title={t('Hide amounts')} sub={t('For opening the app around other people')} onClick={() => setMoneyHidden(!HIDE)} end={<span class={'toggle ' + (HIDE ? 'on' : '')} role="switch" aria-checked={HIDE} />} />
@@ -1383,10 +1386,36 @@ export function MoneySettingsSection() {
       </div>
       <div class="field-hint" style={{ padding: '0 4px' }}>{t('Amounts are in rupiah. Months run from the 1st to the last day, times in WIB.')}</div>
       <div class="card set-card">
-        <div class="set-card-head"><div class="card-title" style={{ color: 'var(--bad)' }}>{t('Reset money data')}</div><div class="set-card-hint">{t('Deletes accounts, transactions, bills, debts and money categories. Other parts of the workspace are not touched.')}</div></div>
+        <div class="set-card-head"><div class="card-title" style={{ color: 'var(--bad)' }}>{t('Reset money data')}</div><div class="set-card-hint">{t('Deletes accounts, transactions, bills, debts and categories, on every device.')}</div></div>
         <div><button class="btn sm danger-soft" disabled={!c.accounts && !c.tx} onClick={reset}><Icon name="restore" size={15} />{t('Reset money data')}</button></div>
       </div>
     </>
+  );
+}
+export function MoneySettingsPage() {
+  useStore();
+  const base = 'https://claude.ai/artifact/' + (window.__MZ_ID__ || '…');
+  const links = [['expense', t('Add expense')], ['income', t('Add income')], ['transfer', t('Transfer between accounts')]];
+  return (
+    <Shell active="settings" title={t('Settings')}>
+      <MoneySettingsSection />
+      <div class="card set-card">
+        <div class="set-card-head"><div class="card-title">{t('Language')}</div></div>
+        <Segmented class="full" options={LANGS.map((l) => ({ id: l.id, label: l.label }))} value={lang()} onChange={(v) => { M.setSettings({ language: v }); try { localStorage.setItem('vz:lang', v); } catch {} notifyAll(); }} />
+      </div>
+      <div class="card set-card">
+        <div class="set-card-head"><div class="card-title">{t('Where your data lives')}</div>
+          <div class="set-card-hint">{store.mode === 'cloud' ? t('Saved in this app’s own storage and synced to every device where you open it. A copy stays in this browser so it opens fast.') : store.mode === 'local' ? t('Saved in this browser only right now. Open the app from claude.ai while signed in to sync it.') : t('Connecting…')}</div></div>
+        {store.error && <div class="field-hint" style={{ color: 'var(--bad)' }}>{t('Some changes could not be saved ({code}). Reload the page and try again.', { code: store.error })}</div>}
+      </div>
+      <div class="card set-card">
+        <div class="set-card-head"><div class="card-title">{t('Quick links')}</div><div class="set-card-hint">{t('Open this app straight into a form. Add one to your iPhone Home Screen or a Shortcut.')}</div></div>
+        <div class="list">{links.map(([h, label]) => (
+          <div class="list-row"><div class="row-main"><div class="row-title">{label}</div><div class="row-meta sc-url">{base + '#' + h}</div></div>
+            <button class="btn xs soft" onClick={() => copyText(base + '#' + h, t('Link copied'))}><Icon name="copy" size={14} />{t('Copy')}</button></div>
+        ))}</div>
+      </div>
+    </Shell>
   );
 }
 export const moneySettingsSummary = () => { const c = $.moneyCounts(); return c.accounts ? tn(c.accounts, '{n} account', '{n} accounts') + ' · ' + tn(c.tx, '{n} transaction', '{n} transactions') : t('Not set up yet'); };

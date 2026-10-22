@@ -16,8 +16,6 @@ import { ThreadsPage } from './pages/threads.jsx';
 import { CalendarPage } from './pages/calendar.jsx';
 import { SettingsPage, TrashPage, useReminders, useTheme, useSync, syncLabel } from './pages/settings.jsx';
 import { htmlToText } from './ui/kit.jsx';
-import { MoneyOverview, MoneyHistory, MoneyBudget, MoneyAccounts, MoneyDebts, MoneyInsights, openTx, rp as moneyRp } from './pages/money.jsx';
-import * as $ from './lib/money-data.js';
 import { t } from './lib/i18n.js';
 import { t as _t, tn as _tn } from './lib/i18n.js';
 
@@ -42,7 +40,7 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => { closeAll(); }, [r.path]);
-  // Deep links for iPhone Shortcuts: #/money?add=expense, #/?add=task and so on
+  // Deep links for iPhone Shortcuts: #/?add=task, #/?add=search
   useEffect(() => {
     const add = r.query.add;
     if (!add) return;
@@ -51,7 +49,6 @@ export function App() {
     navigate(r.path + (rest ? '?' + rest : ''), { replace: true });
     setTimeout(() => {
       if (add === 'task') openTaskSheet(null, { dueDate: today() });
-      else if (['expense', 'income', 'transfer'].includes(add)) openTx({ type: add });
       else if (add === 'search') openSearch();
     }, 120);
   }, [r.full]);
@@ -80,14 +77,6 @@ export function App() {
     else if (p1 === 'invoices') { page = p2 ? <InvoiceEditor id={p2} key={p2} /> : <InvoicesPage query={r.query} />; sub = 'invoices'; }
     else if (p1 === 'finance') { page = <FinancePage />; sub = 'finance'; }
     else if (p1 === 'templates') { page = <TemplatesPage />; sub = 'templates'; }
-  } else if (p0 === 'money') {
-    section = 'money';
-    if (!p1) { page = <MoneyOverview />; sub = 'overview'; }
-    else if (p1 === 'history') { page = <MoneyHistory query={r.query} />; sub = 'history'; }
-    else if (p1 === 'budget') { page = <MoneyBudget query={r.query} />; sub = 'budget'; }
-    else if (p1 === 'accounts') { page = <MoneyAccounts />; sub = 'accounts'; }
-    else if (p1 === 'debts') { page = <MoneyDebts />; sub = 'debts'; }
-    else if (p1 === 'insights') { page = <MoneyInsights query={r.query} />; sub = 'insights'; }
   } else if (p0 === 'settings') { section = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { section = 'settings'; page = <TrashPage />; }
   if (!page) page = <NotFound />;
@@ -152,7 +141,6 @@ function FocusBar() {
 const SIDE = [
   { get group() { return _t('Daily'); }, items: [{ id: 'today', get label() { return _t('Today'); }, icon: 'home', path: '/' }, { id: 'tasks', get label() { return _t('Tasks'); }, icon: 'tasks', path: '/tasks' }, { id: 'calendar', get label() { return _t('Calendar'); }, icon: 'calendar', path: '/calendar' }, { id: 'habits', get label() { return _t('Habits'); }, icon: 'habit', path: '/habits' }, { id: 'goals', get label() { return _t('Goals'); }, icon: 'target', path: '/goals' }, { id: 'review', get label() { return _t('Review'); }, icon: 'review', path: '/review' }] },
   { get group() { return _t('Content OS'); }, key: 'content', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'spark', path: '/content' }, { id: 'board', get label() { return _t('Content board'); }, icon: 'kanban', path: '/content/board' }, { id: 'calendar', get label() { return _t('Calendar'); }, icon: 'calendar', path: '/content/calendar' }, { id: 'threads', get label() { return _t('Threads'); }, icon: 'at', path: '/content/threads' }, { id: 'resources', get label() { return _t('Resources'); }, icon: 'link', path: '/content/resources' }] },
-  { get group() { return _t('Money'); }, key: 'money', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'wallet', path: '/money' }, { id: 'history', get label() { return _t('History'); }, icon: 'calendar', path: '/money/history' }, { id: 'budget', get label() { return _t('Budget'); }, icon: 'target', path: '/money/budget' }, { id: 'accounts', get label() { return _t('Accounts'); }, icon: 'card', path: '/money/accounts' }, { id: 'debts', get label() { return _t('Debts'); }, icon: 'handshake', path: '/money/debts' }, { id: 'insights', get label() { return _t('Insights'); }, icon: 'pie', path: '/money/insights' }] },
   { get group() { return _t('Freelance OS'); }, key: 'freelance', items: [{ id: 'overview', get label() { return _t('Overview'); }, icon: 'briefcase', path: '/freelance' }, { id: 'pipeline', get label() { return _t('Pipeline'); }, icon: 'kanban', path: '/freelance/pipeline' }, { id: 'projects', get label() { return _t('Projects'); }, icon: 'video', path: '/freelance/projects' }, { id: 'clients', get label() { return _t('Clients'); }, icon: 'users', path: '/freelance/clients' }, { id: 'invoices', get label() { return _t('Invoices'); }, icon: 'file', path: '/freelance/invoices' }, { id: 'finance', get label() { return _t('Finance'); }, icon: 'wallet', path: '/freelance/finance' }, { id: 'templates', get label() { return _t('Templates'); }, icon: 'template', path: '/freelance/templates' }] },
 ];
 
@@ -213,7 +201,6 @@ function BottomNav({ section }) {
     { id: 'daily', label: _t('Daily'), icon: 'calCheck', path: '/', on: section === 'today' },
     { id: 'content', label: _t('Content'), icon: 'video', path: '/content', on: section === 'content' },
     { id: 'freelance', label: _t('Freelance'), icon: 'briefcase', path: '/freelance', on: section === 'freelance' },
-    { id: 'money', label: _t('Money'), icon: 'wallet', path: '/money', on: section === 'money' },
     { id: 'search', label: _t('Search'), icon: 'search', action: openSearch, on: false },
   ];
   const idx = tabs.findIndex((t) => t.on);
@@ -281,7 +268,6 @@ export function openQuickAdd() {
 export function createActions() {
   return [
     { label: _t('Task'), sub: _t('Today or later'), icon: 'tasks', tone: 't-blue', run: () => openTaskSheet(null, { dueDate: today() }) },
-    { label: _t('Expense'), sub: _t('Or income, transfer'), icon: 'wallet', tone: 't-orange', run: () => openTx({ type: 'expense' }) },
     { label: _t('Content'), sub: _t('New idea in Content OS'), icon: 'video', tone: 't-violet', run: () => createContentAndOpen({}) },
     { label: _t('Threads post'), sub: _t('Add to today'), icon: 'at', tone: 't-grey', run: () => { navigate('/content/threads'); setTimeout(() => { const el = document.querySelector('.th-composer textarea'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } }, 250); } },
     { label: _t('Project'), sub: _t('Freelance job or lead'), icon: 'briefcase', tone: 't-orange', run: () => openProjectSheet() },
@@ -329,8 +315,6 @@ function Search({ close }) {
     if (clients.length) groups.push({ label: _t('Clients'), rows: clients.map((c) => ({ key: c.id, icon: 'users', title: c.name, meta: [c.pic, c.archived ? 'Archived' : ''].filter(Boolean).join(' · '), run: () => go('/freelance/clients/' + c.id) })) });
     const posts = M.liveThreads().filter((t) => has(t.text, t.pillar)).slice(0, 6);
     if (posts.length) groups.push({ label: _t('Threads'), rows: posts.map((t) => ({ key: t.id, icon: 'at', title: t.text.length > 90 ? t.text.slice(0, 90) + '…' : t.text, meta: [t.date ? relDay(t.date) + (t.time ? ' ' + t.time : '') : 'Idea', t.pillar, t.status === 'posted' ? 'Posted' : ''].filter(Boolean).join(' · '), run: () => go(t.date ? '/content/threads?d=' + t.date : '/content/threads?view=ideas') })) });
-    const money = $.txSorted().filter((x) => (x.type === 'expense' || x.type === 'income' || x.type === 'transfer') && has(x.note, $.catLabel(x.catId), String(x.amount), $.txTags(x).join(" "))).slice(0, 8);
-    if (money.length) groups.push({ label: _t('Money'), rows: money.map((x) => ({ key: x.id, icon: 'wallet', title: x.note || $.catLabel(x.catId) || 'Transfer', meta: `${relDay(x.date)} · ${x.type === 'expense' ? '−' : x.type === 'income' ? '+' : ''}${moneyRp(x.amount)}`, run: () => { close(); openTx({ tx: x }); } })) });
     if (invoices.length) groups.push({ label: _t('Invoices'), rows: invoices.map((i) => { const c = M.calcInvoice(i); return { key: i.id, icon: 'file', title: i.number, meta: `${M.clientName(i.clientId)} · ${fmtMoney(c.total, i.currency)}`, badge: <InvoiceBadge status={c.status} sm />, run: () => go('/freelance/invoices/' + i.id) }; }) });
   }
   const recent = (M.meta('recent', { items: [] }).items || []).map(recentRow).filter(Boolean).slice(0, 6);
