@@ -3,9 +3,13 @@
 // Failures are surfaced (status = 'error') and the pending writes are kept and retried.
 import { useEffect, useReducer } from 'preact/hooks';
 
-export const COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'clients', 'projects', 'invoices', 'payments', 'templates', 'activity', 'meta', 'threads', 'habits', 'mAccounts', 'mTx', 'mCats', 'mBills', 'mDebts'];
+// pm* stores hold the project manager. The older Workspace stores stay in the list so their data is kept
+// (on this device and in the cloud) even though the app no longer shows them.
+export const PM_COLLECTIONS = ['pmTasks', 'pmProjects', 'feedback', 'clients', 'invoices', 'payments', 'templates', 'meta'];
+export const LEGACY_COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'projects', 'activity', 'threads', 'habits', 'mAccounts', 'mTx', 'mCats', 'mBills', 'mDebts'];
+export const COLLECTIONS = [...PM_COLLECTIONS, ...LEGACY_COLLECTIONS];
 const DB_NAME = 'vandenizar-workspace';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 const data = Object.fromEntries(COLLECTIONS.map((c) => [c, new Map()]));
 let version = 0;
@@ -227,6 +231,7 @@ export function exportAll() {
 export async function importAll(json, { replace = true } = {}) {
   if (!json || json.app !== 'vandenizar-workspace' || !json.data) throw new Error('This file is not a Vandenizar backup.');
   for (const c of COLLECTIONS) {
+    if (!Array.isArray(json.data[c]) && LEGACY_COLLECTIONS.includes(c)) continue; // older backups never wipe newer legacy data
     const rows = Array.isArray(json.data[c]) ? json.data[c] : [];
     if (replace) for (const id of [...data[c].keys()]) if (!rows.find((r) => r.id === id)) remove(c, id);
     for (const r of rows) if (r && r.id) { data[c].set(r.id, r); enqueue(c, r.id, r); }
@@ -235,7 +240,7 @@ export async function importAll(json, { replace = true } = {}) {
   return flush();
 }
 export async function wipeAll() {
-  for (const c of COLLECTIONS) for (const id of [...data[c].keys()]) remove(c, id);
+  for (const c of PM_COLLECTIONS) for (const id of [...data[c].keys()]) remove(c, id);
   return flush();
 }
 export const counts = () => Object.fromEntries(COLLECTIONS.map((c) => [c, data[c].size]));

@@ -1,4 +1,10 @@
 const P = {
+  chat: 'M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
+  folder: 'M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z',
+  arrowRight: 'M5 12h14M13 6l6 6-6 6',
+  pause: 'M8 5h3v14H8zM13 5h3v14h-3z',
+  square: 'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8.5 12l2.5 2.5 4.5-5',
+  more2: 'M4 7h16M4 12h16M4 17h10',
   tag: 'M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
   food: 'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M18 3c-1.9 0-3.5 2.2-3.5 5.5V13H18v8',
   fuel: 'M4.5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h13M4.5 10.5h10M14.5 8h1.5a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8.5L18 5.5',
@@ -102,7 +108,7 @@ const P = {
 
 export function Icon({ name, size = 20, stroke = 1.8, class: cls, style }) {
   const d = P[name] || P.spark;
-  const filled = name === 'play' || name === 'stop';
+  const filled = name === 'play' || name === 'stop' || name === 'pause';
   return (
     <svg class={'ic ' + (cls || '')} style={style} width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d={d} />

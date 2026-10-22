@@ -1,14 +1,14 @@
 {
-  "name": "Vandenizar Workspace",
+  "name": "Vandenizar Projects",
   "short_name": "Vandenizar",
-  "description": "Daily system, Content OS and Freelance OS in one place.",
+  "description": "Projects, tasks, deadlines and invoices in one place.",
   "id": "./",
   "start_url": "./#/",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f5f8",
-  "theme_color": "#f4f5f8",
+  "background_color": "#f7f6f2",
+  "theme_color": "#f7f6f2",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
@@ -16,7 +16,7 @@
   ],
   "shortcuts": [
     { "name": "Today", "url": "./#/" },
-    { "name": "Content board", "url": "./#/content/board" },
-    { "name": "Invoices", "url": "./#/freelance/invoices" }
+    { "name": "Tasks", "url": "./#/tasks" },
+    { "name": "Invoices", "url": "./#/invoices" }
   ]
 }

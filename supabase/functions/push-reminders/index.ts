@@ -1,4 +1,4 @@
-// Sends web push reminders for scheduled tasks, content stages and the daily briefs.
+// Sends web push reminders for scheduled work, deadlines, project follow-ups and invoices.
 // Called every minute by pg_cron (x-cron-secret header), or by a signed-in user to send a test.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import webpush from 'npm:web-push@3.6.7';
@@ -7,11 +7,6 @@ const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
-const STAGES = [
-  { id: 'script', verb: 'Write script' }, { id: 'shoot', verb: 'Shoot' }, { id: 'edit', verb: 'Edit' },
-  { id: 'ready', verb: 'Review' }, { id: 'upload', verb: 'Upload' },
-];
-const STATUS_IMPLIES: Record<string, number> = { idea: -1, scripting: -1, filming: 0, editing: 1, ready: 2, published: 4 };
 const WINDOW = 30; // minutes: late reminders are still sent within this window (cron hiccups, lead changes)
 
 // Asia/Jakarta has no DST: UTC+7
@@ -62,82 +57,44 @@ async function claim(userId: string, key: string) {
 async function runForUser(userId: string) {
   const now = wib();
   const tomorrow = addDays(now.date, 1);
-  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['tasks', 'contents', 'meta', 'threads', 'dailyReviews', 'invoices', 'payments', 'clients']);
+  const { data: rows } = await sb.from('records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['pmTasks', 'pmProjects', 'meta', 'invoices', 'payments', 'clients']);
   const recs = rows || [];
-  const settings = recs.find((r) => r.coll === 'meta' && r.id === 'settings')?.data || {};
+  const settings = recs.find((r) => r.coll === 'meta' && r.id === 'pmSettings')?.data || {};
   const lead = Number(settings.pushLead ?? 0) || 0;
-  const tasks = recs.filter((r) => r.coll === 'tasks').map((r) => r.data).filter((t) => t && !t.deletedAt && !t.archived && (t.status === 'todo' || t.status === 'in_progress'));
-  const contents = recs.filter((r) => r.coll === 'contents').map((r) => r.data).filter((c) => c && !c.deletedAt && c.status !== 'published');
-  const threads = recs.filter((r) => r.coll === 'threads').map((r) => r.data).filter((t) => t && !t.deletedAt && t.status !== 'posted' && t.date && t.time);
+  const daily = toMin(settings.reminderTime || '09:00') ?? 540;
+  const atDaily = now.min >= daily && now.min < daily + WINDOW;
+  const tasks = recs.filter((r) => r.coll === 'pmTasks').map((r) => r.data).filter((t) => t && !t.deletedAt && !t.archived && ['inbox', 'open', 'in_progress'].includes(t.status));
+  const projects = recs.filter((r) => r.coll === 'pmProjects').map((r) => r.data).filter((p) => p && !p.deletedAt && !p.archived && !['delivered', 'completed'].includes(p.stage));
   const out: { key: string; title: string; body: string; url: string }[] = [];
 
-  // Threads posts with a time
-  for (const t of threads) {
-    if (t.date !== now.date && t.date !== tomorrow) continue;
-    const m = minutesUntil(t.date, t.time, now); if (m == null) continue;
-    if (m <= lead && m > lead - WINDOW) {
-      const text = String(t.text || '').replace(/\s+/g, ' ').trim();
-      out.push({ key: `threads:${t.id}:${t.date}:${t.time}`, title: `Threads · ${fmtTime(t.time)}`, body: text.length > 110 ? text.slice(0, 107) + '…' : text || 'Time to post', url: `#/content/threads?d=${t.date}` });
-    }
-  }
-
-  // Tasks with a time
+  // Work schedule: when a task is planned to be worked on
   for (const t of tasks) {
-    if (!t.dueDate || !t.dueTime || (t.dueDate !== now.date && t.dueDate !== tomorrow)) continue;
-    const m = minutesUntil(t.dueDate, t.dueTime, now); if (m == null) continue;
+    if (!t.workDate || !t.workTime || (t.workDate !== now.date && t.workDate !== tomorrow)) continue;
+    const m = minutesUntil(t.workDate, t.workTime, now); if (m == null) continue;
     if (m <= lead && m > lead - WINDOW) {
       const when = m <= 0 ? 'Now' : `In ${m} min`;
-      out.push({ key: `task:${t.id}:${t.dueDate}:${t.dueTime}`, title: t.title || 'Task', body: `${when} · ${fmtTime(t.dueTime)}`, url: '#/tasks' });
+      out.push({ key: `work:${t.id}:${t.workDate}:${t.workTime}`, title: t.title || 'Task', body: `${when} · ${fmtTime(t.workTime)}${t.estimateMinutes ? ' · ' + t.estimateMinutes + ' min' : ''}`, url: `#/tasks/${t.id}` });
     }
   }
-  // Content stages with a time
-  for (const c of contents) {
-    STAGES.forEach((st, idx) => {
-      const s = c.schedule?.[st.id];
-      if (!s?.date || !s?.time || (s.date !== now.date && s.date !== tomorrow)) return;
-      if ((c.stageDone && c.stageDone[st.id]) || idx <= (STATUS_IMPLIES[c.status] ?? -1)) return;
-      const m = minutesUntil(s.date, s.time, now); if (m == null) return;
-      if (m <= lead && m > lead - WINDOW) {
-        const when = m <= 0 ? 'now' : `in ${m} min`;
-        out.push({ key: `content:${c.id}:${st.id}:${s.date}:${s.time}`, title: `${st.verb}: ${c.title || 'Untitled content'}`, body: `Scheduled ${when} · ${fmtTime(s.time)}`, url: `#/content/item/${c.id}` });
-      }
-    });
+  // Task deadlines: an hour before a timed deadline, and at the daily reminder time on the day
+  for (const t of tasks) {
+    if (!t.deadlineDate) continue;
+    if (t.deadlineTime) {
+      const m = minutesUntil(t.deadlineDate, t.deadlineTime, now);
+      if (m != null && m <= 60 && m > 60 - WINDOW) out.push({ key: `dl1h:${t.id}:${t.deadlineDate}:${t.deadlineTime}`, title: `Deadline in 1 hour`, body: `${t.title || 'Task'} · ${fmtTime(t.deadlineTime)}`, url: `#/tasks/${t.id}` });
+    }
+    if (atDaily && t.deadlineDate === now.date) out.push({ key: `dlday:${t.id}:${now.date}`, title: 'Deadline today', body: `${t.title || 'Task'}${t.deadlineTime ? ' · ' + fmtTime(t.deadlineTime) : ''}`, url: `#/tasks/${t.id}` });
   }
-  // Morning brief and evening review
-  const rem = settings.reminders || {};
-  const dueToday = tasks.filter((t) => t.dueDate && t.dueDate <= now.date);
-  const contentToday = contents.filter((c) => STAGES.some((st, idx) => c.schedule?.[st.id]?.date === now.date && !(c.stageDone && c.stageDone[st.id]) && idx > (STATUS_IMPLIES[c.status] ?? -1)));
-  for (const kind of ['morning', 'evening'] as const) {
-    const r = rem[kind]; if (!r?.enabled) continue;
-    const tm = toMin(r.time); if (tm == null) continue;
-    if (now.min >= tm && now.min < tm + WINDOW) {
-      if (kind === 'morning') {
-        const parts = [];
-        parts.push(dueToday.length ? `${dueToday.length} task${dueToday.length > 1 ? 's' : ''} for today` : 'No tasks due today');
-        if (contentToday.length) parts.push(`${contentToday.length} content step${contentToday.length > 1 ? 's' : ''} scheduled`);
-        out.push({ key: `morning:${now.date}`, title: 'Morning brief', body: parts.join(' · '), url: '#/' });
-      } else {
-        out.push({ key: `evening:${now.date}`, title: 'How was today?', body: 'Write a few lines in your journal.', url: '#/review' });
-      }
+  // Projects: follow-up due, deadline today or tomorrow (daily reminder time)
+  if (atDaily) {
+    for (const p of projects) {
+      if (p.followUpDate && p.followUpDate <= now.date && p.stage === 'client_review') out.push({ key: `follow:${p.id}:${now.date}`, title: `Follow up: ${p.name || 'Project'}`, body: 'Still waiting for feedback.', url: `#/projects/${p.id}` });
+      if (p.deadlineDate === now.date || p.deadlineDate === tomorrow) out.push({ key: `pdl:${p.id}:${p.deadlineDate}:${now.date}`, title: `${p.name || 'Project'} is due ${p.deadlineDate === now.date ? 'today' : 'tomorrow'}`, body: p.deadlineTime ? `Deadline ${fmtTime(p.deadlineTime)}` : 'Check what is left to deliver.', url: `#/projects/${p.id}` });
     }
   }
 
-  // Monthly journal: remind on the 1st-3rd if last month's reviews aren't in Drive yet
-  const day = Number(now.date.slice(8, 10));
-  const mt = toMin(rem.morning?.time || '07:00') ?? 420;
-  if (day <= 3 && now.min >= mt && now.min < mt + WINDOW) {
-    const [yy, mm] = now.date.split('-').map(Number);
-    const prev = new Date(Date.UTC(yy, mm - 2, 1)).toISOString().slice(0, 7);
-    const reviewed = recs.filter((r) => r.coll === 'dailyReviews' && String(r.id).startsWith(prev)).length;
-    const saved = recs.find((r) => r.coll === 'meta' && r.id === 'driveExports')?.data?.months?.[prev];
-    if (reviewed && !saved) {
-      const name = new Date(Date.UTC(yy, mm - 2, 1)).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
-      out.push({ key: `journal:${prev}`, title: `${name} journal is ready`, body: `${reviewed} daily review${reviewed > 1 ? 's' : ''}. Open the app to save it to Google Drive.`, url: `#/review/monthly?d=${prev}` });
-    }
-  }
-
-  // Invoices: due today, then 1 day overdue and every 7 days after, at the morning brief time
-  if (now.min >= mt && now.min < mt + WINDOW) {
+  // Invoices: due today, then 1 day overdue and every 7 days after, at the daily reminder time
+  if (atDaily) {
     const pays = recs.filter((r) => r.coll === 'payments').map((r) => r.data).filter((p) => p && !p.voided);
     const clients = new Map(recs.filter((r) => r.coll === 'clients').map((r) => [r.id, r.data]));
     for (const inv of recs.filter((r) => r.coll === 'invoices').map((r) => r.data)) {
@@ -155,8 +112,8 @@ async function runForUser(userId: string) {
       const dec = cur === 'IDR' ? 0 : 2;
       const amount = (cur === 'IDR' ? 'Rp ' : cur + ' ') + (balance / 10 ** dec).toLocaleString(cur === 'IDR' ? 'id-ID' : 'en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
       const num = inv.number || 'Invoice';
-      if (late === 0) out.push({ key: `invdue:${inv.id}:${now.date}`, title: `${num} is due today`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/freelance/invoices/${inv.id}` });
-      else if (late === 1 || (late > 1 && late % 7 === 0)) out.push({ key: `invlate:${inv.id}:${now.date}`, title: `${num} is ${late} day${late > 1 ? 's' : ''} overdue`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/freelance/invoices/${inv.id}` });
+      if (late === 0) out.push({ key: `invdue:${inv.id}:${now.date}`, title: `${num} is due today`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/invoices/${inv.id}` });
+      else if (late === 1 || (late > 1 && late % 7 === 0)) out.push({ key: `invlate:${inv.id}:${now.date}`, title: `${num} is ${late} day${late > 1 ? 's' : ''} overdue`, body: [who, amount + ' unpaid'].filter(Boolean).join(' · '), url: `#/invoices/${inv.id}` });
     }
   }
 
@@ -187,7 +144,7 @@ Deno.serve(async (req) => {
     const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
     const { data: u } = await sb.auth.getUser(jwt);
     if (!u?.user) return json({ error: 'not signed in' }, 401);
-    const sent = await sendTo(u.user.id, { title: 'Notifications are on', body: 'Scheduled tasks will show up here.', tag: 'vz-test', url: '#/settings/notifications' });
+    const sent = await sendTo(u.user.id, { title: 'Notifications are on', body: 'Scheduled work, deadlines and follow-ups will show up here.', tag: 'vz-test', url: '#/settings/notifications' });
     return json({ ok: true, sent });
   } catch (e) {
     console.error(e);

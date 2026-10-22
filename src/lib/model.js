@@ -1,114 +1,133 @@
-// Shared data model, defaults, derived values and cross-module actions.
+// Shared data model, defaults, derived values and cross-record actions for the project manager.
 import { get, all, put, patch, remove, uid } from './db.js';
-import { today, addDays, diffDays, startOfWeek, nextOccurrence, isoOf, monthKey, daysInMonth } from './date.js';
-import { t as _t, tn as _tn } from './i18n.js';
+import { today, addDays, diffDays, nextOccurrence, isoOf, monthKey, nowParts } from './date.js';
 
 // ---------- constants ----------
 export const TASK_STATUSES = [
-  { id: 'todo', get label() { return _t('To do'); } }, { id: 'in_progress', get label() { return _t('In progress'); } }, { id: 'done', get label() { return _t('Done'); } },
-  { id: 'deferred', get label() { return _t('Deferred'); } }, { id: 'cancelled', get label() { return _t('Cancelled'); } },
+  { id: 'open', label: 'To do' }, { id: 'in_progress', label: 'In progress' }, { id: 'done', label: 'Done' },
+  { id: 'deferred', label: 'Deferred' }, { id: 'cancelled', label: 'Cancelled' },
 ];
-export const PRIORITIES = [{ id: 'high', get label() { return _t('High'); } }, { id: 'medium', get label() { return _t('Medium'); } }, { id: 'low', get label() { return _t('Low'); } }, { id: 'none', get label() { return _t('None'); } }];
-export const PRIORITY_RANK = { high: 0, medium: 1, low: 2, none: 3 };
-export const CONTENT_STATUSES = [
-  { id: 'idea', get label() { return _t('Idea'); } }, { id: 'scripting', get label() { return _t('Scripting'); } }, { id: 'filming', get label() { return _t('Filming'); } },
-  { id: 'editing', get label() { return _t('Editing'); } }, { id: 'ready', get label() { return _t('Ready'); } }, { id: 'published', get label() { return _t('Uploaded'); } },
-];
-export const CONTENT_NEXT = {
-  idea: { to: 'scripting', get label() { return _t('Start scripting'); } }, scripting: { to: 'filming', get label() { return _t('Script done, start filming'); } },
-  filming: { to: 'editing', get label() { return _t('Footage done, start editing'); } }, editing: { to: 'ready', get label() { return _t('Mark ready'); } }, ready: { to: 'published', get label() { return _t('Mark uploaded'); } },
-};
-export const ACTIVE_CONTENT = ['scripting', 'filming', 'editing'];
-// Older data used a single "in_progress" status; it maps to Scripting.
-export const normalizeContentStatus = (s) => (s === 'in_progress' ? 'scripting' : M_STATUS_IDS.includes(s) ? s : 'idea');
-const M_STATUS_IDS = ['idea', 'scripting', 'filming', 'editing', 'ready', 'published'];
-export const contentStatusIdx = (s) => M_STATUS_IDS.indexOf(s);
+export const OPEN_STATUSES = ['inbox', 'open', 'in_progress'];
+
 export const STAGES = [
-  { id: 'script', get label() { return _t('Script'); }, get verb() { return _t('Write script'); } }, { id: 'shoot', get label() { return _t('Shoot'); }, get verb() { return _t('Shoot'); } },
-  { id: 'edit', get label() { return _t('Edit'); }, get verb() { return _t('Edit'); } }, { id: 'ready', get label() { return _t('Ready'); }, get verb() { return _t('Review'); } }, { id: 'upload', get label() { return _t('Upload'); }, get verb() { return _t('Upload'); } },
+  { id: 'lead', label: 'Lead', tone: 'lavender' },
+  { id: 'planned', label: 'Planned', tone: 'sage' },
+  { id: 'shooting', label: 'Shooting', tone: 'sage' },
+  { id: 'editing', label: 'Editing', tone: 'butter' },
+  { id: 'client_review', label: 'Waiting for feedback', tone: 'cyan' },
+  { id: 'revision', label: 'Revision', tone: 'rose' },
+  { id: 'approved', label: 'Approved', tone: 'cyan' },
+  { id: 'delivered', label: 'Delivered', tone: 'lavender' },
+  { id: 'completed', label: 'Completed', tone: 'plain' },
 ];
-export const PIPELINE = ['Lead', 'Contacted', 'Negotiation', 'Booked', 'Production', 'Editing', 'Delivered', 'Paid'];
-export const PRE_PAYMENT_STAGES = PIPELINE.slice(0, 7);
-export const ACTIVE_STAGES = ['Booked', 'Production', 'Editing', 'Delivered'];
-export const LINK_TYPES = [{ id: 'reference', get label() { return _t('Reference'); } }, { id: 'final', get label() { return _t('Final video'); } }, { id: 'additional', get label() { return _t('Additional'); } }];
+export const stageOf = (id) => STAGES.find((s) => s.id === id) || STAGES[1];
+export const stageIdx = (id) => STAGES.findIndex((s) => s.id === id);
+
+export const DELIVERABLE_STATUSES = [
+  { id: 'not_started', label: 'Not started', tone: 'plain' },
+  { id: 'in_progress', label: 'In progress', tone: 'butter' },
+  { id: 'ready', label: 'Ready to send', tone: 'sage' },
+  { id: 'sent', label: 'Sent', tone: 'cyan' },
+  { id: 'waiting', label: 'Waiting for approval', tone: 'lavender' },
+  { id: 'revision', label: 'Revision requested', tone: 'rose' },
+  { id: 'approved', label: 'Approved', tone: 'sage' },
+  { id: 'delivered', label: 'Delivered', tone: 'ink' },
+];
+export const deliverableStatus = (id) => DELIVERABLE_STATUSES.find((s) => s.id === id) || DELIVERABLE_STATUSES[0];
+export const isApproved = (d) => d.status === 'approved' || d.status === 'delivered';
+
+export const LINK_TYPES = [{ id: 'drive', label: 'Drive folder' }, { id: 'reference', label: 'Reference' }, { id: 'final', label: 'Final file' }, { id: 'other', label: 'Other' }];
 export const PAYMENT_METHODS = ['Bank transfer', 'E-wallet', 'QRIS', 'Cash', 'PayPal', 'Other'];
 export const PAYMENT_KINDS = ['Full payment', 'DP / deposit', 'Partial payment', 'Final payment'];
 
 export const DEFAULT_SETTINGS = {
-  id: 'settings',
+  id: 'pmSettings',
   name: 'Denizar',
-  categories: ['Work', 'Freelance', 'Growth', 'Personal'],
-  defaultCategory: 'Work',
-  defaultPriority: 'none',
   weekStart: 1,
-  weeklyGoalLimit: 3,
-  reminders: { morning: { enabled: true, time: '07:00' }, evening: { enabled: true, time: '22:00' } },
-  platforms: ['Instagram', 'Threads', 'TikTok'],
-  pillars: ['Desk Setup', 'Videographer Life', 'Creator Thoughts', 'Gear', 'Affiliate'],
-  formats: ['Voice Over', 'Talking Head', 'Photo', 'Music + Text'],
-  checklistTemplate: ['Idea & script ready', 'Footage recorded', 'Edit video', 'Select cover', 'Add music', 'Final review', 'Upload / publish'],
-  weeklyTarget: 4,
-  threadsDaily: 7,
-  threadsPillars: ['Fashion videographer', 'WFH desk setup', 'Affiliate desk'],
-  boardView: 'kanban',
-  pipelineView: 'kanban',
+  defaultWorkspace: 'freelance',
+  defaultEstimate: 0,
+  reminderTime: '09:00',
+  pushLead: 0,
   business: { name: 'Vandenizar', owner: 'Denizar', email: '', phone: '', address: 'Bekasi, Indonesia', website: '' },
   invoiceFormat: 'INV-{YYYY}-{####}',
   defaultCurrency: 'IDR',
   defaultTermsDays: 14,
   defaultTermsText: 'Payment due within 14 days of the invoice date. Final files are delivered after full payment.',
   paymentInstructions: '',
-  projectTypes: ['Fashion Campaign', 'Fashion Reel', 'Beauty Reel', 'Event Reel', 'Product Video', 'Brand Content'],
-  defaultDeliverables: ['Main Video', 'Social Cut', 'Behind The Scenes', 'Photo Documentation'],
+  defaultDeliverables: ['Hero film', 'Cutdown', 'Vertical teaser'],
 };
 
 export function settings() {
-  const s = get('meta', 'settings');
+  const s = get('meta', 'pmSettings');
   if (!s) return DEFAULT_SETTINGS;
-  return { ...DEFAULT_SETTINGS, ...s, business: { ...DEFAULT_SETTINGS.business, ...(s.business || {}) }, reminders: { ...DEFAULT_SETTINGS.reminders, ...(s.reminders || {}) } };
+  return { ...DEFAULT_SETTINGS, ...s, business: { ...DEFAULT_SETTINGS.business, ...(s.business || {}) } };
 }
-export const setSettings = (ch) => put('meta', { ...settings(), ...(typeof ch === 'function' ? ch(settings()) : ch), id: 'settings' });
+export const setSettings = (ch) => put('meta', { ...settings(), ...(typeof ch === 'function' ? ch(settings()) : ch), id: 'pmSettings' });
 export const meta = (id, fallback) => get('meta', id) || fallback;
-
-// ---------- activity ----------
-export function logActivity(text, ref = {}) {
-  put('activity', { id: uid(), at: Date.now(), text, ...ref });
-  const items = all('activity');
-  if (items.length > 400) items.slice().sort((a, b) => a.at - b.at).slice(0, items.length - 400).forEach((a) => remove('activity', a.id));
-}
 
 // ---------- recent ----------
 export function touchRecent(type, id) {
   const r = meta('recent', { id: 'recent', items: [] });
-  const items = [{ type, id, at: Date.now() }, ...r.items.filter((x) => !(x.type === type && x.id === id))].slice(0, 12);
-  put('meta', { ...r, items }, { silent: true });
+  const items = [{ type, id, at: Date.now() }, ...(r.items || []).filter((x) => !(x.type === type && x.id === id))].slice(0, 12);
+  put('meta', { ...r, id: 'recent', items }, { silent: true });
+}
+
+// ---------- time helpers ----------
+const toMin = (t) => { if (!t || !/^\d{1,2}:\d{2}/.test(t)) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+export function nowStamp() { const n = nowParts(); return { date: n.date, min: n.hour * 60 + n.minute }; }
+// Is (date, time) before now in WIB? A date without a time counts until the end of that day.
+export function isPast(date, time) {
+  if (!date) return false;
+  const n = nowStamp();
+  if (date !== n.date) return date < n.date;
+  const m = toMin(time);
+  return m != null && m < n.min;
 }
 
 // ---------- tasks ----------
-export const isOpen = (t) => t && !t.deletedAt && !t.archived && (t.status === 'todo' || t.status === 'in_progress');
-export const liveTasks = () => all('tasks').filter((t) => !t.deletedAt && !t.archived);
+export const liveTasks = () => all('pmTasks').filter((t) => !t.deletedAt && !t.archived);
+export const isOpen = (t) => !!t && !t.deletedAt && !t.archived && OPEN_STATUSES.includes(t.status);
+export const isDone = (t) => t && t.status === 'done';
+export const isOverdue = (t) => isOpen(t) && !!t.deadlineDate && isPast(t.deadlineDate, t.deadlineTime);
+// Work schedule passed but the hard deadline has not: "Not done yet", never "overdue".
+export const isBehind = (t) => isOpen(t) && !!t.workDate && !isOverdue(t) && (t.workDate < today() || (t.workDate === today() && t.workTime && isPast(t.workDate, t.workTime) && t.status !== 'in_progress'));
+export const isInbox = (t) => isOpen(t) && !t.workDate && !t.deadlineDate && !t.pinnedOn;
+
 export function newTask(p = {}) {
   const s = settings();
-  const t = { id: uid(), title: '', notes: '', category: s.defaultCategory, status: 'todo', priority: s.defaultPriority, dueDate: '', dueTime: '', estimate: 0, recurrence: null, goalId: '', contentId: '', projectId: '', invoiceId: '', order: Date.now(), completions: [], completedAt: null, focusSessions: [], subtasks: [], ...p };
-  return put('tasks', t);
+  const t = {
+    id: uid(), title: '', status: 'open', workDate: null, workTime: null, deadlineDate: null, deadlineTime: null,
+    estimateMinutes: s.defaultEstimate || null, priority: 'normal', projectId: null, invoiceId: null, subtasks: [], notes: '',
+    order: Date.now(), archived: false, deletedAt: null, completedAt: null, pinnedOn: null, recurrence: null,
+    focusSessions: [], focusStartedAt: null, ...p,
+  };
+  if (!t.workDate && !t.deadlineDate && !t.pinnedOn && t.status === 'open') t.status = 'inbox';
+  return put('pmTasks', t);
+}
+// Keep the inbox/open status in step with whether the task has a date.
+export function patchTask(id, ch) {
+  const cur = get('pmTasks', id);
+  if (!cur) return null;
+  const n = { ...cur, ...ch };
+  if (OPEN_STATUSES.includes(n.status) && n.status !== 'in_progress') n.status = (n.workDate || n.deadlineDate || n.pinnedOn) ? 'open' : 'inbox';
+  return patch('pmTasks', id, { ...ch, status: n.status });
 }
 export function completeTask(id) {
-  const t = get('tasks', id);
+  const t = get('pmTasks', id);
   if (!t) return;
   const now = Date.now();
   const sessions = closeFocus(t, now);
   if (t.recurrence && t.recurrence.freq) {
-    const from = t.dueDate || today();
+    const from = t.workDate || today();
     let next = nextOccurrence(t.recurrence, from);
-    while (next && diffDays(next, today()) < 0) next = nextOccurrence(t.recurrence, next); // skip missed occurrences
-    const endOk = !t.recurrence.until || diffDays(next, t.recurrence.until) <= 0;
-    patch('tasks', id, { completions: [...(t.completions || []), { date: from, at: now }], dueDate: endOk ? next : t.dueDate, status: endOk ? 'todo' : 'done', completedAt: endOk ? t.completedAt : now, lastCompletedAt: now, focusSessions: sessions, focusStartedAt: null, ...(endOk && (t.subtasks || []).length ? { subtasks: t.subtasks.map((x) => ({ ...x, done: false })) } : {}) });
+    while (next && diffDays(next, today()) < 0) next = nextOccurrence(t.recurrence, next);
+    patch('pmTasks', id, { workDate: next, status: 'open', completions: [...(t.completions || []), { date: from, at: now }], lastCompletedAt: now, focusSessions: sessions, focusStartedAt: null, subtasks: (t.subtasks || []).map((s) => ({ ...s, done: false })) });
   } else {
-    patch('tasks', id, { status: 'done', completedAt: now, focusSessions: sessions, focusStartedAt: null });
+    patch('pmTasks', id, { status: 'done', completedAt: now, focusSessions: sessions, focusStartedAt: null });
   }
   if (meta('focus', {}).taskId === id) put('meta', { id: 'focus', taskId: null });
 }
-export function reopenTask(id) { patch('tasks', id, { status: 'todo', completedAt: null }); }
+export function reopenTask(id) { const t = get('pmTasks', id); if (!t) return; patch('pmTasks', id, { status: t.workDate || t.deadlineDate ? 'open' : 'inbox', completedAt: null }); }
 function closeFocus(t, now) {
   const s = [...(t.focusSessions || [])];
   if (t.focusStartedAt) s.push({ start: t.focusStartedAt, end: now });
@@ -117,159 +136,137 @@ function closeFocus(t, now) {
 export function startFocus(id) {
   const cur = meta('focus', {}).taskId;
   if (cur && cur !== id) stopFocus();
-  const t = get('tasks', id);
-  if (!t) return;
-  patch('tasks', id, { status: 'in_progress', focusStartedAt: Date.now() });
+  if (!get('pmTasks', id)) return;
+  patch('pmTasks', id, { status: 'in_progress', focusStartedAt: Date.now() });
   put('meta', { id: 'focus', taskId: id });
 }
 export function stopFocus() {
   const id = meta('focus', {}).taskId;
-  const t = get('tasks', id);
-  if (t) patch('tasks', id, { focusSessions: closeFocus(t, Date.now()), focusStartedAt: null });
+  const t = get('pmTasks', id);
+  if (t) patch('pmTasks', id, { focusSessions: closeFocus(t, Date.now()), focusStartedAt: null });
   put('meta', { id: 'focus', taskId: null });
 }
-export function deferTask(id, days = 1) {
-  const t = get('tasks', id);
-  if (!t) return;
-  const base = t.dueDate && diffDays(t.dueDate, today()) > 0 ? t.dueDate : today();
-  patch('tasks', id, { dueDate: addDays(base, days), status: t.status === 'in_progress' ? 'todo' : t.status });
-}
-export function trashTask(id) { patch('tasks', id, { deletedAt: Date.now() }); unpinFromDays(id); }
-function unpinFromDays(id) {
-  for (const d of all('days')) if (d.mainTaskId === id || (d.keyTaskIds || []).includes(id)) put('days', { ...d, mainTaskId: d.mainTaskId === id ? '' : d.mainTaskId, keyTaskIds: (d.keyTaskIds || []).filter((x) => x !== id) });
-}
-export const taskDoneOn = (t, iso) => (t.completedAt && isoOf(t.completedAt) === iso) || (t.completions || []).some((c) => isoOf(c.at) === iso);
-export function sortTasks(list, by = 'smart') {
+export const focusTask = () => { const id = meta('focus', {}).taskId; const t = id && get('pmTasks', id); return t && t.focusStartedAt && !t.deletedAt ? t : null; };
+export const focusedMinutes = (t) => Math.round((t.focusSessions || []).reduce((a, x) => a + (x.end - x.start), 0) / 60000);
+export function trashTask(id) { patch('pmTasks', id, { deletedAt: Date.now() }); for (const p of all('pmProjects')) if (p.nextActionTaskId === id) patch('pmProjects', p.id, { nextActionTaskId: null }); }
+
+// Rescheduling only ever touches the work schedule. The deadline stays.
+export function rescheduleWork(id, workDate, workTime = null) { patchTask(id, { workDate: workDate || null, workTime: workDate ? workTime || null : null, status: get('pmTasks', id)?.status === 'deferred' ? 'open' : get('pmTasks', id)?.status }); }
+
+const sortKey = (d, t) => (d ? d + (t || '99:99') : '9999');
+export function sortTasks(list, by = 'schedule') {
   const arr = [...list];
-  const due = (t) => (t.dueDate ? t.dueDate + (t.dueTime || '99:99') : '9999');
-  if (by === 'smart') arr.sort((a, b) => (a.status === 'in_progress' ? -1 : 0) - (b.status === 'in_progress' ? -1 : 0) || due(a).localeCompare(due(b)) || PRIORITY_RANK[a.priority || 'none'] - PRIORITY_RANK[b.priority || 'none'] || (a.order || 0) - (b.order || 0));
-  else if (by === 'due') arr.sort((a, b) => due(a).localeCompare(due(b)));
-  else if (by === 'priority') arr.sort((a, b) => PRIORITY_RANK[a.priority || 'none'] - PRIORITY_RANK[b.priority || 'none'] || due(a).localeCompare(due(b)));
-  else if (by === 'manual') arr.sort((a, b) => (a.order || 0) - (b.order || 0));
-  else if (by === 'created') arr.sort((a, b) => b.createdAt - a.createdAt);
-  else if (by === 'title') arr.sort((a, b) => a.title.localeCompare(b.title));
+  const prio = (t) => (t.priority === 'high' ? 0 : 1);
+  if (by === 'manual') arr.sort((a, b) => (a.order || 0) - (b.order || 0));
+  else if (by === 'deadline') arr.sort((a, b) => sortKey(a.deadlineDate, a.deadlineTime).localeCompare(sortKey(b.deadlineDate, b.deadlineTime)) || prio(a) - prio(b));
+  else if (by === 'project') arr.sort((a, b) => projectName(a.projectId).localeCompare(projectName(b.projectId)) || sortKey(a.workDate, a.workTime).localeCompare(sortKey(b.workDate, b.workTime)));
+  else arr.sort((a, b) => (a.status === 'in_progress' ? -1 : 0) - (b.status === 'in_progress' ? -1 : 0) || sortKey(a.workDate, a.workTime).localeCompare(sortKey(b.workDate, b.workTime)) || prio(a) - prio(b) || sortKey(a.deadlineDate, a.deadlineTime).localeCompare(sortKey(b.deadlineDate, b.deadlineTime)) || (a.order || 0) - (b.order || 0));
   return arr;
 }
+export const subtaskCount = (t) => ({ done: (t.subtasks || []).filter((s) => s.done).length, total: (t.subtasks || []).length });
 
-// ---------- day plan ----------
-export const dayPlan = (iso) => get('days', iso) || { id: iso, mainTaskId: '', keyTaskIds: [] };
-export function setDayPlan(iso, ch) { put('days', { ...dayPlan(iso), ...ch, id: iso }); }
-export function validPlan(iso) {
-  const p = dayPlan(iso);
-  const ok = (id) => { const t = get('tasks', id); return t && !t.deletedAt && !t.archived && t.status !== 'cancelled'; };
-  return { main: ok(p.mainTaskId) ? get('tasks', p.mainTaskId) : null, keys: (p.keyTaskIds || []).filter(ok).map((id) => get('tasks', id)) };
+// Tasks for Today: scheduled for today, pinned for today, deadline today, plus overdue deadlines.
+export function todayTasks() {
+  const t0 = today();
+  return liveTasks().filter((t) => isOpen(t) && (t.workDate === t0 || t.pinnedOn === t0 || t.deadlineDate === t0 || isOverdue(t)));
+}
+// The one task to work on now. Order: overdue deadline, in progress today, next scheduled today, pinned, project next action.
+export function recommendedTask() {
+  const t0 = today();
+  const open = liveTasks().filter(isOpen);
+  const focused = focusTask();
+  if (focused) return { task: focused, reason: 'focus' };
+  const overdue = sortTasks(open.filter(isOverdue), 'deadline');
+  if (overdue.length) return { task: overdue[0], reason: 'overdue' };
+  const prog = open.filter((t) => t.status === 'in_progress' && (t.workDate === t0 || t.pinnedOn === t0));
+  if (prog.length) return { task: prog[0], reason: 'in_progress' };
+  const n = nowStamp();
+  const sched = sortTasks(open.filter((t) => t.workDate === t0), 'schedule');
+  const upcoming = sched.find((t) => !t.workTime || toMin(t.workTime) + (t.estimateMinutes || 60) > n.min);
+  if (upcoming || sched.length) return { task: upcoming || sched[0], reason: 'scheduled' };
+  const pinned = open.filter((t) => t.pinnedOn === t0);
+  if (pinned.length) return { task: sortTasks(pinned)[0], reason: 'pinned' };
+  const actions = liveProjects().filter((p) => !p.archived && p.stage !== 'completed').map((p) => ({ p, t: nextActionTask(p) })).filter((x) => x.t)
+    .sort((a, b) => sortKey(a.p.deadlineDate, a.p.deadlineTime).localeCompare(sortKey(b.p.deadlineDate, b.p.deadlineTime)));
+  if (actions.length) return { task: actions[0].t, reason: 'next_action' };
+  return null;
 }
 
-// ---------- goals ----------
-export function goalProgress(g) {
-  if (g.method === 'numeric') {
-    const target = +g.target || 0, current = +g.current || 0;
-    return { pct: target ? Math.min(100, Math.round((current / target) * 100)) : 0, label: `${current} / ${target}${g.unit ? ' ' + g.unit : ''}` };
-  }
-  if (g.method === 'manual') return { pct: Math.max(0, Math.min(100, +g.manual || 0)), label: `${+g.manual || 0}%` };
-  const linked = all('tasks').filter((t) => t.goalId === g.id && !t.deletedAt);
-  const ids = new Set();
-  let done = 0;
-  for (const t of linked) {
-    if (ids.has(t.id)) continue; ids.add(t.id);
-    const inPeriod = (ts) => ts && (!g.startDate || isoOf(ts) >= g.startDate) && (!g.endDate || isoOf(ts) <= g.endDate);
-    if (t.status === 'done' || (t.completions || []).some((c) => inPeriod(c.at))) done++;
-  }
-  const total = ids.size;
-  return { pct: total ? Math.round((done / total) * 100) : 0, label: total ? _t('{0} of {1} tasks', [done, total]) : _t('No tasks linked'), done, total };
-}
-export const activeGoals = () => all('goals').filter((g) => g.status === 'active' && !g.deletedAt);
-
-// ---------- content ----------
-export const liveContents = () => all('contents').filter((c) => !c.deletedAt);
-export function newContent(p = {}) {
+// ---------- projects ----------
+export const liveProjects = () => all('pmProjects').filter((p) => !p.deletedAt);
+export const projectName = (id) => (id && get('pmProjects', id)?.name) || '';
+export function newProject(p = {}) {
   const s = settings();
-  const statusItems = liveContents().filter((c) => c.status === (p.status || 'idea'));
-  const c = {
-    id: uid(), title: _t('Untitled content'), description: '', status: 'idea', platforms: [s.platforms[0]].filter(Boolean), pillar: '', format: '', cover: '',
-    hook: '', script: '', shotlist: [], caption: '', links: [], notes: '',
-    checklist: s.checklistTemplate.map((text) => ({ id: uid(), text, done: false })),
-    schedule: { script: {}, shoot: {}, edit: {}, ready: {}, upload: {} }, stageDone: {},
-    order: statusItems.length ? Math.min(...statusItems.map((x) => x.order || 0)) - 1 : 0, publishedAt: null, ...p,
-  };
-  return put('contents', c);
-}
-export function setContentStatus(id, status) {
-  const c = get('contents', id);
-  if (!c || c.status === status) return;
-  const inCol = liveContents().filter((x) => x.status === status && x.id !== id);
-  const ch = { status, order: inCol.length ? Math.max(...inCol.map((x) => x.order || 0)) + 1 : 0 };
-  if (status === 'published') ch.publishedAt = c.publishedAt || Date.now();
-  else ch.publishedAt = null;
-  patch('contents', id, ch);
-}
-export function duplicateContent(id) {
-  const c = get('contents', id);
-  if (!c) return null;
-  const copy = JSON.parse(JSON.stringify(c));
-  delete copy.createdAt; delete copy.deletedAt; delete copy.versions;
-  copy.id = uid();
-  copy.title = c.title + ' (copy)';
-  copy.order = (c.order || 0) + 0.5;
-  copy.publishedAt = c.status === 'published' ? Date.now() : null;
-  copy.shotlist = (copy.shotlist || []).map((s) => ({ ...s, id: uid() }));
-  copy.checklist = (copy.checklist || []).map((s) => ({ ...s, id: uid() }));
-  copy.links = (copy.links || []).map((s) => ({ ...s, id: uid() }));
-  return put('contents', copy);
-}
-const STAGE_IDX = { script: 0, shoot: 1, edit: 2, ready: 3, upload: 4 };
-// Which production stages a status implies are finished (script=0, shoot=1, edit=2, ready=3, upload=4)
-const STATUS_IMPLIES = { idea: -1, scripting: -1, filming: 0, editing: 1, ready: 2, published: 4 };
-const STAGE_NEXT_STATUS = { script: 'filming', shoot: 'editing', edit: 'ready', ready: 'ready', upload: 'published' };
-export const stageIsDone = (c, stage) => !!(c.stageDone && c.stageDone[stage]) || STAGE_IDX[stage] <= STATUS_IMPLIES[c.status];
-export function completeStage(c, stage) {
-  const stageDone = { ...(c.stageDone || {}), [stage]: true };
-  patch('contents', c.id, { stageDone });
-  // Finishing a stage moves the status forward (never backward)
-  const to = STAGE_NEXT_STATUS[stage];
-  if (contentStatusIdx(to) > contentStatusIdx(c.status)) setContentStatus(c.id, to);
-}
-export function uncompleteStage(c, stage) { patch('contents', c.id, { stageDone: { ...(c.stageDone || {}), [stage]: false } }); }
-// Content actions due on or before a date and not done yet
-export function contentActions(uptoIso = today()) {
-  const out = [];
-  for (const c of liveContents()) {
-    if (c.status === 'published') continue;
-    for (const st of STAGES) {
-      const d = c.schedule?.[st.id]?.date;
-      if (!d || diffDays(d, uptoIso) > 0 || stageIsDone(c, st.id)) continue;
-      out.push({ content: c, stage: st, date: d, time: c.schedule[st.id].time || '', overdue: diffDays(d, today()) < 0 });
-    }
-  }
-  return out.sort((a, b) => (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99')));
-}
-export function upcomingUploads(from = today(), days = 14) {
-  return liveContents().filter((c) => c.schedule?.upload?.date && c.status !== 'published' && diffDays(c.schedule.upload.date, from) >= 0 && diffDays(c.schedule.upload.date, from) < days)
-    .sort((a, b) => (a.schedule.upload.date + (a.schedule.upload.time || '')).localeCompare(b.schedule.upload.date + (b.schedule.upload.time || '')));
-}
-export function publishedInWeek(weekStartIso) {
-  const end = addDays(weekStartIso, 6);
-  return liveContents().filter((c) => {
-    if (c.status !== 'published') return false;
-    const d = c.publishedAt ? isoOf(c.publishedAt) : c.schedule?.upload?.date;
-    return d && d >= weekStartIso && d <= end;
+  return put('pmProjects', {
+    id: uid(), name: '', workspace: s.defaultWorkspace, clientId: null, stage: 'planned', startDate: null, shootDate: null, deadlineDate: null, deadlineTime: null,
+    nextActionTaskId: null, brief: '', notes: '', links: [], deliverables: [], followUpDate: null, previewSentAt: null, archived: false, deletedAt: null, ...p,
   });
 }
-export function priorityContent() {
-  const list = liveContents();
-  const prog = list.filter((c) => ACTIVE_CONTENT.includes(c.status)).sort((a, b) => b.updatedAt - a.updatedAt);
-  if (prog.length) return prog[0];
-  const ready = list.filter((c) => c.status === 'ready').sort((a, b) => (a.schedule?.upload?.date || '9999').localeCompare(b.schedule?.upload?.date || '9999'));
-  if (ready.length) return ready[0];
-  return list.filter((c) => c.status === 'idea').sort((a, b) => (a.order || 0) - (b.order || 0))[0] || null;
+export const projectTasks = (pid) => liveTasks().filter((t) => t.projectId === pid);
+export function nextActionTask(p) {
+  const chosen = p.nextActionTaskId && get('pmTasks', p.nextActionTaskId);
+  if (chosen && isOpen(chosen)) return chosen;
+  return sortTasks(projectTasks(p.id).filter(isOpen), 'schedule')[0] || null;
+}
+export function projectProgress(p) {
+  const ts = projectTasks(p.id).filter((t) => t.status !== 'cancelled');
+  const dv = p.deliverables || [];
+  return { tasksDone: ts.filter(isDone).length, tasksTotal: ts.length, approved: dv.filter(isApproved).length, deliverables: dv.length };
+}
+// The next date worth showing on a project card.
+export function projectDate(p) {
+  if (p.stage === 'client_review' && p.followUpDate) return { label: 'Follow-up', date: p.followUpDate };
+  if (p.shootDate && stageIdx(p.stage) <= stageIdx('shooting') && p.shootDate >= today()) return { label: 'Shoot', date: p.shootDate };
+  if (p.deadlineDate && stageIdx(p.stage) < stageIdx('delivered')) return { label: 'Deadline', date: p.deadlineDate, time: p.deadlineTime };
+  return null;
+}
+export function setStage(id, stage) {
+  const p = get('pmProjects', id);
+  if (!p || p.stage === stage) return;
+  const ch = { stage };
+  if (stage === 'client_review') { ch.previewSentAt = Date.now(); if (!p.followUpDate) ch.followUpDate = addDays(today(), 2); }
+  patch('pmProjects', id, ch);
+}
+export const projectFeedback = (pid) => all('feedback').filter((f) => f.projectId === pid && !f.deletedAt).sort((a, b) => b.createdAt - a.createdAt);
+// Feedback arrived: log each note, move the project to Revision, optionally create revision tasks.
+export function recordFeedback(pid, notes, { deliverableId = null, source = 'client', makeTasks = true } = {}) {
+  const p = get('pmProjects', pid);
+  const made = [];
+  for (const text of notes) {
+    const f = put('feedback', { id: uid(), projectId: pid, deliverableId, text, source, resolvedAt: null, taskId: null });
+    if (makeTasks) { const t = createRevisionTask(f); made.push(t); }
+  }
+  if (p && source === 'client') {
+    patch('pmProjects', pid, { stage: 'revision', followUpDate: null, feedbackAt: Date.now() });
+    if (deliverableId) patch('pmProjects', pid, { deliverables: (get('pmProjects', pid).deliverables || []).map((d) => (d.id === deliverableId ? { ...d, status: 'revision', updatedAt: Date.now() } : d)) });
+  }
+  return made;
+}
+export function createRevisionTask(f) {
+  const t = newTask({ title: 'Revise: ' + f.text, projectId: f.projectId, workDate: today(), notes: 'From feedback: ' + f.text });
+  patch('feedback', f.id, { taskId: t.id });
+  return t;
 }
 
-// ---------- freelance ----------
+// ---------- attention ----------
+export function attentionItems() {
+  const t0 = today();
+  const out = [];
+  for (const t of sortTasks(liveTasks().filter(isOverdue), 'deadline')) out.push({ kind: 'overdue', tone: 'rose', title: t.title, sub: 'Deadline passed · ' + (projectName(t.projectId) || 'No project'), path: '/tasks/' + t.id, icon: 'flag' });
+  for (const p of liveProjects().filter((x) => !x.archived)) {
+    if (p.stage === 'client_review') out.push({ kind: 'waiting', tone: 'lavender', title: 'Waiting for feedback', sub: p.name + (p.followUpDate ? (p.followUpDate <= t0 ? ' · follow up today' : ' · follow-up ' + p.followUpDate) : ''), path: '/projects/' + p.id, icon: 'chat', due: p.followUpDate && p.followUpDate <= t0 });
+    const open = projectFeedback(p.id).filter((f) => !f.resolvedAt && f.source === 'client');
+    if (p.stage === 'revision' && open.length) out.push({ kind: 'revision', tone: 'rose', title: 'Revision received', sub: p.name + ' · ' + open.length + ' note' + (open.length === 1 ? '' : 's'), path: '/projects/' + p.id, icon: 'chat' });
+  }
+  for (const i of liveInvoices().filter((x) => !x.archived)) { const c = calcInvoice(i); if (c.status === 'overdue') out.push({ kind: 'invoice', tone: 'butter', title: i.number + ' is overdue', sub: clientName(i.clientId), path: '/invoices/' + i.id, icon: 'file' }); }
+  return out;
+}
+
+// ---------- clients, invoices, payments ----------
 export const liveClients = () => all('clients').filter((c) => !c.deletedAt);
-export const liveProjects = () => all('projects').filter((p) => !p.deletedAt);
 export const liveInvoices = () => all('invoices').filter((i) => !i.deletedAt);
 export const invoicePayments = (invId) => all('payments').filter((p) => p.invoiceId === invId && !p.voided);
-export const stageIdx = (s) => PIPELINE.indexOf(s);
+export const clientName = (id) => get('clients', id)?.name || 'No client';
 
 export function calcInvoice(inv) {
   const items = (inv.items || []).map((it) => ({ ...it, amount: Math.round((+it.qty || 0) * (+it.rate || 0)) }));
@@ -289,7 +286,8 @@ export function calcInvoice(inv) {
   else status = 'sent';
   return { items, subtotal, discount, total, paid, balance, status, payments: pays };
 }
-export const INVOICE_STATUS = { get draft() { return _t('Draft'); }, get sent() { return _t('Sent'); }, get partial() { return _t('Partial'); }, get paid() { return _t('Paid'); }, get overdue() { return _t('Overdue'); } };
+export const INVOICE_STATUS = { draft: 'Draft', sent: 'Sent', partial: 'Partial', paid: 'Paid', overdue: 'Overdue' };
+export const INVOICE_TONE = { draft: 'plain', sent: 'cyan', partial: 'butter', paid: 'sage', overdue: 'rose' };
 
 export function formatInvoiceNumber(fmt, seq, iso = today()) {
   const [y, m] = iso.split('-');
@@ -307,14 +305,13 @@ export function nextInvoiceNumber(iso = today()) {
 }
 export function reserveInvoiceNumber(num, key, seq) {
   const c = meta('counters', { id: 'counters', seq: {}, used: [] });
-  put('meta', { ...c, seq: { ...(c.seq || {}), ...(key ? { [key]: Math.max(seq || 0, c.seq?.[key] || 0) } : {}) }, used: [...new Set([...(c.used || []), num])] });
+  put('meta', { ...c, id: 'counters', seq: { ...(c.seq || {}), ...(key ? { [key]: Math.max(seq || 0, c.seq?.[key] || 0) } : {}) }, used: [...new Set([...(c.used || []), num])] });
 }
 export function numberTaken(num, exceptId) {
   const cur = get('invoices', exceptId);
   if (cur && cur.number === num) return false;
   return all('invoices').some((i) => i.number === num && i.id !== exceptId) || (meta('counters', {}).used || []).includes(num);
 }
-
 export function clientSnapshot(clientId) {
   const c = get('clients', clientId);
   return c ? { name: c.name, pic: c.pic || '', email: c.email || '', phone: c.phone || '', address: c.address || '' } : null;
@@ -323,231 +320,61 @@ export function newInvoice(p = {}) {
   const s = settings();
   const { num, key, seq } = nextInvoiceNumber();
   reserveInvoiceNumber(num, key, seq);
-  const project = p.projectId ? get('projects', p.projectId) : null;
+  const project = p.projectId ? get('pmProjects', p.projectId) : null;
   const clientId = p.clientId || project?.clientId || '';
   const date = today();
-  const inv = {
+  return put('invoices', {
     id: uid(), number: num, clientId, projectId: project?.id || '', date, dueDate: addDays(date, +s.defaultTermsDays || 14), termsDays: +s.defaultTermsDays || 14,
-    currency: project?.currency || s.defaultCurrency, items: project ? [{ id: uid(), desc: project.name + (project.type ? ` (${project.type})` : ''), qty: 1, rate: +project.fee || 0 }] : [{ id: uid(), desc: '', qty: 1, rate: 0 }],
+    currency: s.defaultCurrency, items: [{ id: uid(), desc: project ? project.name : '', qty: 1, rate: 0 }],
     discountType: 'none', discountValue: 0, notes: '', terms: s.defaultTermsText, paymentInstructions: s.paymentInstructions,
     sentAt: null, archived: false, clientSnapshot: clientSnapshot(clientId), projectSnapshot: project ? { name: project.name } : null, issuer: null, ...p,
-  };
-  const saved = put('invoices', inv);
-  logActivity(`Invoice ${num} created`, { refType: 'invoice', refId: saved.id, projectId: saved.projectId });
-  return saved;
+  });
 }
-// Before an invoice is sent, recipient details follow the client record. Once sent, they are frozen.
 export function invoiceRecipient(inv) { return inv.sentAt ? inv.clientSnapshot || clientSnapshot(inv.clientId) : clientSnapshot(inv.clientId) || inv.clientSnapshot; }
 export function invoiceIssuer(inv) { return inv.sentAt && inv.issuer ? inv.issuer : settings().business; }
 export function markSent(inv) {
-  patch('invoices', inv.id, { sentAt: Date.now(), clientSnapshot: clientSnapshot(inv.clientId) || inv.clientSnapshot, issuer: { ...settings().business }, projectSnapshot: inv.projectId ? { name: get('projects', inv.projectId)?.name || '' } : null });
-  logActivity(`Invoice ${inv.number} marked sent`, { refType: 'invoice', refId: inv.id, projectId: inv.projectId });
+  patch('invoices', inv.id, { sentAt: Date.now(), clientSnapshot: clientSnapshot(inv.clientId) || inv.clientSnapshot, issuer: { ...settings().business }, projectSnapshot: inv.projectId ? { name: get('pmProjects', inv.projectId)?.name || '' } : null });
 }
 export function recordPayment(inv, p) {
   if (!inv.sentAt) markSent(inv);
-  const pay = put('payments', { id: uid(), invoiceId: inv.id, amount: Math.round(p.amount), date: p.date, method: p.method, kind: p.kind, reference: p.reference || '', notes: p.notes || '', voided: false, history: [] });
-  const after = calcInvoice(get('invoices', inv.id));
-  logActivity(`Payment received for ${inv.number}${p.kind ? ` (${p.kind})` : ''}`, { refType: 'invoice', refId: inv.id, projectId: inv.projectId, amount: pay.amount, currency: inv.currency });
-  if (after.status === 'paid' && inv.projectId) {
-    const pr = get('projects', inv.projectId);
-    const allPaid = liveInvoices().filter((i) => i.projectId === pr?.id && i.sentAt).every((i) => calcInvoice(i).balance <= 0);
-    if (pr && allPaid && stageIdx(pr.stage) >= stageIdx('Delivered') && pr.stage !== 'Paid') moveProject(pr.id, 'Paid');
-  }
-  return pay;
+  return put('payments', { id: uid(), invoiceId: inv.id, amount: Math.round(p.amount), date: p.date, method: p.method, kind: p.kind, reference: p.reference || '', notes: p.notes || '', voided: false, history: [] });
 }
-export function moveProject(id, stage, order) {
-  const pr = get('projects', id);
-  if (!pr) return;
-  const ch = { stage };
-  if (order != null) ch.order = order;
-  else if (pr.stage !== stage) { const col = liveProjects().filter((p) => p.stage === stage && p.id !== id); ch.order = col.length ? Math.max(...col.map((p) => p.order || 0)) + 1 : 0; }
-  if (pr.stage !== stage) {
-    ch.history = [...(pr.history || []), { at: Date.now(), text: _t('Stage: {0} → {1}', [pr.stage, stage]) }];
-    ch.stageChangedAt = Date.now();
-    logActivity(`${pr.name} moved to ${stage}`, { refType: 'project', refId: id, projectId: id, stage });
-  }
-  patch('projects', id, ch);
-}
-export function newProject(p = {}) {
-  const s = settings();
-  const stage = p.stage || 'Lead';
-  const col = liveProjects().filter((x) => x.stage === stage);
-  const pr = put('projects', {
-    id: uid(), name: '', clientId: '', pic: '', contact: '', type: '', fee: 0, currency: s.defaultCurrency, shootDate: '', startDate: '', deadline: '', location: '',
-    stage, order: col.length ? Math.max(...col.map((x) => x.order || 0)) + 1 : 0, tags: [], deliverables: [], notes: '', links: [], archived: false, history: [{ at: Date.now(), text: _t('Created in {0}', [stage]) }], ...p,
-  });
-  logActivity(`Project ${pr.name} created`, { refType: 'project', refId: pr.id, projectId: pr.id });
-  return pr;
-}
-export function projectMoney(prId) {
-  const invs = liveInvoices().filter((i) => i.projectId === prId);
+export function projectMoney(pid) {
+  const invs = liveInvoices().filter((i) => i.projectId === pid);
   let invoiced = 0, paid = 0, balance = 0;
   for (const i of invs) { const c = calcInvoice(i); if (c.status !== 'draft') { invoiced += c.total; balance += Math.max(0, c.balance); } paid += c.paid; }
   return { invoices: invs, invoiced, paid, balance };
 }
-export function clientMoney(clientId) {
-  const prs = liveProjects().filter((p) => p.clientId === clientId);
-  const invs = liveInvoices().filter((i) => i.clientId === clientId);
-  let value = prs.reduce((s, p) => s + (+p.fee || 0), 0), invoiced = 0, paid = 0, outstanding = 0;
+export function clientMoney(cid) {
+  const invs = liveInvoices().filter((i) => i.clientId === cid);
+  let invoiced = 0, paid = 0, outstanding = 0;
   for (const i of invs) { const c = calcInvoice(i); if (c.status !== 'draft') { invoiced += c.total; outstanding += Math.max(0, c.balance); } paid += c.paid; }
-  return { projects: prs, invoices: invs, value, invoiced, paid, outstanding };
+  return { projects: liveProjects().filter((p) => p.clientId === cid), invoices: invs, invoiced, paid, outstanding };
 }
-// Finance numbers. Currency: only invoices/payments in `currency` are summed.
-export function finance(currency = settings().defaultCurrency, month = monthKey(today())) {
-  const invs = liveInvoices().filter((i) => (i.currency || 'IDR') === currency);
-  let totalInvoiced = 0, outstanding = 0, overdue = 0, invoicedMonth = 0, receivedAll = 0, receivedMonth = 0;
-  const byMonth = {};
-  for (const i of invs) {
+export function invoiceSummary(currency = settings().defaultCurrency) {
+  let invoiced = 0, received = 0, outstanding = 0, overdue = 0;
+  for (const i of liveInvoices().filter((x) => (x.currency || 'IDR') === currency)) {
     const c = calcInvoice(i);
-    if (c.status !== 'draft') {
-      totalInvoiced += c.total;
-      if (i.date && monthKey(i.date) === month) invoicedMonth += c.total;
-      if (c.balance > 0) { outstanding += c.balance; if (c.status === 'overdue') overdue += c.balance; }
-    }
-    for (const p of c.payments) {
-      receivedAll += p.amount;
-      const mk = monthKey(p.date || isoOf(p.createdAt));
-      byMonth[mk] = (byMonth[mk] || 0) + p.amount;
-      if (mk === month) receivedMonth += p.amount;
-    }
+    if (c.status !== 'draft') { invoiced += c.total; if (c.balance > 0) { outstanding += c.balance; if (c.status === 'overdue') overdue += c.balance; } }
+    received += c.paid;
   }
-  // Pipeline value: fees still to be collected on open projects (fee minus payments already received for that project).
-  const pipeline = liveProjects().filter((p) => !p.archived && PRE_PAYMENT_STAGES.includes(p.stage) && (p.currency || 'IDR') === currency).reduce((s, p) => s + Math.max(0, (+p.fee || 0) - projectMoney(p.id).paid), 0);
-  return { totalInvoiced, outstanding, overdue, invoicedMonth, receivedAll, receivedMonth, pipeline, byMonth };
+  return { invoiced, received, outstanding, overdue };
 }
-// Freelance items due on a date (or overdue when `includeOverdue`)
-export function freelanceAgenda(fromIso, toIso, includeOverdue = false) {
-  const out = [];
-  const t = today();
-  const inRange = (d) => d && d >= fromIso && d <= toIso;
-  for (const p of liveProjects()) {
-    if (p.archived) continue;
-    if (inRange(p.shootDate) && stageIdx(p.stage) <= stageIdx('Production')) out.push({ kind: 'shoot', label: _t('Shoot'), date: p.shootDate, project: p, overdue: false });
-    if (p.deadline && stageIdx(p.stage) < stageIdx('Delivered')) {
-      if (inRange(p.deadline)) out.push({ kind: 'deadline', label: _t('Delivery'), date: p.deadline, project: p, overdue: false });
-      else if (includeOverdue && diffDays(p.deadline, t) < 0) out.push({ kind: 'deadline', label: _t('Delivery overdue'), date: p.deadline, project: p, overdue: true });
-    }
-  }
-  for (const i of liveInvoices()) {
-    if (i.archived) continue;
-    const c = calcInvoice(i);
-    if (c.status === 'draft' || c.balance <= 0) continue;
-    if (inRange(i.dueDate)) out.push({ kind: 'invoice', label: _t('Invoice due'), date: i.dueDate, invoice: i, calc: c, overdue: false });
-    else if (includeOverdue && c.status === 'overdue') out.push({ kind: 'invoice', label: _t('Payment overdue'), date: i.dueDate, invoice: i, calc: c, overdue: true });
-  }
-  return out.sort((a, b) => a.date.localeCompare(b.date));
-}
-export const clientName = (id) => get('clients', id)?.name || 'No client';
 
 // ---------- templates ----------
 export function applyProjectTemplate(tpl) {
   const d = tpl.data || {};
-  return { type: d.type || '', fee: +d.fee || 0, deliverables: (d.deliverables || []).map((text) => ({ id: uid(), text, done: false })), _tasks: d.tasks || [] };
+  return { workspace: d.workspace || settings().defaultWorkspace, deliverables: (d.deliverables || []).map((title) => ({ id: uid(), title, spec: '', status: 'not_started', feedback: '', updatedAt: Date.now() })), _tasks: d.tasks || [] };
 }
 
-// ---------- weekly ----------
-export const weekStartOf = (iso = today()) => startOfWeek(iso, settings().weekStart);
-
-// ---------- Threads queue ----------
-export const THREADS_LIMIT = 500;
-export const liveThreads = () => all('threads').filter((t) => !t.deletedAt);
-export const threadsOn = (iso) => liveThreads().filter((t) => t.date === iso).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99') || (a.order || 0) - (b.order || 0));
-export const threadIdeas = () => liveThreads().filter((t) => !t.date && t.status !== 'posted').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-export function newThread(p = {}) {
-  return put('threads', { id: uid(), text: '', date: '', time: '', pillar: '', status: 'draft', postedAt: null, order: Date.now(), ...p });
+// ---------- calendar ----------
+export function unscheduledTasks() { return sortTasks(liveTasks().filter((t) => isOpen(t) && !t.workDate), 'deadline'); }
+export function nextDeadlineSoon(days = 2) {
+  const t0 = today();
+  const items = [
+    ...liveTasks().filter((t) => isOpen(t) && t.deadlineDate && t.deadlineDate >= t0 && diffDays(t.deadlineDate, t0) <= days).map((t) => ({ date: t.deadlineDate, title: t.title, path: '/tasks/' + t.id })),
+    ...liveProjects().filter((p) => !p.archived && p.deadlineDate && stageIdx(p.stage) < stageIdx('delivered') && p.deadlineDate >= t0 && diffDays(p.deadlineDate, t0) <= days).map((p) => ({ date: p.deadlineDate, title: p.name, path: '/projects/' + p.id })),
+  ];
+  return items.sort((a, b) => a.date.localeCompare(b.date))[0] || null;
 }
-export const markThreadPosted = (id, on = true) => patch('threads', id, { status: on ? 'posted' : 'draft', postedAt: on ? Date.now() : null });
-
-// ---------- habits ----------
-// A habit is either daily (every day) or weekly (N times per week).
-// checks holds the calendar dates ('YYYY-MM-DD', WIB) it was done, at most once per day.
-export const allHabits = () => all('habits').filter((h) => !h.deletedAt).sort((a, b) => (a.order || 0) - (b.order || 0));
-export const liveHabits = () => allHabits().filter((h) => !h.archived);
-export function newHabit(p = {}) {
-  return put('habits', { id: uid(), title: '', emoji: '', freq: 'daily', target: 1, checks: [], archived: false, order: Date.now(), ...p });
-}
-export const habitDone = (h, iso) => (h.checks || []).includes(iso);
-export function toggleHabit(id, iso = today()) {
-  const h = get('habits', id);
-  if (!h) return;
-  const c = h.checks || [];
-  patch('habits', id, { checks: c.includes(iso) ? c.filter((d) => d !== iso) : [...c, iso].sort() });
-}
-export const habitTarget = (h) => (h.freq === 'weekly' ? Math.max(1, Math.min(7, +h.target || 1)) : 1);
-export function habitWeekCount(h, iso = today()) {
-  const ws = startOfWeek(iso, settings().weekStart), we = addDays(ws, 6);
-  return (h.checks || []).filter((d) => d >= ws && d <= we).length;
-}
-// Current streak: days in a row (daily) or weeks in a row meeting the target (weekly).
-// Today / this week only breaks the streak once it is over, so an unchecked today still shows yesterday's run.
-export function habitStreak(h, iso = today()) {
-  const set = new Set(h.checks || []);
-  if (h.freq === 'weekly') {
-    const wsDay = settings().weekStart, target = habitTarget(h);
-    let ws = startOfWeek(iso, wsDay), n = 0;
-    if (habitWeekCount(h, ws) < target) ws = addDays(ws, -7);
-    while (habitWeekCount(h, ws) >= target && n < 520) { n++; ws = addDays(ws, -7); }
-    return n;
-  }
-  let d = set.has(iso) ? iso : addDays(iso, -1), n = 0;
-  while (set.has(d) && n < 3650) { n++; d = addDays(d, -1); }
-  return n;
-}
-// Is this habit still open today? Daily: not checked today. Weekly: target not met this week and not checked today.
-export function habitOpenToday(h, iso = today()) {
-  if (habitDone(h, iso)) return false;
-  return h.freq === 'daily' || habitWeekCount(h, iso) < habitTarget(h);
-}
-// Share of days (daily) or target hits (weekly) in the last 30 days, for a quick consistency number.
-export function habitRate(h, iso = today()) {
-  const from = addDays(iso, -29);
-  const checks = (h.checks || []).filter((d) => d <= iso);
-  const created = h.createdAt ? isoOf(h.createdAt) : from;
-  const first = checks.length && checks[0] < created ? checks[0] : created;
-  const start = first > from ? first : from;
-  const days = Math.max(1, diffDays(iso, start) + 1);
-  const hits = checks.filter((d) => d >= start).length;
-  const expected = h.freq === 'weekly' ? Math.ceil(days / 7) * habitTarget(h) : days;
-  return Math.min(100, Math.round((hits / expected) * 100));
-}
-// When a habit started counting: the day it was created, or an earlier back-filled check.
-export function habitStart(h) {
-  const created = h.createdAt ? isoOf(h.createdAt) : '0000-00-00';
-  const first = (h.checks || [])[0];
-  return first && first < created ? first : created;
-}
-// Month recap for one habit. Only days from the habit's start up to today count.
-// Daily: checked days / counted days, best run of days in a row inside the month.
-// Weekly: weeks that start inside the month (and have started) where the target was hit.
-export function habitMonth(h, ym, iso = today()) {
-  const first = ym + '-01', last = ym + '-' + String(daysInMonth(first)).padStart(2, '0');
-  const start = habitStart(h);
-  const from = start > first ? start : first, to = iso < last ? iso : last;
-  const checks = (h.checks || []).filter((d) => d >= first && d <= last);
-  const set = new Set(checks);
-  const days = Array.from({ length: daysInMonth(first) }, (_, i) => addDays(first, i));
-  const counted = to >= from ? diffDays(to, from) + 1 : 0;
-  let best = 0, run = 0;
-  for (const d of days) { if (set.has(d)) { run++; best = Math.max(best, run); } else run = 0; }
-  if (h.freq === 'weekly') {
-    const target = habitTarget(h), ws0 = settings().weekStart;
-    const weeks = [];
-    for (let d = startOfWeek(first, ws0); d <= last; d = addDays(d, 7)) {
-      // a week belongs to the month it starts in; skip weeks not started yet or that ended before the habit began
-      if (d < first || d > iso || addDays(d, 6) < from) continue;
-      const count = habitWeekCount(h, d);
-      // the running week only counts once its target is hit, so mid-week isn't marked as a miss
-      if (addDays(d, 6) >= iso && count < target) continue;
-      weeks.push({ start: d, count, met: count >= target });
-    }
-    const met = weeks.filter((w) => w.met).length;
-    return { ym, days, set, done: checks.length, counted, best, weekly: true, target, weeks, met, pct: weeks.length ? Math.round((met / weeks.length) * 100) : 0, from, to };
-  }
-  const done = checks.filter((d) => d >= from && d <= to).length;
-  return { ym, days, set, done, counted, best, weekly: false, pct: counted ? Math.round((done / counted) * 100) : 0, from, to };
-}
-// Habits worth showing for a month: existed by month end, and not archived unless checked that month.
-export function habitsForMonth(ym) {
-  const first = ym + '-01', last = ym + '-' + String(daysInMonth(first)).padStart(2, '0');
-  return allHabits().filter((h) => habitStart(h) <= last && (!h.archived || (h.checks || []).some((d) => d >= first && d <= last)));
-}
+export { monthKey, isoOf };

@@ -1,28 +1,29 @@
 import { render } from 'preact';
 import './fonts.css';
 import './styles.css';
-import { initDb, get, put, all } from './lib/db.js';
+import { initDb, get, put } from './lib/db.js';
 import { DEFAULT_SETTINGS } from './lib/model.js';
 import { App } from './App.jsx';
-import { initSync } from './lib/sync.js';
-import { startJournalAutoSave } from './lib/journal.js';
+import { initSync, onSync, sync } from './lib/sync.js';
+import { migrateLegacy } from './lib/migrate.js';
 import { applyTheme, getTheme } from './pages/settings.jsx';
 
 applyTheme(getTheme());
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(getTheme())); } catch {}
 
 async function boot() {
   await initDb();
-  if (!get('meta', 'settings')) put('meta', { ...DEFAULT_SETTINGS });
-  // one-time migration: old single "In Progress" content status becomes Scripting
-  for (const c of all('contents')) if (c.status === 'in_progress') put('contents', { ...c, status: 'scripting' }, { silent: true });
+  try { migrateLegacy(); } catch (e) { console.error('migration', e); }
+  if (!get('meta', 'pmSettings')) put('meta', { ...DEFAULT_SETTINGS });
   render(<App />, document.getElementById('app'));
   initSync().catch(() => {});
-  startJournalAutoSave();
+  // Records pulled from the cloud may include older Workspace tasks; bring them over once synced.
+  let last = '';
+  onSync(() => { if (sync.status === 'synced' && last !== 'synced') { try { migrateLegacy(); } catch (e) { console.error('migration', e); } } last = sync.status; });
 }
 boot();
 
 // Offline support and installability when served from a real domain.
-// (Service workers are unavailable inside sandboxed previews; that is expected.)
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|anthropic|usercontent/.test(location.hostname)) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
