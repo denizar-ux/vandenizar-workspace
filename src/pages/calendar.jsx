@@ -18,7 +18,7 @@ export const toHHMM = (min) => { const m = Math.max(0, Math.min(23 * 60 + 45, Ma
 const loadView = () => { try { const v = localStorage.getItem('vz:pm:cal-view'); return v === 'day' || v === 'week' ? v : null; } catch { return null; } };
 const saveView = (v) => { try { localStorage.setItem('vz:pm:cal-view', v); } catch {} };
 const nowMinutes = () => { const n = nowParts(); return n.hour * 60 + n.minute; };
-export const toneOfTask = (t) => { const p = t.projectId && get('pmProjects', t.projectId); if (!p) return 'plain'; const tone = M.stageOf(p.stage).tone; return tone === 'plain' ? 'lavender' : tone; };
+export const toneOfTask = (t) => { const p = t.projectId && get('pmProjects', t.projectId); if (!p) return 'plain'; const c = M.projectCategory(p).color; return c === 'plain' ? 'lavender' : c; };
 
 export function dayItems(d) {
   const timed = [], allDay = [];
@@ -77,16 +77,16 @@ export function CalendarPage({ query }) {
     <div class="page cal-page">
       <PageHeader title="Plan time." actions={<AddBtn label="Add task" onClick={() => openQuickAdd({ date: d })} />} />
       {soon && <a class="banner-soft t-lavender" href={'#' + soon.path}><Icon name="bell" size={18} /><span class="grow ellipsis">Deadline {relDay(soon.date).toLowerCase()}: {soon.title}</span><Icon name="chevronRight" size={16} /></a>}
-      <Segmented class="full" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
       <div class="cal-nav">
         <div class="cal-month">{fmtMonth(d)}</div>
         <div class="row gap-6">
+          <Segmented class="compact" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
           {!week.includes(t0) && <button class="btn sm outline" onClick={() => go(t0)}>Today</button>}
           <button class="icon-btn soft sm" aria-label="Previous" onClick={() => go(addDays(d, view === 'week' ? -7 : -1))}><Icon name="chevronLeft" size={18} /></button>
           <button class="icon-btn soft sm" aria-label="Next" onClick={() => go(addDays(d, view === 'week' ? 7 : 1))}><Icon name="chevronRight" size={18} /></button>
         </div>
       </div>
-      <div class="wstrip" role="tablist" aria-label="Days of this week">
+      {view === 'day' && <div class="wstrip" role="tablist" aria-label="Days of this week">
         {week.map((x) => {
           const its = dayItems(x);
           const n = its.timed.filter((i) => !i.done).length + its.allDay.length;
@@ -96,7 +96,7 @@ export function CalendarPage({ query }) {
             </button>
           );
         })}
-      </div>
+      </div>}
       <Grid days={days} week={view === 'week'} onPickDay={(x) => { go(x); pick('day'); }} />
       <button class="drawer-btn" onClick={() => openUnscheduled(d)}><Icon name="more2" size={18} /><span class="grow">Unscheduled · {uns.length} task{uns.length === 1 ? '' : 's'}</span><Icon name="chevronRight" size={16} /></button>
       <div class="cal-hint">All times WIB. Tap an empty slot to add a task. {desktop ? 'Drag' : 'Hold and drag'} a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
@@ -129,16 +129,15 @@ function Grid({ days, week, onPickDay }) {
   const [drag, setDrag] = useState(null);
   const data = days.map((d) => ({ d, ...dayItems(d) }));
   const t0 = today();
-  const firstTimed = Math.min(...data.flatMap((x) => x.timed.map((i) => i.start)), 8 * 60);
-  const startH = Math.max(0, Math.min(8, Math.floor(firstTimed / 60)));
-  const hours = Array.from({ length: 24 - startH }, (_, i) => startH + i);
-  const top = (min) => ((min - startH * 60) / 60) * H;
+  // One scroll for the whole page: show the working day (07-21) and widen it only when something falls outside.
   const nowMin = nowMinutes();
-  useEffect(() => {
-    const el = scroller.current; if (!el) return;
-    const target = days.includes(t0) ? nowMin - 90 : 8 * 60;
-    el.scrollTop = Math.max(0, top(target));
-  }, [days.join(), startH]);
+  const timedAll = data.flatMap((x) => x.timed);
+  const firstTimed = Math.min(...timedAll.map((i) => i.start), 7 * 60);
+  const lastTimed = Math.max(...timedAll.map((i) => i.start + i.dur), 21 * 60, days.includes(t0) ? nowMin + 30 : 0);
+  const startH = Math.max(0, Math.floor(firstTimed / 60));
+  const endH = Math.min(24, Math.ceil(lastTimed / 60));
+  const hours = Array.from({ length: endH - startH }, (_, i) => startH + i);
+  const top = (min) => ((min - startH * 60) / 60) * H;
   const onGridClick = (e, d) => {
     if (e.target.closest('.cal-block')) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -212,7 +211,7 @@ function Grid({ days, week, onPickDay }) {
             {data.map((x) => (
               <div class="cal-col" onClick={(e) => onGridClick(e, x.d)}>
                 {hours.map(() => <div class="cal-line" style={{ height: H + 'px' }} />)}
-                {x.d === t0 && nowMin >= startH * 60 && <div class="cal-now" style={{ top: top(nowMin) + 'px' }} />}
+                 {x.d === t0 && nowMin >= startH * 60 && nowMin <= endH * 60 && <div class="cal-now" style={{ top: top(nowMin) + 'px' }} />}
                 {x.timed.map((it) => {
                   const g = drag && drag.id === it.id ? drag : null;
                   if (g && g.day !== x.d) return null;

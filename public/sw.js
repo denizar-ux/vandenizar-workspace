@@ -1,5 +1,5 @@
 // Vandenizar offline cache. Bump VERSION when deploying a new build.
-const VERSION = 'vz-pm-v1';
+const VERSION = 'vz-pm-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

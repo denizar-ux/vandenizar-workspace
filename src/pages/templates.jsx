@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { Field, TextInput, TextArea, Select, MoneyInput, Segmented, Empty, ListEditor } from '../ui/kit.jsx';
+import { Field, TextInput, TextArea, Select, MoneyInput, Segmented, Empty, ListEditor, Toggle } from '../ui/kit.jsx';
 import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot } from '../ui/overlay.jsx';
-import { PageHeader, AddBtn, workspaceLabel } from '../ui/parts.jsx';
+import { PageHeader, AddBtn, CategoryField } from '../ui/parts.jsx';
+import { WorkflowPicker } from './projects.jsx';
 import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
 import { CURRENCIES } from '../lib/money.js';
 import * as M from '../lib/model.js';
@@ -14,7 +15,7 @@ export function TemplatesPage() {
   const [kind, setKind] = useState('project');
   const [arch, setArch] = useState(false);
   const list = all('templates').filter((t) => t.kind === kind && !!t.archived === arch).sort((a, b) => a.name.localeCompare(b.name));
-  const sub = (t) => t.kind === 'project' ? [workspaceLabel(t.data?.workspace), (t.data?.deliverables || []).length + ' deliverables', (t.data?.tasks || []).length + ' tasks'].join(' · ')
+  const sub = (t) => t.kind === 'project' ? [M.categoryOf(t.data?.categoryId || t.data?.workspace).name, M.workflowLabel(t.data?.workflow || 'general'), (t.data?.deliverables || []).length + ' deliverables', (t.data?.tasks || []).length + ' tasks'].join(' · ')
     : t.kind === 'items' ? (t.data?.items || []).length + ' line item' + ((t.data?.items || []).length === 1 ? '' : 's') : (t.data?.terms || '').slice(0, 80);
   return (
     <div class="page narrow">
@@ -42,7 +43,7 @@ function TemplateSheet({ id, kind, close }) {
   const s = M.settings();
   const ex = id ? get('templates', id) : null;
   const k = ex?.kind || kind;
-  const [t, setT] = useState(() => (ex ? JSON.parse(JSON.stringify(ex)) : { name: '', kind: k, archived: false, data: k === 'project' ? { workspace: s.defaultWorkspace, deliverables: [...s.defaultDeliverables], tasks: [] } : k === 'items' ? { currency: s.defaultCurrency, items: [{ id: uid(), desc: '', qty: 1, rate: 0 }] } : { terms: s.defaultTermsText, notes: '' } }));
+  const [t, setT] = useState(() => (ex ? JSON.parse(JSON.stringify(ex)) : { name: '', kind: k, archived: false, data: k === 'project' ? { categoryId: s.defaultCategory, workflow: s.defaultWorkflow || 'general', billing: s.defaultCategory === 'freelance', deliverables: [...s.defaultDeliverables], tasks: [] } : k === 'items' ? { currency: s.defaultCurrency, items: [{ id: uid(), desc: '', qty: 1, rate: 0 }] } : { terms: s.defaultTermsText, notes: '' } }));
   const setD = (ch) => setT({ ...t, data: { ...t.data, ...ch } });
   const save = () => { if (!t.name.trim()) return toast('Name the template.', { tone: 'warn' }); put('templates', { ...t, id: ex?.id || uid(), name: t.name.trim() }); toast('Template saved'); close(); };
   return (
@@ -51,7 +52,9 @@ function TemplateSheet({ id, kind, close }) {
       <SheetBody><div class="form">
         <Field label="Template name" htmlFor="tp-name"><TextInput id="tp-name" value={t.name} onInput={(v) => setT({ ...t, name: v })} placeholder={k === 'project' ? 'e.g. Product film' : k === 'items' ? 'e.g. Reel package' : 'e.g. 50% DP terms'} autoFocus={!ex} /></Field>
         {k === 'project' && <>
-          <Field label="Workspace"><Segmented class="full" options={[{ id: 'in_house', label: 'In-house' }, { id: 'freelance', label: 'Freelance' }]} value={t.data.workspace || 'freelance'} onChange={(v) => setD({ workspace: v })} /></Field>
+          <CategoryField id="tp-cat" value={t.data.categoryId || t.data.workspace || s.defaultCategory} onChange={(v) => setD({ categoryId: v })} />
+          <Field label="Workflow"><WorkflowPicker value={t.data.workflow || 'general'} onChange={(v) => setD({ workflow: v })} /></Field>
+          <div class="toggle-row"><div><div class="tr-title">Billing</div><div class="tr-sub">Projects from this template need invoices.</div></div><Toggle checked={typeof t.data.billing === 'boolean' ? t.data.billing : (t.data.categoryId || t.data.workspace) === 'freelance'} label="Billing" onChange={(v) => setD({ billing: v })} /></div>
           <Field label="Deliverables"><ListEditor items={t.data.deliverables || []} onChange={(v) => setD({ deliverables: v })} placeholder="Add deliverable" idPrefix="tp-dv" /></Field>
           <Field label="Tasks created with the project"><ListEditor items={t.data.tasks || []} onChange={(v) => setD({ tasks: v })} placeholder="e.g. Send moodboard" idPrefix="tp-tk" /></Field>
         </>}

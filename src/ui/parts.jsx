@@ -4,7 +4,7 @@ import { openMenu, toast, openOverlay, SheetHead, SheetBody, SheetFoot, confirmD
 import { navigate } from '../lib/router.js';
 import { get, patch } from '../lib/db.js';
 import { today, addDays, relDay, fmtShort, fmtMinutes, startOfWeek } from '../lib/date.js';
-import { DateInput, TimeInput, Field } from './kit.jsx';
+import { DateInput, TimeInput, Field, TextInput, ColorDots } from './kit.jsx';
 import { useState } from 'preact/hooks';
 import * as M from '../lib/model.js';
 
@@ -38,12 +38,66 @@ export const Pill = ({ tone = 'plain', icon, children, onClick, sm }) => {
   const C = onClick ? 'button' : 'span';
   return <C class={'pill t-' + tone + (sm ? ' sm' : '') + (onClick ? ' clickable' : '')} onClick={onClick}>{icon && <Icon name={icon} size={sm ? 13 : 15} />}{children}</C>;
 };
-export const StagePill = ({ stage, onClick, sm }) => { const s = M.stageOf(stage); return <Pill tone="glass" icon={stage === 'client_review' || stage === 'revision' ? 'chat' : stage === 'completed' || stage === 'approved' ? 'check' : 'chat'} onClick={onClick} sm={sm}>{s.label}</Pill>; };
+export const StagePill = ({ stage, p, onClick, sm }) => <Pill tone="glass" icon={stage === 'completed' || stage === 'approved' ? 'check' : 'chat'} onClick={onClick} sm={sm}>{p ? M.projectStageLabel(p) : M.stageOf(stage).label}</Pill>;
+export const CategoryPill = ({ id, sm, onClick }) => { const c = M.categoryOf(id); return <Pill tone={c.color} sm={sm} onClick={onClick}>{c.name}</Pill>; };
+export const CategoryDot = ({ id, lg }) => <span class={'cat-dot t-' + M.categoryOf(id).color + (lg ? ' lg' : '')} aria-hidden="true" />;
 export const DeliverablePill = ({ status, onClick }) => { const s = M.deliverableStatus(status); return <Pill tone={s.tone} sm onClick={onClick}>{s.label}</Pill>; };
 export const InvoicePill = ({ status }) => <Pill tone={M.INVOICE_TONE[status]} sm>{M.INVOICE_STATUS[status]}</Pill>;
 
 export function stageMenu(e, p) {
-  openMenu(e, M.STAGES.map((s) => ({ label: s.label, active: p.stage === s.id, onSelect: () => { M.setStage(p.id, s.id); toast('Stage: ' + s.label); } })), { title: 'Project stage' });
+  openMenu(e, M.stagesFor(p).map((s) => ({ label: s.label, active: p.stage === s.id, onSelect: () => { M.setStage(p.id, s.id); toast('Stage: ' + s.label); } })), { title: M.workflowLabel(M.projectWorkflow(p)) + ' flow' });
+}
+
+// ---------- categories ----------
+// Category select for forms, with "+ Add category" right under it.
+export function CategoryField({ value, onChange, id = 'cat', label = 'Category' }) {
+  const cats = M.categories();
+  const opts = [...cats, ...(value && !cats.some((c) => c.id === value) ? [M.categoryOf(value)] : [])];
+  return (
+    <Field label={label} htmlFor={id}>
+      <div class="cat-select">
+        <CategoryDot id={value} />
+        <select id={id} class="input select" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)}>
+          {opts.map((c) => <option value={c.id}>{c.name}</option>)}
+        </select>
+        <Icon name="chevronDown" size={16} class="select-caret" />
+      </div>
+      <button type="button" class="cat-add-link" onClick={() => openCategorySheet({ onSaved: (c) => onChange(c.id) })}><Icon name="plus" size={15} />Add category</button>
+    </Field>
+  );
+}
+export function openCategorySheet({ cat, onSaved } = {}) { openOverlay((close) => <CategorySheet cat={cat} onSaved={onSaved} close={close} />, { kind: 'sheet' }); }
+function CategorySheet({ cat, onSaved, close }) {
+  const [name, setName] = useState(cat ? cat.name : '');
+  const [color, setColor] = useState(cat ? cat.color : 'peach');
+  const save = () => {
+    const n = name.trim();
+    if (!n) return toast('Name the category first.', { tone: 'warn' });
+    const dup = M.categories({ includeArchived: true }).find((c) => c.name.toLowerCase() === n.toLowerCase() && c.id !== cat?.id);
+    if (dup) { if (dup.archived) M.updateCategory(dup.id, { archived: false }); close(); onSaved && onSaved(dup); return toast(dup.name + ' already exists, using it.'); }
+    if (cat) { M.updateCategory(cat.id, { name: n, color }); close(); toast('Category saved'); onSaved && onSaved({ ...cat, name: n, color }); return; }
+    const c = M.addCategory(n, color);
+    close(); toast('Category added'); onSaved && onSaved(c);
+  };
+  return (
+    <>
+      <SheetHead title={cat ? 'Edit category' : 'New category'} onClose={close} />
+      <SheetBody><div class="form">
+        <Field label="Name" htmlFor="cat-name"><TextInput id="cat-name" value={name} onInput={setName} placeholder="e.g. Personal, Learning, Experiment" autoFocus onEnter={save} /></Field>
+        <Field label="Color"><ColorDots value={color} onChange={setColor} colors={M.CATEGORY_COLORS} /></Field>
+      </div></SheetBody>
+      <SheetFoot><button class="btn ghost" onClick={close}>Cancel</button><button class="btn primary" onClick={save}>{cat ? 'Save' : 'Add category'}</button></SheetFoot>
+    </>
+  );
+}
+// Filter menu: All categories, each category, and a way to manage them.
+export function categoryFilterMenu(e, value, onChange) {
+  openMenu(e, [
+    { label: 'All categories', active: !value || value === 'all', onSelect: () => onChange('all') },
+    ...M.categories().map((c) => ({ label: c.name, active: value === c.id, onSelect: () => onChange(c.id) })),
+    { divider: true },
+    { label: 'Manage categories', icon: 'settings', onSelect: () => navigate('/settings/categories') },
+  ], { title: 'Category' });
 }
 
 // ---------- labels ----------
@@ -65,7 +119,7 @@ export function TaskRow({ t, hideProject, dragProps, compact }) {
     else M.reopenTask(t.id);
   };
   const meta = [];
-  if (!hideProject && project) meta.push(<span class="m">{project.name}</span>);
+  if (!hideProject && project) meta.push(<span class="m"><CategoryDot id={M.projectCategoryId(project)} />{project.name}</span>);
   if (t.workDate) meta.push(<span class={'m' + (behind ? ' warn' : '')}>{behind ? 'Not done yet · ' : ''}{whenLabel(t.workDate, t.workTime)}</span>);
   if (t.deadlineDate) meta.push(<span class={'m' + (overdue ? ' bad' : '')}><Icon name="flag" size={12} />{overdue ? 'Overdue · ' : 'Deadline '}{dateTimeShort(t.deadlineDate, t.deadlineTime)}</span>);
   if (t.estimateMinutes) meta.push(<span class="m">{fmtMinutes(t.estimateMinutes)}</span>);
@@ -144,8 +198,8 @@ function ProjectPicker({ onPick, allowNone, title, close }) {
           {allowNone && <button class="list-row clickable" onClick={() => onPick(null)}><div class="row-main"><div class="row-title">No project</div></div></button>}
           {list.map((p) => (
             <button class="list-row clickable" onClick={() => onPick(p)}>
-              <span class={'swatch t-' + M.stageOf(p.stage).tone} />
-              <div class="row-main"><div class="row-title">{p.name}</div><div class="row-meta">{(p.clientId ? M.clientName(p.clientId) + ' · ' : '') + (p.workspace === 'in_house' ? 'In-house' : 'Freelance')}</div></div>
+              <CategoryDot id={M.projectCategoryId(p)} />
+              <div class="row-main"><div class="row-title">{p.name}</div><div class="row-meta">{(p.clientId ? M.clientName(p.clientId) + ' · ' : '') + M.projectCategory(p).name}</div></div>
             </button>
           ))}
           {!list.length && <div class="muted" style={{ padding: 12 }}>No active projects yet.</div>}
@@ -164,5 +218,5 @@ export function fmtAgo(ts) {
   const d = Math.floor(s / 86400);
   return d === 1 ? 'yesterday' : d + 'd ago';
 }
-export const workspaceLabel = (w) => (w === 'in_house' ? 'In-house' : 'Freelance');
+export const workspaceLabel = (w) => M.categoryOf(w).name;
 export { confirmDialog, navigate };

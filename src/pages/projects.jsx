@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { Field, TextInput, TextArea, Select, DateInput, TimeInput, Segmented, Empty, LinksEditor, Check } from '../ui/kit.jsx';
+import { Field, TextInput, TextArea, Select, DateInput, TimeInput, Segmented, Empty, LinksEditor, Check, Toggle } from '../ui/kit.jsx';
 import { openOverlay, openMenu, toast, confirmDialog, SheetHead, SheetBody, SheetFoot, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
-import { PageHeader, BackBar, AddBtn, Pill, StagePill, DeliverablePill, InvoicePill, TaskRow, stageMenu, dateTimeShort, whenLabel, workspaceLabel } from '../ui/parts.jsx';
+import { PageHeader, BackBar, AddBtn, Pill, StagePill, DeliverablePill, InvoicePill, TaskRow, stageMenu, dateTimeShort, whenLabel, CategoryPill, CategoryField, categoryFilterMenu } from '../ui/parts.jsx';
 import { navigate, back } from '../lib/router.js';
 import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
 import { today, fmtShort, isoOf, relDay, fmtFull } from '../lib/date.js';
@@ -18,50 +18,52 @@ const savePref = (k, v) => { try { localStorage.setItem('vz:pm:' + k, JSON.strin
 export function ProjectsPage() {
   useStore();
   const [tab, setTab] = useState(loadPref('projTab', 'active'));
-  const [ws, setWs] = useState(loadPref('projWs', 'all'));
+  const [cat, setCat] = useState(loadPref('projCat', 'all'));
   useEffect(() => savePref('projTab', tab), [tab]);
-  useEffect(() => savePref('projWs', ws), [ws]);
-  const all0 = M.liveProjects();
+  useEffect(() => savePref('projCat', cat), [cat]);
+  let base = M.liveProjects();
+  if (cat !== 'all') base = base.filter((p) => M.projectCategoryId(p) === cat);
   const groups = {
-    active: all0.filter((p) => !p.archived && p.stage !== 'completed'),
-    completed: all0.filter((p) => !p.archived && p.stage === 'completed'),
-    archived: all0.filter((p) => p.archived),
+    active: base.filter((p) => !p.archived && p.stage !== 'completed'),
+    completed: base.filter((p) => !p.archived && p.stage === 'completed'),
+    archived: base.filter((p) => p.archived),
   };
   let list = groups[tab] || groups.active;
-  if (ws !== 'all') list = list.filter((p) => p.workspace === ws);
   const dateKey = (p) => M.projectDate(p)?.date || '9999';
   list = [...list].sort((a, b) => dateKey(a).localeCompare(dateKey(b)) || (b.updatedAt || 0) - (a.updatedAt || 0));
+  const catName = cat === 'all' ? 'All categories' : M.categoryOf(cat).name;
   return (
     <div class="page">
       <PageHeader title="Projects." actions={<div class="row gap-8"><button class="icon-btn ghost" aria-label="Search" onClick={() => openSearch()}><Icon name="search" size={22} /></button><AddBtn label="New project" onClick={() => openProjectSheet()} /></div>} />
-      <Segmented class="full" options={[{ id: 'active', label: 'Active', count: groups.active.length }, { id: 'completed', label: 'Completed' }, { id: 'archived', label: 'Archived' }]} value={tab} onChange={setTab} />
-      <div class="chips">
-        {[['all', 'All'], ['in_house', 'In-house'], ['freelance', 'Freelance']].map(([id, label]) => <button class={'chip ' + (ws === id ? 'on' : '')} onClick={() => setWs(id)}>{label}</button>)}
-      </div>
+      <div><button class="dropdown-pill" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, cat, setCat)}>{cat !== 'all' && <span class={'cat-dot t-' + M.categoryOf(cat).color} aria-hidden="true" />}{catName}<Icon name="chevronDown" size={15} /></button></div>
+      <Segmented class="full" options={[{ id: 'active', label: 'Active', count: groups.active.length }, { id: 'completed', label: 'Completed', count: groups.completed.length || undefined }, { id: 'archived', label: 'Archived', count: groups.archived.length || undefined }]} value={tab} onChange={setTab} />
       {list.length ? <div class="pgrid">{list.map((p) => <ProjectCard p={p} />)}</div>
-        : <Empty icon="folder" title={tab === 'active' ? 'No active projects' : tab === 'completed' ? 'Nothing completed yet' : 'No archived projects'} action={tab === 'active' && <button class="btn primary sm" onClick={() => openProjectSheet()}><Icon name="plus" size={15} />New project</button>}>{tab === 'active' ? 'Start one for each job: in-house campaign or freelance client.' : null}</Empty>}
-      <div class="quiet-note center"><Icon name="info" size={14} />Project status follows its work stage.</div>
+        : <Empty icon="folder" title={tab === 'active' ? 'No active projects' : tab === 'completed' ? 'Nothing completed yet' : 'No archived projects'} action={tab === 'active' && <button class="btn primary sm" onClick={() => openProjectSheet(cat !== 'all' ? { categoryId: cat } : {})}><Icon name="plus" size={15} />New project</button>}>{tab === 'active' ? 'One project per job, campaign or personal goal.' : null}</Empty>}
     </div>
   );
 }
 
 function ProjectCard({ p }) {
-  const tone = M.stageOf(p.stage).tone;
+  const c = M.projectCategory(p);
   const d = M.projectDate(p);
   const next = M.nextActionTask(p);
-  const who = p.clientId ? M.clientName(p.clientId) : '';
-  const nextText = p.stage === 'client_review' ? (p.followUpDate ? 'Follow-up ' + relDay(p.followUpDate).toLowerCase() : 'Waiting on client') : next ? next.title : 'Add the next task';
+  const nextText = p.stage === 'client_review' ? (p.followUpDate ? 'Follow up ' + relDay(p.followUpDate).toLowerCase() : 'Waiting for feedback') : next ? next.title : 'Add the next task';
+  const desc = (p.brief || '').split('\n')[0].trim();
   return (
-    <a class={'pcard t-' + tone} href={'#/projects/' + p.id}>
-      <div class="row between gap-8" style={{ alignItems: 'flex-start' }}>
-        <div style={{ minWidth: 0 }}><div class="pcard-title">{p.name || 'Untitled project'}</div><div class="pcard-sub">{[who, workspaceLabel(p.workspace)].filter(Boolean).join(' · ')}</div></div>
-        <span class="circle-btn" aria-hidden="true"><Icon name="arrowRight" size={18} /></span>
+    <a class={'pcard t-' + c.color} href={'#/projects/' + p.id}>
+      <div class="row gap-12" style={{ alignItems: 'flex-start' }}>
+        <span class="pcard-icon" aria-hidden="true"><Icon name="folder" size={19} /></span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div class="pcard-title">{p.name || 'Untitled project'}</div>
+          <div class="row gap-6 wrap" style={{ marginTop: 8 }}>
+            <Pill tone="glass" sm>{c.name}</Pill>
+            <Pill tone="glass" sm>{M.projectStageLabel(p)}</Pill>
+            {d && <span class="pcard-date"><Icon name="calendar" size={14} />{d.label === 'Deadline' ? '' : d.label + ' '}{fmtShort(d.date)}</span>}
+          </div>
+          {desc && <div class="pcard-desc clamp2" style={{ marginTop: 10 }}>{desc}</div>}
+        </div>
       </div>
-      <div class="row between gap-8 wrap">
-        <StagePill stage={p.stage} sm />
-        {d && <span class="pcard-date"><Icon name="calendar" size={15} />{d.label} {fmtShort(d.date)}</span>}
-      </div>
-      <div class="pcard-next"><span class="dot" />Next: <b>{nextText}</b></div>
+      <div class="pcard-foot"><span class="na-ic" aria-hidden="true"><Icon name="arrow" size={13} /></span><span class="grow ellipsis">{nextText}</span><Icon name="chevronRight" size={16} /></div>
     </a>
   );
 }
@@ -72,14 +74,24 @@ function ProjectSheet({ preset, close }) {
   useStore();
   const s = M.settings();
   const tpls = all('templates').filter((t) => t.kind === 'project' && !t.archived);
-  const [p, setP] = useState({ name: '', workspace: preset.workspace || s.defaultWorkspace, clientId: preset.clientId || '', stage: 'planned', deadlineDate: '', shootDate: '', templateId: '' });
+  const defTpl = tpls.some((t) => t.id === s.defaultProjectTemplate) ? s.defaultProjectTemplate : '';
+  const startCat = preset.categoryId || s.defaultCategory;
+  const [p, setP] = useState({ name: '', categoryId: startCat, deadlineDate: '', templateId: defTpl, clientId: preset.clientId || '', workflow: s.defaultWorkflow || 'general', shootDate: '', billing: startCat === 'freelance' || !!preset.clientId });
+  const [more, setMore] = useState(false);
+  const [billTouched, setBillTouched] = useState(false);
   const set = (ch) => setP({ ...p, ...ch });
+  const pickTpl = (id) => {
+    const t = tpls.find((x) => x.id === id);
+    if (!t) return set({ templateId: '' });
+    const a = M.applyProjectTemplate(t);
+    set({ templateId: id, categoryId: a.categoryId, workflow: a.workflow, ...(billTouched ? {} : { billing: a.billing }) });
+  };
   const clients = M.liveClients().filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name));
   const save = () => {
     if (!p.name.trim()) return toast('Name the project first.', { tone: 'warn' });
     const tpl = tpls.find((x) => x.id === p.templateId);
     const applied = tpl ? M.applyProjectTemplate(tpl) : { deliverables: [], _tasks: [] };
-    const pr = M.newProject({ name: p.name.trim(), workspace: p.workspace, clientId: p.clientId || null, stage: p.stage, deadlineDate: p.deadlineDate || null, shootDate: p.shootDate || null, deliverables: applied.deliverables });
+    const pr = M.newProject({ name: p.name.trim(), categoryId: p.categoryId, workflow: p.workflow, billing: p.billing, clientId: p.clientId || null, stage: 'planned', deadlineDate: p.deadlineDate || null, shootDate: p.shootDate || null, deliverables: applied.deliverables });
     (applied._tasks || []).forEach((title, i) => M.newTask({ title, projectId: pr.id, order: Date.now() + i }));
     toast('Project created');
     close();
@@ -89,23 +101,54 @@ function ProjectSheet({ preset, close }) {
     <>
       <SheetHead title="New project" onClose={close} />
       <SheetBody><div class="form">
-        <Field label="Project name" htmlFor="np-name"><TextInput id="np-name" value={p.name} onInput={(v) => set({ name: v })} placeholder="e.g. Raya lookbook" autoFocus onEnter={save} /></Field>
-        <Field label="Workspace"><Segmented class="full" options={[{ id: 'in_house', label: 'In-house' }, { id: 'freelance', label: 'Freelance' }]} value={p.workspace} onChange={(v) => set({ workspace: v })} /></Field>
-        <Field label="Client or brand" htmlFor="np-client">
-          <div class="row gap-6">
-            <div class="grow"><Select id="np-client" value={p.clientId} onChange={(v) => set({ clientId: v })} placeholder={clients.length ? 'Choose' : 'No clients yet'} options={clients.map((c) => ({ id: c.id, label: c.name }))} /></div>
-            <button class="btn outline" onClick={() => openClientSheet(null, (c) => set({ clientId: c.id }))}><Icon name="plus" size={15} />New</button>
+        <Field label="Project name" htmlFor="np-name"><TextInput id="np-name" value={p.name} onInput={(v) => set({ name: v })} placeholder="e.g. Website portfolio" autoFocus onEnter={save} /></Field>
+        <CategoryField id="np-cat" value={p.categoryId} onChange={(v) => set({ categoryId: v, ...(billTouched ? {} : { billing: v === 'freelance' || !!p.clientId }) })} />
+        <Field label="Deadline (optional)" htmlFor="np-dl"><DateInput id="np-dl" value={p.deadlineDate} onChange={(v) => set({ deadlineDate: v })} /></Field>
+        <Field label="Start from template" htmlFor="np-tpl"><Select id="np-tpl" value={p.templateId} onChange={pickTpl} placeholder="Blank project" options={tpls.map((t) => ({ id: t.id, label: t.name }))} /></Field>
+        {!tpls.length && <div class="field-hint" style={{ marginTop: -6 }}>Save reusable starts in <a href="#/templates" onClick={close}>Templates</a>.</div>}
+        <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
+          <summary>More details<Icon name="chevronDown" size={16} /></summary>
+          <div class="form" style={{ marginTop: 12 }}>
+            <Field label="Client or brand (optional)" htmlFor="np-client">
+              <div class="row gap-6">
+                <div class="grow"><Select id="np-client" value={p.clientId} onChange={(v) => set({ clientId: v })} placeholder={clients.length ? 'None' : 'No clients yet'} options={clients.map((c) => ({ id: c.id, label: c.name }))} /></div>
+                <button class="btn outline" onClick={() => openClientSheet(null, (c) => set({ clientId: c.id }))}><Icon name="plus" size={15} />New</button>
+              </div>
+            </Field>
+            <Field label="Workflow"><WorkflowPicker value={p.workflow} onChange={(v) => set({ workflow: v })} /></Field>
+            {p.workflow === 'video' && <Field label="Shoot date (optional)" htmlFor="np-sh"><DateInput id="np-sh" value={p.shootDate} onChange={(v) => set({ shootDate: v })} /></Field>}
           </div>
-        </Field>
-        <div class="form-row">
-          <Field label="Stage" htmlFor="np-stage"><Select id="np-stage" value={p.stage} onChange={(v) => set({ stage: v })} options={M.STAGES.map((x) => ({ id: x.id, label: x.label }))} /></Field>
-          <Field label="Deadline" htmlFor="np-dl"><DateInput id="np-dl" value={p.deadlineDate} onChange={(v) => set({ deadlineDate: v })} /></Field>
+        </details>
+        <div class="toggle-row">
+          <div><div class="tr-title">Billing</div><div class="tr-sub">Turn on if this project needs invoices.</div></div>
+          <Toggle checked={p.billing} label="Billing" onChange={(v) => { setBillTouched(true); set({ billing: v }); }} />
         </div>
-        <Field label="Shoot date (optional)" htmlFor="np-sh"><DateInput id="np-sh" value={p.shootDate} onChange={(v) => set({ shootDate: v })} /></Field>
-        {tpls.length > 0 && <Field label="Start from template" htmlFor="np-tpl"><Select id="np-tpl" value={p.templateId} onChange={(v) => set({ templateId: v })} placeholder="No template" options={tpls.map((t) => ({ id: t.id, label: t.name }))} /></Field>}
       </div></SheetBody>
       <SheetFoot><button class="btn ghost" onClick={close}>Cancel</button><button class="btn primary" onClick={save}>Create project</button></SheetFoot>
     </>
+  );
+}
+export function WorkflowPicker({ value, onChange }) {
+  return (
+    <div class="radio-cards" role="radiogroup" aria-label="Workflow">
+      {M.WORKFLOWS.map((w) => <button type="button" role="radio" aria-checked={value === w.id} class={'radio-card' + (value === w.id ? ' on' : '')} onClick={() => onChange(w.id)}><span class="rc-dot" />{w.label}</button>)}
+    </div>
+  );
+}
+function ProjectFlow({ p }) {
+  const st = M.stagesFor(p);
+  const cur = Math.max(0, st.findIndex((x) => x.id === p.stage));
+  return (
+    <section class="block">
+      <div class="block-head"><h2 class="block-title">Project flow</h2><span class="muted" style={{ fontSize: 13 }}>Workflow: {M.workflowLabel(M.projectWorkflow(p))}</span></div>
+      <div class="flow-wrap"><div class="flow" style={{ minWidth: st.length > 5 ? st.length * 78 + 'px' : 0 }}>
+        {st.map((x, i) => (
+          <button type="button" class={'flow-step' + (i < cur ? ' done' : i === cur ? ' cur' : '')} aria-current={i === cur ? 'step' : undefined} onClick={() => { M.setStage(p.id, x.id); toast('Stage: ' + x.label); }}>
+            <span class="fs-dot">{i < cur && <Icon name="check" size={14} stroke={2.6} />}</span>{x.label}
+          </button>
+        ))}
+      </div></div>
+    </section>
   );
 }
 
@@ -167,13 +210,13 @@ export function ProjectDetail({ id }) {
   const menu = (e) => openMenu(e, [
     { label: 'Add task', icon: 'plus', onSelect: () => M.newTask({ title: 'New task', projectId: id }) && toast('Task added') },
     { label: 'Record feedback', icon: 'chat', onSelect: () => openFeedbackSheet(p) },
-    p.workspace === 'freelance' && { label: 'Create invoice', icon: 'file', onSelect: () => createInvoiceAndOpen({ projectId: id, clientId: p.clientId || '' }) },
+    M.projectBilling(p) && { label: 'Create invoice', icon: 'file', onSelect: () => createInvoiceAndOpen({ projectId: id, clientId: p.clientId || '' }) },
     { divider: true },
     p.archived ? { label: 'Restore from archive', icon: 'restore', onSelect: () => set({ archived: false }) } : { label: 'Archive', icon: 'archive', onSelect: () => { set({ archived: true }); toast('Archived', { action: { label: 'Undo', run: () => set({ archived: false }) } }); } },
     { label: 'Delete', icon: 'trash', danger: true, onSelect: del },
   ], { title: p.name });
-  const freelance = p.workspace === 'freelance';
-  const eyebrow = [p.clientId ? M.clientName(p.clientId) : null, workspaceLabel(p.workspace)].filter(Boolean).join(' / ');
+  const freelance = M.projectBilling(p);
+  const eyebrow = [p.clientId ? M.clientName(p.clientId) : null, M.projectCategory(p).name].filter(Boolean).join(' / ');
   const tabs = [{ id: 'work', label: 'Work' }, { id: 'brief', label: 'Brief & files' }, ...(freelance ? [{ id: 'billing', label: 'Billing' }] : [])];
   const cur = tabs.some((t) => t.id === tab) ? tab : 'work';
   return (
@@ -184,7 +227,7 @@ export function ProjectDetail({ id }) {
         ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
         onInput={(e) => set({ name: e.currentTarget.value.replace(/\n/g, ' ') })} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} />
       <div class="row between gap-10" style={{ alignItems: 'flex-end' }}>
-        <button class={'pill clickable t-' + M.stageOf(p.stage).tone} onClick={(e) => stageMenu(e, p)}><Icon name="chat" size={15} />{M.stageOf(p.stage).label}<Icon name="chevronDown" size={14} /></button>
+        <div class="row gap-6 wrap"><CategoryPill id={M.projectCategoryId(p)} /><button class={'pill clickable t-' + M.stageOf(p.stage).tone} onClick={(e) => stageMenu(e, p)}><Icon name="chat" size={15} />{M.projectStageLabel(p)}<Icon name="chevronDown" size={14} /></button></div>
         <div class="deadline-mini"><Icon name="calendar" size={18} /><div><span>Deadline</span><b>{p.deadlineDate ? dateTimeShort(p.deadlineDate, p.deadlineTime) : 'None'}</b></div></div>
       </div>
       {desktop ? (
@@ -291,6 +334,7 @@ function WorkTab({ p }) {
         <div class="block-head"><h2 class="block-title">Feedback</h2><button class="btn xs outline" onClick={() => openFeedbackSheet(p)}><Icon name="plus" size={14} />Record feedback</button></div>
         {fb.length ? <div class="fblist">{fb.map((f) => <FeedbackRow f={f} p={p} />)}</div> : <div class="quiet-note">Client and internal notes land here. Each one can become a revision task.</div>}
       </section>
+      <ProjectFlow p={p} />
     </>
   );
 }
@@ -332,7 +376,12 @@ function BriefTab({ p, compact }) {
       <section class="block">
         {compact && <div class="block-head"><h2 class="block-title">Brief & files</h2></div>}
         <div class="form">
-          <Field label="Workspace"><Segmented class="full" options={[{ id: 'in_house', label: 'In-house' }, { id: 'freelance', label: 'Freelance' }]} value={p.workspace} onChange={(v) => set({ workspace: v })} /></Field>
+          <CategoryField id="pd-cat" value={M.projectCategoryId(p)} onChange={(v) => set({ categoryId: v })} />
+          <Field label="Workflow"><WorkflowPicker value={M.projectWorkflow(p)} onChange={(v) => M.setWorkflow(p.id, v)} /></Field>
+          <div class="toggle-row">
+            <div><div class="tr-title">Billing</div><div class="tr-sub">Shows the Billing tab and lets you invoice this project.</div></div>
+            <Toggle checked={M.projectBilling(p)} label="Billing" onChange={(v) => set({ billing: v })} />
+          </div>
           <Field label="Client or brand" htmlFor="pd-client">
             <div class="row gap-6">
               <div class="grow"><Select id="pd-client" value={p.clientId || ''} onChange={(v) => set({ clientId: v || null })} placeholder="None" options={clients.map((c) => ({ id: c.id, label: c.name }))} /></div>
@@ -341,7 +390,7 @@ function BriefTab({ p, compact }) {
           </Field>
           <div class="form-row">
             <Field label="Start" htmlFor="pd-start"><DateInput id="pd-start" value={p.startDate} onChange={(v) => set({ startDate: v || null })} /></Field>
-            <Field label="Shoot" htmlFor="pd-shoot"><DateInput id="pd-shoot" value={p.shootDate} onChange={(v) => set({ shootDate: v || null })} /></Field>
+            {M.projectWorkflow(p) === 'video' && <Field label="Shoot" htmlFor="pd-shoot"><DateInput id="pd-shoot" value={p.shootDate} onChange={(v) => set({ shootDate: v || null })} /></Field>}
           </div>
           <Field label="Deadline"><div class="dt-pair"><DateInput id="pd-dl" value={p.deadlineDate} onChange={(v) => set({ deadlineDate: v || null, ...(v ? {} : { deadlineTime: null }) })} /><TimeInput id="pd-dlt" value={p.deadlineTime} onChange={(v) => set({ deadlineTime: v || null })} /></div></Field>
           <Field label="Brief" htmlFor="pd-brief"><TextArea id="pd-brief" value={p.brief} onInput={(v) => set({ brief: v })} placeholder="What the client wants, mood, must-have shots, specs" minRows={4} /></Field>

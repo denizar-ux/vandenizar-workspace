@@ -9,13 +9,73 @@ import { today, addDays, fmtShort, fmtFull, isoOf } from '../lib/date.js';
 import { fmtMoney, CURRENCIES } from '../lib/money.js';
 import { saveFile, saveMessage, loadJsPdf } from '../lib/files.js';
 import * as M from '../lib/model.js';
+import { openClientSheet } from './clients.jsx';
 
 const CUR_OPTS = Object.keys(CURRENCIES);
 
-export function createInvoiceAndOpen(preset = {}) {
-  const inv = M.newInvoice(preset);
-  navigate('/invoices/' + inv.id);
-  return inv;
+// A new invoice starts as a form. The draft (and its number) is only created on "Create draft".
+export function createInvoiceAndOpen(preset = {}) { openOverlay((close) => <NewInvoiceSheet preset={preset} close={close} />, { kind: 'sheet' }); }
+export const invoiceMissing = (inv) => {
+  const out = [];
+  if (!inv.clientId) out.push('recipient');
+  if (!(inv.items || []).some((it) => (it.desc || '').trim() && Math.round((+it.qty || 0) * (+it.rate || 0)) > 0)) out.push('item description and price');
+  if (!inv.dueDate) out.push('due date');
+  return out;
+};
+function NewInvoiceSheet({ preset, close }) {
+  useStore();
+  const s = M.settings();
+  const project0 = preset.projectId ? get('pmProjects', preset.projectId) : null;
+  const t0 = today();
+  const [f, setF] = useState({ clientId: preset.clientId || project0?.clientId || '', projectId: preset.projectId || '', date: t0, dueDate: addDays(t0, +s.defaultTermsDays || 14), currency: s.defaultCurrency, items: [{ id: uid(), desc: project0 ? project0.name : '', note: '', qty: 1, rate: 0 }] });
+  const set = (ch) => setF({ ...f, ...ch });
+  const setItem = (iid, ch) => set({ items: f.items.map((it) => (it.id === iid ? { ...it, ...ch } : it)) });
+  const clients = M.liveClients().filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name));
+  const projects = M.liveProjects().filter((p) => !p.archived && M.projectBilling(p) && (!f.clientId || !p.clientId || p.clientId === f.clientId));
+  const total = f.items.reduce((n, it) => n + Math.round((+it.qty || 0) * (+it.rate || 0)), 0);
+  const create = () => {
+    if (!f.clientId) return toast('Pick the client first.', { tone: 'warn' });
+    if (!f.date || !f.dueDate) return toast('Add the invoice date and due date.', { tone: 'warn' });
+    const items = f.items.filter((it) => (it.desc || '').trim() || +it.rate).map(({ note, ...it }) => ({ ...it, desc: [it.desc, note].filter((x) => (x || '').trim()).join(' - ') }));
+    const days = Math.max(0, Math.round((Date.parse(f.dueDate) - Date.parse(f.date)) / 864e5));
+    const inv = M.newInvoice({ clientId: f.clientId, projectId: f.projectId || '', date: f.date, dueDate: f.dueDate, termsDays: days, currency: f.currency, items: items.length ? items : [{ id: uid(), desc: '', qty: 1, rate: 0 }], clientSnapshot: M.clientSnapshot(f.clientId), projectSnapshot: f.projectId ? { name: get('pmProjects', f.projectId)?.name || '' } : null });
+    close();
+    toast('Draft ' + inv.number + ' created');
+    navigate('/invoices/' + inv.id);
+  };
+  return (
+    <>
+      <SheetHead title="New invoice" onClose={close} />
+      <SheetBody><div class="form">
+        <div class="notice t-lavender"><Icon name="info" size={17} />The invoice number is assigned when the draft is created.</div>
+        <Field label="Client" htmlFor="ni-client">
+          <div class="row gap-6">
+            <div class="grow"><Select id="ni-client" value={f.clientId} onChange={(v) => set({ clientId: v, projectId: f.projectId && get('pmProjects', f.projectId)?.clientId && get('pmProjects', f.projectId).clientId !== v ? '' : f.projectId })} placeholder={clients.length ? 'Choose client' : 'No clients yet'} options={clients.map((c) => ({ id: c.id, label: c.name }))} /></div>
+            <button class="btn outline" onClick={() => openClientSheet(null, (c) => set({ clientId: c.id }))}><Icon name="plus" size={15} />New</button>
+          </div>
+        </Field>
+        <Field label="Project (optional)" htmlFor="ni-proj"><Select id="ni-proj" value={f.projectId} onChange={(v) => { const pr = get('pmProjects', v); set({ projectId: v, ...(pr?.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }); }} placeholder="None" options={projects.map((p) => ({ id: p.id, label: p.name }))} /></Field>
+        <div class="form-row">
+          <Field label="Invoice date" htmlFor="ni-date"><DateInput id="ni-date" value={f.date} clearable={false} onChange={(v) => set({ date: v })} /></Field>
+          <Field label="Due date" htmlFor="ni-due"><DateInput id="ni-due" value={f.dueDate} clearable={false} onChange={(v) => set({ dueDate: v })} /></Field>
+        </div>
+        <div class="block-head" style={{ marginTop: 4 }}><h3 class="block-title" style={{ fontSize: 18 }}>Items</h3></div>
+        {f.items.map((it, i) => (
+          <div class="ni-item">
+            <div class="row gap-6"><input class="input" value={it.desc} placeholder="Description, e.g. Shoot campaign" aria-label={'Item ' + (i + 1) + ' description'} onInput={(e) => setItem(it.id, { desc: e.currentTarget.value })} />{f.items.length > 1 && <button class="icon-btn ghost sm" aria-label="Remove item" onClick={() => set({ items: f.items.filter((x) => x.id !== it.id) })}><Icon name="x" size={15} /></button>}</div>
+            <div class="form-row" style={{ gridTemplateColumns: '90px minmax(0,1fr)' }}>
+              <Field label="Qty" htmlFor={'ni-q' + i}><NumberInput id={'ni-q' + i} value={it.qty} min={0} onChange={(v) => setItem(it.id, { qty: +v || 0 })} /></Field>
+              <Field label={'Unit price (' + f.currency + ')'} htmlFor={'ni-r' + i}><MoneyInput id={'ni-r' + i} value={it.rate} currency={f.currency} onChange={(v) => setItem(it.id, { rate: v })} /></Field>
+            </div>
+          </div>
+        ))}
+        <button class="btn sm outline" style={{ alignSelf: 'flex-start' }} onClick={() => set({ items: [...f.items, { id: uid(), desc: '', note: '', qty: 1, rate: 0 }] })}><Icon name="plus" size={15} />Add item</button>
+        <div class="total-bar"><span>Total</span><b class="tnum">{fmtMoney(total, f.currency)}</b></div>
+        <div class="quiet-note"><Icon name="info" size={14} />Closing this form does not create an invoice.</div>
+      </div></SheetBody>
+      <SheetFoot><button class="btn ghost" onClick={close}>Cancel</button><button class="btn primary" onClick={create}>Create draft</button></SheetFoot>
+    </>
+  );
 }
 
 export function InvoicesPage({ query }) {
@@ -147,6 +207,7 @@ export function InvoiceEditor({ id }) {
     navigate('/invoices/' + d.id);
   };
   const locked = !!inv.sentAt;
+  const missing = invoiceMissing(inv);
   return (
     <div class="page">
       <BackBar onBack={() => back('/invoices')} right={<button class="icon-btn ghost" aria-label="Invoice actions" onClick={(e) => openMenu(e, [
@@ -160,11 +221,12 @@ export function InvoiceEditor({ id }) {
       ])}><Icon name="more" size={22} /></button>} />
       <div class="row gap-8 wrap"><span class="eyebrow">Invoice</span><InvoicePill status={c.status} />{inv.archived && <span class="pill sm t-plain">Archived</span>}</div>
       <h1 class="ph-title tnum">{inv.number}</h1>
+      {c.status === 'draft' && missing.length > 0 && <div class="notice t-butter"><Icon name="alert" size={18} /><div><b>Incomplete</b><div class="muted">Add the {missing.join(', ')} before sending.</div></div></div>}
       <div class="row gap-8 wrap">
-        {c.status === 'draft' && <button class="btn primary" onClick={() => { M.markSent(inv); toast('Marked as sent. Recipient details are locked in.'); }}><Icon name="send" size={16} />Mark sent</button>}
+        {c.status === 'draft' && <button class="btn primary" disabled={missing.length > 0} title={missing.length ? 'Complete the invoice first' : undefined} onClick={() => { M.markSent(inv); toast('Marked as sent. Recipient details are locked in.'); }}><Icon name="send" size={16} />Mark sent</button>}
         {c.status !== 'draft' && c.balance > 0 && <button class="btn primary" onClick={() => openPaymentSheet(inv)}><Icon name="money" size={16} />Record payment</button>}
         {c.status !== 'draft' && c.balance > 0 && <button class="btn outline" onClick={() => { M.recordPayment(inv, { amount: c.balance, date: today(), method: 'Bank transfer', kind: c.paid ? 'Final payment' : 'Full payment' }); toast('Marked paid'); }}><Icon name="check" size={16} />Mark paid</button>}
-        <button class="btn outline" onClick={() => openPreview(inv)}><Icon name="file" size={16} />Preview</button>
+        <button class="btn outline" onClick={() => openPreview(inv)}><Icon name="eye" size={16} />{c.status === 'draft' ? 'Preview draft' : 'Preview'}</button>
         <button class="btn outline" onClick={() => downloadPdf(inv)}><Icon name="download" size={16} />PDF</button>
       </div>
       <div class="two-col">
@@ -266,9 +328,10 @@ function PreviewSheet({ id, close }) {
   const Label = ({ children }) => <div class="paper-label">{children}</div>;
   return (
     <>
-      <SheetHead title="Preview" sub="This is what the PDF contains" onClose={close} right={<button class="btn sm primary" onClick={() => downloadPdf(inv)}><Icon name="download" size={15} />PDF</button>} />
+      <SheetHead title={c.status === 'draft' ? 'Draft preview' : 'Preview'} sub={c.status === 'draft' ? 'Shows a DRAFT mark until the invoice is sent' : 'This is what the PDF contains'} onClose={close} right={<button class="btn sm primary" onClick={() => downloadPdf(inv)}><Icon name="download" size={15} />PDF</button>} />
       <SheetBody>
-        <div class="paper">
+        <div class="paper" style={{ position: 'relative', overflow: 'hidden' }}>
+          {c.status === 'draft' && <div class="draft-mark" aria-hidden="true">DRAFT</div>}
           <div class="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
             <div><div class="strong" style={{ fontSize: 18 }}>{from.name}</div><div class="muted" style={{ whiteSpace: 'pre-wrap' }}>{[from.owner, from.address, from.email, from.phone, from.website].filter(Boolean).join('\n')}</div></div>
             <div style={{ textAlign: 'right' }}><div class="paper-h">Invoice</div><div class="strong tnum">{inv.number}</div><div class="muted">Date: {fmtFull(inv.date)}</div><div class="muted">Due: {fmtFull(inv.dueDate)}</div></div>
@@ -369,6 +432,7 @@ export async function buildInvoicePdf(inv) {
   block('Terms', inv.terms);
   block('Notes', inv.notes);
   const pages = doc.getNumberOfPages();
+  if (!inv.sentAt && c.paid === 0) for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFont('helvetica', 'bold'); doc.setFontSize(90); doc.setTextColor(236, 235, 230); doc.text('DRAFT', 105, 170, { align: 'center', angle: 30 }); }
   for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...muted); doc.text(`${inv.number}  ·  Page ${i} of ${pages}`, R, 288, { align: 'right' }); doc.text(from.name || '', L, 288); }
   return doc;
 }

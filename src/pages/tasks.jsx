@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Field, TextInput, TextArea, Select, DateInput, TimeInput, NumberInput, Check, Empty, Segmented } from '../ui/kit.jsx';
 import { openMenu, toast, confirmDialog, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
-import { PageHeader, BackBar, TaskRow, AddBtn, openReschedule, pickProject, dateTimeShort, whenLabel, fmtAgo, workspaceLabel } from '../ui/parts.jsx';
+import { PageHeader, BackBar, TaskRow, AddBtn, openReschedule, pickProject, dateTimeShort, whenLabel, fmtAgo, workspaceLabel, categoryFilterMenu } from '../ui/parts.jsx';
 import { navigate, back } from '../lib/router.js';
 import { get, all, patch, remove, uid, useStore, persist } from '../lib/db.js';
 import { today, addDays, diffDays, relDay, fmtShort, fmtMinutes, fmtFull, isoOf, fmtDuration } from '../lib/date.js';
@@ -10,10 +10,9 @@ import { dragHandlers, orderBetween, moveInArray } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
 import { openQuickAdd } from '../App.jsx';
 
-const VIEWS = [
-  { id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'inbox', label: 'Inbox' }, { id: 'overdue', label: 'Overdue' },
-  { id: 'all', label: 'All open' }, { id: 'done', label: 'Done' }, { id: 'other', label: 'Deferred' }, { id: 'archived', label: 'Archived' },
-];
+const MAIN_VIEWS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'inbox', label: 'Inbox' }, { id: 'overdue', label: 'Overdue' }];
+const MORE_VIEWS = [{ id: 'all', label: 'All open', icon: 'list' }, { id: 'done', label: 'Done', icon: 'check' }, { id: 'other', label: 'Deferred', icon: 'clock' }, { id: 'archived', label: 'Archived', icon: 'archive' }];
+const VIEWS = [...MAIN_VIEWS, ...MORE_VIEWS];
 const loadPref = (k, d) => { try { const v = localStorage.getItem('vz:pm:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const savePref = (k, v) => { try { localStorage.setItem('vz:pm:' + k, JSON.stringify(v)); } catch {} };
 
@@ -53,7 +52,7 @@ export function TasksPage({ query }) {
   const counts = Object.fromEntries(['today', 'upcoming', 'inbox', 'overdue'].map((v) => [v, base.filter(viewFilter(v)).length]));
   let list = base.filter(viewFilter(view));
   if (project) list = list.filter((t) => (project === 'none' ? !t.projectId : t.projectId === project));
-  if (ws) list = list.filter((t) => { const p = t.projectId && get('pmProjects', t.projectId); return p ? p.workspace === ws : false; });
+  if (ws) list = list.filter((t) => { const p = t.projectId && get('pmProjects', t.projectId); return p ? M.projectCategoryId(p) === ws : false; });
   if (prio) list = list.filter((t) => t.priority === prio);
   if (q.trim()) { const term = q.toLowerCase(); list = list.filter((t) => (t.title + ' ' + (t.notes || '') + ' ' + (t.subtasks || []).map((s) => s.title).join(' ')).toLowerCase().includes(term)); }
   list = view === 'done' ? [...list].sort((a, b) => (b.completedAt || b.lastCompletedAt || 0) - (a.completedAt || a.lastCompletedAt || 0)) : M.sortTasks(list, sort);
@@ -75,21 +74,27 @@ export function TasksPage({ query }) {
 
   return (
     <div class="page narrow">
-      <PageHeader title="Tasks." actions={<AddBtn label="New task" onClick={() => openQuickAdd({ when: view === 'inbox' ? 'none' : view === 'upcoming' ? 'tomorrow' : 'today' })} />} />
+      <PageHeader title="Tasks." actions={<button class="btn primary sm" onClick={() => openQuickAdd({ when: view === 'inbox' ? 'none' : view === 'upcoming' ? 'tomorrow' : 'today' })}><Icon name="plus" size={16} />Task</button>} />
       <div class="chips scroll">
-        {VIEWS.map((v) => <button class={'chip ' + (view === v.id ? 'on' : '')} onClick={() => setView(v.id)}>{v.label}{counts[v.id] > 0 && <span class="chip-count">{counts[v.id]}</span>}</button>)}
+        {MAIN_VIEWS.map((v) => <button class={'chip ' + (view === v.id ? 'on' : '')} aria-pressed={view === v.id} onClick={() => setView(v.id)}>{v.label}{counts[v.id] > 0 && <span class="chip-count">{counts[v.id]}</span>}</button>)}
       </div>
       <div class="row gap-8">
         <div class="search-box grow"><Icon name="search" size={17} /><input id="task-q" value={q} placeholder="Search tasks" onInput={(e) => setQ(e.currentTarget.value)} />{q && <button class="icon-btn ghost xs" aria-label="Clear search" onClick={() => setQ('')}><Icon name="x" size={14} /></button>}</div>
         <button class={'icon-btn ' + (filtersOn ? 'dark' : 'soft')} aria-label="Filters" aria-expanded={filters} onClick={() => setFilters(!filters)}><Icon name="filter" size={18} /></button>
         <button class="icon-btn soft" aria-label="Sort" onClick={(e) => openMenu(e, [{ heading: 'Sort by' }, ...[['schedule', 'Work schedule'], ['deadline', 'Deadline'], ['project', 'Project'], ['manual', 'Manual (drag)']].map(([id, label]) => ({ label, active: sort === id, onSelect: () => setSort(id) }))])}><Icon name="sort" size={18} /></button>
       </div>
+      <div class="row gap-8 wrap">
+        <button class="dropdown-pill sm" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, ws || 'all', (v) => setWs(v === 'all' ? '' : v))}>{ws && <span class={'cat-dot t-' + M.categoryOf(ws).color} aria-hidden="true" />}{ws ? M.categoryOf(ws).name : 'All categories'}<Icon name="chevronDown" size={14} /></button>
+        {ws && <button class="chip on sm" aria-label={'Clear ' + M.categoryOf(ws).name + ' filter'} onClick={() => setWs('')}>{M.categoryOf(ws).name}<Icon name="x" size={13} /></button>}
+        <span class="grow" />
+        <button class={'dropdown-pill sm' + (MORE_VIEWS.some((v) => v.id === view) ? ' on' : '')} aria-haspopup="menu" onClick={(e) => openMenu(e, MORE_VIEWS.map((v) => ({ label: v.label, icon: v.icon, active: view === v.id, onSelect: () => setView(v.id) })), { title: 'More views' })}>{MORE_VIEWS.find((v) => v.id === view)?.label || 'More'}<Icon name="chevronDown" size={14} /></button>
+      </div>
       {filters && (
         <div class="panel">
           <div class="form">
             <div class="form-row three">
               <Field label="Project" htmlFor="tf-p"><Select id="tf-p" value={project} onChange={setProject} placeholder="Any" options={[{ id: 'none', label: 'No project' }, ...projects.map((p) => ({ id: p.id, label: p.name }))]} /></Field>
-              <Field label="Workspace" htmlFor="tf-w"><Select id="tf-w" value={ws} onChange={setWs} placeholder="Any" options={[{ id: 'in_house', label: 'In-house' }, { id: 'freelance', label: 'Freelance' }]} /></Field>
+              <Field label="Category" htmlFor="tf-w"><Select id="tf-w" value={ws} onChange={setWs} placeholder="Any" options={M.categories().map((c) => ({ id: c.id, label: c.name }))} /></Field>
               <Field label="Priority" htmlFor="tf-pr"><Select id="tf-pr" value={prio} onChange={setPrio} placeholder="Any" options={[{ id: 'high', label: 'High' }, { id: 'normal', label: 'Normal' }]} /></Field>
             </div>
             {filtersOn && <button class="btn sm outline" style={{ alignSelf: 'flex-start' }} onClick={() => { setProject(''); setWs(''); setPrio(''); }}>Clear filters</button>}

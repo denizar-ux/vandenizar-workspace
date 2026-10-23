@@ -446,3 +446,18 @@ export function ContentLinks({ links = [], onChange, idPrefix = 'cl' }) {
     </div>
   );
 }
+
+// On/off switch with a visible label for screen readers.
+export function Toggle({ checked, onChange, label, id }) {
+  return (
+    <button type="button" id={id} role="switch" aria-checked={!!checked} aria-label={label} class={'switch' + (checked ? ' on' : '')} onClick={() => onChange(!checked)}><span /></button>
+  );
+}
+// Pastel color picker for categories.
+export function ColorDots({ value, onChange, colors, label = 'Color' }) {
+  return (
+    <div class="color-dots" role="radiogroup" aria-label={label}>
+      {colors.map((c) => <button type="button" role="radio" aria-checked={value === c} aria-label={c} class={'color-dot t-' + c + (value === c ? ' on' : '')} onClick={() => onChange(c)} />)}
+    </div>
+  );
+}

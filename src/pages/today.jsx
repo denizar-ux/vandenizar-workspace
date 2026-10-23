@@ -62,8 +62,8 @@ export function TodayPage() {
       {hasSample() && <a class="note-bar" href="#/settings/data"><Icon name="info" size={16} /><span class="grow">You're looking at sample data. Remove it in Settings.</span><Icon name="chevronRight" size={15} /></a>}
       {desktop ? (
         <div class="two-col">
-          <div class="stack">{hero ? <HeroCard t={hero} reason={rec.reason} /> : <EmptyHero />}{Priorities}</div>
-          <div class="stack">{Attention}{Capture}<TodaySchedule /></div>
+          <div class="stack">{hero ? <HeroCard t={hero} reason={rec.reason} /> : <EmptyHero />}{Priorities}{Capture}</div>
+          <div class="stack">{Attention}<TodaySchedule always /><UpcomingDeadlines /></div>
         </div>
       ) : (
         <div class="stack">
@@ -139,16 +139,33 @@ function CaptureField() {
     </div>
   );
 }
-function TodaySchedule() {
+function TodaySchedule({ always }) {
   const t0 = today();
   const items = M.sortTasks(M.liveTasks().filter((t) => M.isOpen(t) && t.workDate === t0 && t.workTime), 'schedule');
-  if (!items.length) return null;
+  if (!items.length && !always) return null;
   return (
     <section class="block">
-      <div class="block-head"><h2 class="block-title">On the clock</h2><a class="link-quiet" href="#/calendar">Calendar<Icon name="chevronRight" size={15} /></a></div>
-      <div class="mini-agenda">
-        {items.map((t) => <a class="mag-row" href={'#/tasks/' + t.id}><span class="tnum mag-time">{t.workTime}</span><span class="grow ellipsis">{t.title}</span>{t.estimateMinutes ? <span class="muted tnum">{fmtMinutes(t.estimateMinutes)}</span> : null}</a>)}
-      </div>
+      <div class="block-head"><h2 class="block-title">Today's agenda</h2><a class="link-quiet" href="#/calendar">Calendar<Icon name="chevronRight" size={15} /></a></div>
+      {items.length ? <div class="mini-agenda">
+        {items.map((t) => { const p = t.projectId && get('pmProjects', t.projectId); return <a class="mag-row" href={'#/tasks/' + t.id}><span class="tnum mag-time">{t.workTime}</span>{p && <span class={'cat-dot t-' + M.projectCategory(p).color} aria-hidden="true" />}<span class="grow ellipsis">{t.title}</span>{t.estimateMinutes ? <span class="muted tnum">{fmtMinutes(t.estimateMinutes)}</span> : null}</a>; })}
+      </div> : <div class="quiet-note">Nothing has a time today. Give a task a work time and it lines up here.</div>}
+    </section>
+  );
+}
+// Hard deadlines in the next 7 days, tasks and projects together.
+function UpcomingDeadlines() {
+  const t0 = today();
+  const lim = (d) => d && d >= t0 && (Date.parse(d) - Date.parse(t0)) / 864e5 <= 7;
+  const items = [
+    ...M.liveTasks().filter((t) => M.isOpen(t) && lim(t.deadlineDate)).map((t) => ({ date: t.deadlineDate, time: t.deadlineTime, title: t.title, sub: M.projectName(t.projectId) || 'Task', path: '/tasks/' + t.id })),
+    ...M.liveProjects().filter((p) => !p.archived && p.stage !== 'completed' && M.stageIdx(p.stage) < M.stageIdx('delivered') && lim(p.deadlineDate)).map((p) => ({ date: p.deadlineDate, time: p.deadlineTime, title: p.name, sub: 'Project · ' + M.projectCategory(p).name, path: '/projects/' + p.id })),
+  ].sort((a, b) => (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99'))).slice(0, 6);
+  return (
+    <section class="block">
+      <div class="block-head"><h2 class="block-title">Deadlines this week</h2></div>
+      {items.length ? <div class="mini-agenda">
+        {items.map((x) => <a class="mag-row" href={'#' + x.path}><span class={'tnum mag-time' + (x.date === t0 ? ' bad' : '')}>{x.date === t0 ? 'Today' : dateTimeShort(x.date)}</span><span class="grow" style={{ minWidth: 0 }}><span class="ellipsis" style={{ display: 'block' }}>{x.title}</span><span class="muted ellipsis" style={{ display: 'block', fontSize: 13 }}>{x.sub}{x.time ? ' · ' + x.time : ''}</span></span><Icon name="flag" size={15} class="muted" /></a>)}
+      </div> : <div class="quiet-note">No hard deadlines in the next 7 days.</div>}
     </section>
   );
 }

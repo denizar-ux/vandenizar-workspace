@@ -112,7 +112,7 @@ export function ClientDetail({ id }) {
           </section>
           <section class="block">
             <div class="block-head"><h2 class="block-title">Projects</h2><button class="btn xs outline" onClick={() => openProjectSheet({ clientId: id })}><Icon name="plus" size={14} />Project</button></div>
-            {m.projects.length ? <div class="list">{m.projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map((p) => <a class="list-row clickable" href={'#/projects/' + p.id}><span class={'swatch t-' + M.stageOf(p.stage).tone} /><div class="row-main"><div class="row-title">{p.name}</div><div class="row-meta">{workspaceLabel(p.workspace)}{p.deadlineDate ? ' · deadline ' + fmtShort(p.deadlineDate) : ''}{p.archived ? ' · archived' : ''}</div></div><StagePill stage={p.stage} sm /></a>)}</div> : <div class="quiet-note">No projects yet.</div>}
+            {m.projects.length ? <div class="list">{m.projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map((p) => <a class="list-row clickable" href={'#/projects/' + p.id}><span class={'cat-dot t-' + M.projectCategory(p).color} /><div class="row-main"><div class="row-title">{p.name}</div><div class="row-meta">{M.projectCategory(p).name}{p.deadlineDate ? ' · deadline ' + fmtShort(p.deadlineDate) : ''}{p.archived ? ' · archived' : ''}</div></div><StagePill stage={p.stage} sm /></a>)}</div> : <div class="quiet-note">No projects yet.</div>}
           </section>
         </div>
         <div class="stack">

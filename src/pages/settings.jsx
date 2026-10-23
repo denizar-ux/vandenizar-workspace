@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { Field, TextInput, TextArea, Select, TimeInput, NumberInput, Segmented, ListEditor, Empty, copyText } from '../ui/kit.jsx';
-import { toast, confirmDialog } from '../ui/overlay.jsx';
-import { PageHeader, fmtAgo } from '../ui/parts.jsx';
+import { Field, TextInput, TextArea, Select, TimeInput, NumberInput, Segmented, ListEditor, Empty, copyText, ColorDots } from '../ui/kit.jsx';
+import { toast, confirmDialog, openMenu, openOverlay, SheetHead, SheetBody } from '../ui/overlay.jsx';
+import { PageHeader, fmtAgo, CategoryField, openCategorySheet } from '../ui/parts.jsx';
+import { WorkflowPicker } from './projects.jsx';
 import { navigate } from '../lib/router.js';
 import { all, patch, remove, useStore, exportAll, importAll, wipeAll, counts } from '../lib/db.js';
 import { today, addDays, fmtShort, isoOf } from '../lib/date.js';
@@ -44,7 +45,9 @@ const SECTIONS = [
   { id: 'account', label: 'Account & sync', icon: 'restore', tone: 'cyan' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', tone: 'butter' },
   { id: 'general', label: 'Profile & appearance', icon: 'sun', tone: 'lavender' },
-  { id: 'tasks', label: 'Task defaults', icon: 'tasks', tone: 'sage' },
+  { id: 'tasks', label: 'Tasks', icon: 'tasks', tone: 'sage' },
+  { id: 'projects', label: 'Projects', icon: 'folder', tone: 'butter' },
+  { id: 'categories', label: 'Project categories', icon: 'tag', tone: 'peach', hidden: true },
   { id: 'freelance', label: 'Freelance & invoices', icon: 'file', tone: 'rose' },
   { id: 'shortcuts', label: 'iPhone shortcuts', icon: 'bolt', tone: 'butter' },
   { id: 'data', label: 'Backup & data', icon: 'archive', tone: 'plain' },
@@ -54,7 +57,9 @@ function summary(id, s) {
     case 'account': return sync.user ? syncLabel() : 'Not signed in';
     case 'notifications': return pushFlag() ? 'On for this device' : 'Off on this device';
     case 'general': return s.name + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
-    case 'tasks': return s.defaultEstimate ? 'Estimate ' + s.defaultEstimate + 'm' : 'No default estimate';
+    case 'tasks': return (s.defaultEstimate ? 'Estimate ' + s.defaultEstimate + 'm' : 'No default estimate') + ' · week starts ' + ({ 1: 'Monday', 6: 'Saturday', 0: 'Sunday' }[s.weekStart] || 'Monday');
+    case 'projects': return 'Categories, workflow, template';
+    case 'categories': return M.categories().map((c) => c.name).join(', ');
     case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
     case 'shortcuts': return 'Home Screen, Siri, Back Tap';
     case 'data': return 'Export, import, sample data';
@@ -74,7 +79,7 @@ export function SettingsPage({ section }) {
         <div class="set-hub">
           <PageHeader title="Settings." />
           <nav class="set-nav">
-            {SECTIONS.map((x) => (
+            {SECTIONS.filter((x) => !x.hidden).map((x) => (
               <a href={'#/settings/' + x.id} class={'set-nav-item ' + (x.id === cur ? 'on' : '')}>
                 <span class={'set-ico t-' + x.tone}><Icon name={x.icon} size={18} /></span>
                 <span class="grow"><span class="set-nav-label">{x.label}</span><span class="set-nav-sub">{summary(x.id, s)}</span></span>
@@ -87,12 +92,14 @@ export function SettingsPage({ section }) {
           <div class="quiet-note">Vandenizar · times in WIB (Asia/Jakarta)</div>
         </div>
         <div class="set-panel">
-          <a href="#/settings" class="set-back"><Icon name="chevronLeft" size={18} />Settings</a>
+          <a href={cur === 'categories' ? '#/settings/projects' : '#/settings'} class="set-back"><Icon name="chevronLeft" size={18} />{cur === 'categories' ? 'Projects' : 'Settings'}</a>
           <h2 class="set-title">{meta.label}</h2>
           {cur === 'account' && <AccountCard />}
           {cur === 'notifications' && <NotificationsSection s={s} />}
           {cur === 'general' && <GeneralSection s={s} />}
           {cur === 'tasks' && <TasksSection s={s} />}
+          {cur === 'projects' && <ProjectsSection s={s} />}
+          {cur === 'categories' && <CategoriesSection />}
           {cur === 'freelance' && <FreelanceSection s={s} />}
           {cur === 'shortcuts' && <ShortcutsSection />}
           {cur === 'data' && <DataSection />}
@@ -120,13 +127,71 @@ function GeneralSection({ s }) {
 }
 function TasksSection({ s }) {
   return (
-    <Group title="Defaults" hint="Used when you write a new task or project">
+    <Group title="Defaults" hint="Used when you write a new task">
       <div class="form-row">
         <Field label="Default estimate (minutes)" htmlFor="set-est"><NumberInput id="set-est" value={s.defaultEstimate || ''} onChange={(v) => set({ defaultEstimate: v ? +v : 0 })} step={15} placeholder="None" /></Field>
         <Field label="Week starts on" htmlFor="set-ws"><Select id="set-ws" value={String(s.weekStart)} onChange={(v) => set({ weekStart: +v })} options={[{ id: '1', label: 'Monday' }, { id: '6', label: 'Saturday' }, { id: '0', label: 'Sunday' }]} /></Field>
       </div>
-      <Field label="New projects start as"><Segmented class="full" options={[{ id: 'in_house', label: 'In-house' }, { id: 'freelance', label: 'Freelance' }]} value={s.defaultWorkspace} onChange={(v) => set({ defaultWorkspace: v })} /></Field>
     </Group>
+  );
+}
+function ProjectsSection({ s }) {
+  useStore();
+  const tpls = all('templates').filter((t) => t.kind === 'project' && !t.archived);
+  return (
+    <>
+      <Group title="Defaults" hint="Used when you start a new project">
+        <CategoryField id="set-cat" label="Default category" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} />
+        <div class="field-hint">Built in: In-house, Freelance, Personal, Learning. Billing is switched on per project.</div>
+        <Field label="Default workflow"><WorkflowPicker value={s.defaultWorkflow || 'general'} onChange={(v) => set({ defaultWorkflow: v })} /></Field>
+        <Field label="Default template" htmlFor="set-tpl"><Select id="set-tpl" value={tpls.some((t) => t.id === s.defaultProjectTemplate) ? s.defaultProjectTemplate : ''} onChange={(v) => set({ defaultProjectTemplate: v })} placeholder="Blank project" options={tpls.map((t) => ({ id: t.id, label: t.name }))} /></Field>
+      </Group>
+      <Group>
+        <a class="set-link" href="#/settings/categories"><Icon name="tag" size={18} /><span class="grow">Manage categories</span><span class="muted ellipsis" style={{ maxWidth: '45%' }}>{M.categories().map((c) => c.name).join(', ')}</span><Icon name="chevronRight" size={16} /></a>
+        <a class="set-link" href="#/templates"><Icon name="template" size={18} /><span class="grow">Project templates</span><span class="muted">{tpls.length}</span><Icon name="chevronRight" size={16} /></a>
+      </Group>
+    </>
+  );
+}
+function CategoriesSection() {
+  useStore();
+  const [name, setName] = useState('');
+  const [color, setColor] = useState('peach');
+  const [showArch, setShowArch] = useState(false);
+  const cats = M.categories({ includeArchived: true });
+  const active = cats.filter((c) => !c.archived), archived = cats.filter((c) => c.archived);
+  const add = () => {
+    const n = name.trim();
+    if (!n) return toast('Name the category first.', { tone: 'warn' });
+    if (cats.some((c) => c.name.toLowerCase() === n.toLowerCase())) return toast(n + ' already exists.', { tone: 'warn' });
+    M.addCategory(n, color); setName(''); toast('Category added');
+  };
+  const pickColor = (c) => openOverlay((close) => <><SheetHead title="Change color" sub={c.name} onClose={close} /><SheetBody><ColorDots value={c.color} colors={M.CATEGORY_COLORS} onChange={(v) => { M.updateCategory(c.id, { color: v }); close(); }} /></SheetBody></>, { kind: 'sheet' });
+  const menu = (e, c) => openMenu(e, [
+    { label: 'Rename', icon: 'edit', onSelect: () => openCategorySheet({ cat: c }) },
+    { label: 'Change color', icon: 'palette', onSelect: () => pickColor(c) },
+    c.archived ? { label: 'Restore', icon: 'restore', onSelect: () => M.updateCategory(c.id, { archived: false }) }
+      : { label: 'Archive', icon: 'archive', onSelect: () => {
+        if (M.settings().defaultCategory === c.id) return toast('This is your default category. Pick another default first.', { tone: 'warn' });
+        if (active.length <= 1) return toast('Keep at least one category.', { tone: 'warn' });
+        M.updateCategory(c.id, { archived: true }); toast(c.name + ' archived. Its projects stay.', { action: { label: 'Undo', run: () => M.updateCategory(c.id, { archived: false }) } });
+      } },
+  ], { title: c.name });
+  const Row = ({ c }) => {
+    const n = M.categoryProjectCount(c.id);
+    return <div class={'cat-row' + (c.archived ? ' archived' : '')}><span class={'cat-dot lg t-' + c.color} aria-hidden="true" /><div class="grow">{c.name}<div class="muted" style={{ fontSize: 13 }}>{n} project{n === 1 ? '' : 's'}</div></div><button class="icon-btn ghost sm" aria-label={'Actions for ' + c.name} onClick={(e) => menu(e, c)}><Icon name="more" /></button></div>;
+  };
+  return (
+    <>
+      <Group>{active.map((c) => <Row c={c} />)}</Group>
+      <Group title="Add a category">
+        <Field label="Name" htmlFor="cat-new"><TextInput id="cat-new" value={name} onInput={setName} placeholder="e.g. Experiment" onEnter={add} /></Field>
+        <ColorDots value={color} onChange={setColor} colors={M.CATEGORY_COLORS} />
+        <button class="btn primary block" onClick={add}>Add category</button>
+        <div class="notice t-plain"><Icon name="info" size={17} />Archiving a category doesn't delete its projects.</div>
+      </Group>
+      {archived.length > 0 && <Group><button class="link-quiet" onClick={() => setShowArch(!showArch)}>{showArch ? 'Hide' : 'Show'} {archived.length} archived</button>{showArch && archived.map((c) => <Row c={c} />)}</Group>}
+    </>
   );
 }
 function FreelanceSection({ s }) {

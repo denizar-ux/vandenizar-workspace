@@ -12,6 +12,7 @@ export const OPEN_STATUSES = ['inbox', 'open', 'in_progress'];
 export const STAGES = [
   { id: 'lead', label: 'Lead', tone: 'lavender' },
   { id: 'planned', label: 'Planned', tone: 'sage' },
+  { id: 'in_progress', label: 'In progress', tone: 'butter' },
   { id: 'shooting', label: 'Shooting', tone: 'sage' },
   { id: 'editing', label: 'Editing', tone: 'butter' },
   { id: 'client_review', label: 'Waiting for feedback', tone: 'cyan' },
@@ -22,6 +23,52 @@ export const STAGES = [
 ];
 export const stageOf = (id) => STAGES.find((s) => s.id === id) || STAGES[1];
 export const stageIdx = (id) => STAGES.findIndex((s) => s.id === id);
+
+// ---------- workflows ----------
+// A project follows one of two simple flows. Existing projects (made before workflows) are video productions.
+export const WORKFLOWS = [{ id: 'general', label: 'General' }, { id: 'video', label: 'Video production' }];
+const WF_STAGES = {
+  general: ['planned', 'in_progress', 'client_review', 'completed'],
+  video: ['lead', 'planned', 'shooting', 'editing', 'client_review', 'revision', 'approved', 'delivered', 'completed'],
+};
+const GENERAL_LABELS = { client_review: 'Review', completed: 'Done' };
+export const projectWorkflow = (p) => (p && WF_STAGES[p.workflow] ? p.workflow : 'video');
+export const workflowLabel = (id) => (WORKFLOWS.find((w) => w.id === id) || WORKFLOWS[1]).label;
+export const stageLabel = (id, wf = 'video') => (wf === 'general' && GENERAL_LABELS[id]) || stageOf(id).label;
+export const stagesFor = (p) => WF_STAGES[projectWorkflow(p)].map((id) => ({ ...stageOf(id), label: stageLabel(id, projectWorkflow(p)) }));
+export const projectStageLabel = (p) => stageLabel(p.stage, projectWorkflow(p));
+// When a project switches flow, move its stage to the closest one in the new flow.
+const TO_GENERAL = { lead: 'planned', shooting: 'in_progress', editing: 'in_progress', revision: 'in_progress', approved: 'client_review', delivered: 'completed' };
+const TO_VIDEO = { in_progress: 'editing' };
+export function workflowStage(stage, wf) {
+  if (WF_STAGES[wf].includes(stage)) return stage;
+  return (wf === 'general' ? TO_GENERAL : TO_VIDEO)[stage] || 'planned';
+}
+
+// ---------- categories ----------
+// Categories group projects (In-house, Freelance, Personal...). Billing is a separate switch on each project.
+export const CATEGORY_COLORS = ['butter', 'sage', 'cyan', 'lavender', 'peach', 'rose', 'plain'];
+export const DEFAULT_CATEGORIES = [
+  { id: 'in_house', name: 'In-house', color: 'butter', archived: false, order: 1 },
+  { id: 'freelance', name: 'Freelance', color: 'sage', archived: false, order: 2 },
+  { id: 'personal', name: 'Personal', color: 'cyan', archived: false, order: 3 },
+  { id: 'learning', name: 'Learning', color: 'lavender', archived: false, order: 4 },
+];
+const catItems = () => get('meta', 'pmCategories')?.items || DEFAULT_CATEGORIES;
+export const categories = ({ includeArchived = false } = {}) => [...catItems()].filter((c) => includeArchived || !c.archived).sort((a, b) => (a.order || 0) - (b.order || 0));
+export const categoryOf = (id) => catItems().find((c) => c.id === id) || { id: id || '', name: id ? 'Other' : 'No category', color: 'plain', archived: false };
+export const projectCategoryId = (p) => (p && (p.categoryId || p.workspace)) || settings().defaultCategory;
+export const projectCategory = (p) => categoryOf(projectCategoryId(p));
+export const projectBilling = (p) => (p && typeof p.billing === 'boolean' ? p.billing : projectCategoryId(p) === 'freelance');
+function saveCats(items) { put('meta', { id: 'pmCategories', items }); }
+export function addCategory(name, color = 'plain') {
+  const items = catItems();
+  const c = { id: uid(), name: name.trim(), color, archived: false, order: Math.max(0, ...items.map((x) => x.order || 0)) + 1 };
+  saveCats([...items, c]);
+  return c;
+}
+export function updateCategory(id, ch) { saveCats(catItems().map((c) => (c.id === id ? { ...c, ...ch } : c))); }
+export const categoryProjectCount = (id) => liveProjects().filter((p) => projectCategoryId(p) === id).length;
 
 export const DELIVERABLE_STATUSES = [
   { id: 'not_started', label: 'Not started', tone: 'plain' },
@@ -44,7 +91,9 @@ export const DEFAULT_SETTINGS = {
   id: 'pmSettings',
   name: 'Denizar',
   weekStart: 1,
-  defaultWorkspace: 'freelance',
+  defaultCategory: 'freelance',
+  defaultWorkflow: 'general',
+  defaultProjectTemplate: '',
   defaultEstimate: 0,
   reminderTime: '09:00',
   pushLead: 0,
@@ -60,7 +109,7 @@ export const DEFAULT_SETTINGS = {
 export function settings() {
   const s = get('meta', 'pmSettings');
   if (!s) return DEFAULT_SETTINGS;
-  return { ...DEFAULT_SETTINGS, ...s, business: { ...DEFAULT_SETTINGS.business, ...(s.business || {}) } };
+  return { ...DEFAULT_SETTINGS, ...s, defaultCategory: s.defaultCategory || s.defaultWorkspace || DEFAULT_SETTINGS.defaultCategory, business: { ...DEFAULT_SETTINGS.business, ...(s.business || {}) } };
 }
 export const setSettings = (ch) => put('meta', { ...settings(), ...(typeof ch === 'function' ? ch(settings()) : ch), id: 'pmSettings' });
 export const meta = (id, fallback) => get('meta', id) || fallback;
@@ -197,8 +246,9 @@ export const liveProjects = () => all('pmProjects').filter((p) => !p.deletedAt);
 export const projectName = (id) => (id && get('pmProjects', id)?.name) || '';
 export function newProject(p = {}) {
   const s = settings();
+  const categoryId = p.categoryId || p.workspace || s.defaultCategory;
   return put('pmProjects', {
-    id: uid(), name: '', workspace: s.defaultWorkspace, clientId: null, stage: 'planned', startDate: null, shootDate: null, deadlineDate: null, deadlineTime: null,
+    id: uid(), name: '', categoryId, workflow: s.defaultWorkflow || 'general', billing: categoryId === 'freelance', clientId: null, stage: 'planned', startDate: null, shootDate: null, deadlineDate: null, deadlineTime: null,
     nextActionTaskId: null, brief: '', notes: '', links: [], deliverables: [], followUpDate: null, previewSentAt: null, archived: false, deletedAt: null, ...p,
   });
 }
@@ -219,6 +269,11 @@ export function projectDate(p) {
   if (p.shootDate && stageIdx(p.stage) <= stageIdx('shooting') && p.shootDate >= today()) return { label: 'Shoot', date: p.shootDate };
   if (p.deadlineDate && stageIdx(p.stage) < stageIdx('delivered')) return { label: 'Deadline', date: p.deadlineDate, time: p.deadlineTime };
   return null;
+}
+export function setWorkflow(id, wf) {
+  const p = get('pmProjects', id);
+  if (!p) return;
+  patch('pmProjects', id, { workflow: wf, stage: workflowStage(p.stage, wf) });
 }
 export function setStage(id, stage) {
   const p = get('pmProjects', id);
@@ -364,7 +419,8 @@ export function invoiceSummary(currency = settings().defaultCurrency) {
 // ---------- templates ----------
 export function applyProjectTemplate(tpl) {
   const d = tpl.data || {};
-  return { workspace: d.workspace || settings().defaultWorkspace, deliverables: (d.deliverables || []).map((title) => ({ id: uid(), title, spec: '', status: 'not_started', feedback: '', updatedAt: Date.now() })), _tasks: d.tasks || [] };
+  const categoryId = d.categoryId || d.workspace || settings().defaultCategory;
+  return { categoryId, workflow: d.workflow || settings().defaultWorkflow || 'general', billing: typeof d.billing === 'boolean' ? d.billing : categoryId === 'freelance', deliverables: (d.deliverables || []).map((title) => ({ id: uid(), title, spec: '', status: 'not_started', feedback: '', updatedAt: Date.now() })), _tasks: d.tasks || [] };
 }
 
 // ---------- calendar ----------

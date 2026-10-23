@@ -175,48 +175,73 @@ function UpdatePill() {
 export function openQuickAdd(opts = {}) {
   openOverlay((close) => <QuickAdd close={close} {...opts} />, { kind: 'sheet', quick: true });
 }
+const ESTIMATES = [15, 30, 45, 60, 90, 120, 180, 240];
+const estLabel = (m) => (m < 60 ? m + ' min' : m % 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m / 60 + ' h');
 function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
+  const t0 = today(), t1 = addDays(t0, 1);
+  // Starting mode follows what opened the sheet: a calendar slot passes its date and time.
+  const startMode = date ? (date === t0 ? 'today' : date === t1 ? 'tomorrow' : 'pick') : when === 'none' ? 'none' : when === 'tomorrow' ? 'tomorrow' : 'today';
   const [title, setTitle] = useState('');
-  const [w, setW] = useState(date ? 'date' : when);
+  const [mode, setMode] = useState(startMode);
+  const [workDate, setWorkDate] = useState(date || (startMode === 'tomorrow' ? t1 : t0));
+  const [workTime, setWorkTime] = useState(time || '');
   const [pid, setPid] = useState(projectId);
-  const [open, setOpen] = useState(false);
   const [dl, setDl] = useState({ date: '', time: '' });
-  const [est, setEst] = useState('');
-  const [steps, setSteps] = useState('');
+  const [est, setEst] = useState(M.settings().defaultEstimate || '');
+  const [steps, setSteps] = useState([]);
+  const [stepDraft, setStepDraft] = useState('');
   const [notes, setNotes] = useState('');
+  const [more, setMore] = useState(false);
   const project = pid && get('pmProjects', pid);
-  const workDate = w === 'today' ? today() : w === 'tomorrow' ? addDays(today(), 1) : w === 'date' ? date : null;
+  const pick = (m) => { setMode(m); if (m === 'today') setWorkDate(t0); else if (m === 'tomorrow') setWorkDate(t1); else if (m === 'pick' && (workDate === t0 || workDate === t1)) setWorkDate(addDays(t0, 2)); };
+  const scheduled = mode !== 'none';
+  const addStep = () => { const v = stepDraft.trim(); if (!v) return; setSteps([...steps, { id: Math.random().toString(36).slice(2, 10), title: v, done: false, order: steps.length }]); setStepDraft(''); };
   const add = () => {
     const tt = title.trim();
-    if (!tt) return toast('Write the task first.', { tone: 'warn' });
-    const subtasks = steps.split('\n').map((x) => x.trim()).filter(Boolean).map((t, i) => ({ id: Math.random().toString(36).slice(2, 10), title: t, done: false, order: i }));
-    const t = M.newTask({ title: tt, workDate, workTime: w === 'date' ? time || null : null, projectId: pid || null, deadlineDate: dl.date || null, deadlineTime: dl.date ? dl.time || null : null, estimateMinutes: est ? +est : M.settings().defaultEstimate || null, subtasks, notes });
+    if (!tt) { toast('Write the task first.', { tone: 'warn' }); const el = document.getElementById('qa-title'); if (el) el.focus(); return; }
+    const pending = stepDraft.trim() ? [...steps, { id: Math.random().toString(36).slice(2, 10), title: stepDraft.trim(), done: false, order: steps.length }] : steps;
+    const wd = scheduled ? workDate || null : null;
+    const t = M.newTask({ title: tt, workDate: wd, workTime: wd ? workTime || null : null, projectId: pid || null, deadlineDate: dl.date || null, deadlineTime: dl.date ? dl.time || null : null, estimateMinutes: est ? +est : null, subtasks: pending, notes });
     close();
-    toast(workDate ? 'Added for ' + relDay(workDate).toLowerCase() + (w === 'date' && time ? ' ' + time : '') : 'Added to Inbox', { action: { label: 'Open', run: () => navigate('/tasks/' + t.id) } });
+    toast(wd ? 'Added for ' + relDay(wd).toLowerCase() + (workTime ? ' ' + workTime : '') : 'Added to Inbox', { action: { label: 'Open', run: () => navigate('/tasks/' + t.id) } });
   };
-  const whenOpts = [{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'none', label: 'No schedule' }];
-  if (date) whenOpts.unshift({ id: 'date', label: relDay(date) + (time ? ' ' + time : '') });
+  const tiles = [{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'pick', label: 'Pick date' }, { id: 'none', label: 'No schedule', icon: 'clock' }];
   return (
     <>
       <SheetHead title="Add task" onClose={close} />
       <SheetBody>
         <div class="form">
-          <input class="qa-title" id="qa-title" value={title} placeholder="What needs doing?" onInput={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} ref={(el) => el && !el.dataset.f && (el.dataset.f = 1) && setTimeout(() => el.focus(), 60)} aria-label="Task title" />
-          <div><button class={'pill clickable ' + (project ? 't-butter' : 't-plain')} onClick={() => pickProject({ onPick: (p) => setPid(p ? p.id : null) })}><Icon name="folder" size={15} />{project ? project.name : 'Link project'}</button></div>
-          <div class="seg-pills" role="radiogroup" aria-label="Work schedule">
-            {whenOpts.map((o) => <button role="radio" aria-checked={w === o.id} class={'seg-pill' + (w === o.id ? ' on' : '')} onClick={() => setW(o.id)}>{o.id === 'today' || o.id === 'date' ? <Icon name="calendar" size={15} /> : null}{o.label}</button>)}
+          <input class="qa-title" id="qa-title" value={title} placeholder="What needs doing?" aria-label="Task title" onInput={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} autoFocus enterKeyHint="done" />
+          <Field label="Project (optional)">
+            <button type="button" class="qa-project" onClick={() => pickProject({ onPick: (p) => setPid(p ? p.id : null) })}>
+              {project ? <span class={'cat-dot t-' + M.projectCategory(project).color} aria-hidden="true" /> : <Icon name="folder" size={17} />}
+              <span class="grow ellipsis">{project ? project.name : 'No project'}</span><Icon name="chevronDown" size={15} />
+            </button>
+          </Field>
+          <div class="qa-tiles" role="radiogroup" aria-label="Work schedule">
+            {tiles.map((o) => <button type="button" role="radio" aria-checked={mode === o.id} class={'qa-tile' + (mode === o.id ? ' on' : '')} onClick={() => pick(o.id)}><Icon name={o.icon || 'calendar'} size={18} />{o.label}</button>)}
           </div>
-          <details class="more-details" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-            <summary>Add deadline & details<Icon name="chevronDown" size={16} /></summary>
-            <div class="form" style={{ marginTop: 12 }}>
-              <Field label="Deadline"><div class="dt-pair"><DateInput id="qa-dl" value={dl.date} onChange={(v) => setDl({ ...dl, date: v })} /><TimeInput id="qa-dlt" value={dl.time} onChange={(v) => setDl({ ...dl, time: v })} /></div></Field>
-              <Field label="Estimate (minutes)" htmlFor="qa-est"><NumberInput id="qa-est" value={est} onChange={setEst} step={15} placeholder="e.g. 60" /></Field>
-              <Field label="Subtasks, one per line" htmlFor="qa-steps"><TextArea id="qa-steps" value={steps} onInput={setSteps} minRows={2} placeholder={'Pick footage\nSound design'} /></Field>
-              <Field label="Notes" htmlFor="qa-notes"><TextArea id="qa-notes" value={notes} onInput={setNotes} minRows={2} /></Field>
+          {scheduled && (
+            <Field label="Work schedule">
+              <div class="dt-pair"><DateInput id="qa-wd" value={workDate} clearable={false} onChange={(v) => { setWorkDate(v); setMode(v === t0 ? 'today' : v === t1 ? 'tomorrow' : 'pick'); }} /><TimeInput id="qa-wt" value={workTime} onChange={setWorkTime} /></div>
+            </Field>
+          )}
+          <Field label="Estimate" htmlFor="qa-est">
+            <div class="select-wrap"><select id="qa-est" class="input select" value={est || ''} onChange={(e) => setEst(e.currentTarget.value)}><option value="">No estimate</option>{ESTIMATES.map((m) => <option value={m}>{estLabel(m)}</option>)}</select><Icon name="chevronDown" size={16} class="select-caret" /></div>
+          </Field>
+          <Field label="Deadline (optional)"><div class="dt-pair"><DateInput id="qa-dl" value={dl.date} onChange={(v) => setDl({ ...dl, date: v })} /><TimeInput id="qa-dlt" value={dl.time} onChange={(v) => setDl({ ...dl, time: v })} /></div></Field>
+          <Field label="Subtasks (optional)">
+            <div class="qa-steps">
+              {steps.map((st) => <div class="qa-step"><span class="qa-box" aria-hidden="true" /><input value={st.title} aria-label="Subtask" onInput={(e) => setSteps(steps.map((x) => (x.id === st.id ? { ...x, title: e.currentTarget.value } : x)))} /><button type="button" class="icon-btn ghost xs" aria-label="Remove subtask" onClick={() => setSteps(steps.filter((x) => x.id !== st.id))}><Icon name="x" size={13} /></button></div>)}
+              <div class="qa-step add"><Icon name="plus" size={15} /><input id="qa-step" value={stepDraft} placeholder="Add subtask" aria-label="Add subtask" onInput={(e) => setStepDraft(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addStep(); } }} /></div>
             </div>
+          </Field>
+          <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
+            <summary>Notes<Icon name="chevronDown" size={16} /></summary>
+            <div style={{ marginTop: 10 }}><TextArea id="qa-notes" value={notes} onInput={setNotes} minRows={2} placeholder="Context, links, what done looks like" /></div>
           </details>
           <div class="qa-hint">Just write it first. Details can follow.</div>
-          <button class="btn primary block lg" onClick={add}>Add task</button>
+          <div class="qa-actions"><button class="btn soft grow" onClick={close}>Cancel</button><button class="btn primary grow" onClick={add}>Add task</button></div>
           <div class="qa-more">
             <button class="btn outline" onClick={() => { close(); openProjectSheet(); }}><Icon name="plus" size={15} />Project</button>
             <button class="btn outline" onClick={() => { close(); openClientSheet(); }}><Icon name="plus" size={15} />Client</button>

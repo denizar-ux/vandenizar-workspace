@@ -51,10 +51,40 @@ function OverlayFrame({ o }) {
   if (kind === 'menu' && isDesktopNow() && o.opts.anchor) return <Popover o={o} />;
   return <PanelFrame o={o} kind={kind} />;
 }
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+// Keep keyboard focus inside the sheet while it is open, and give it back to the opener on close.
+function useFocusTrap(ref, o) {
+  useEffect(() => {
+    const opener = document.activeElement;
+    const el = ref.current;
+    if (!el) return;
+    const items = () => [...el.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null || x === document.activeElement);
+    const t = setTimeout(() => { if (!el.contains(document.activeElement)) { const auto = el.querySelector('[autofocus], [data-autofocus]'); (auto || items().find((x) => !x.classList.contains('sheet-close')) || el).focus({ preventScroll: true }); } }, 30);
+    const onKey = (e) => {
+      if (e.key !== 'Tab' || overlays[overlays.length - 1]?.id !== o.id) return;
+      const list = items();
+      if (!list.length) { e.preventDefault(); el.focus(); return; }
+      const first = list[0], last = list[list.length - 1];
+      if (!el.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    const onFocusIn = (e) => { if (overlays[overlays.length - 1]?.id === o.id && !el.contains(e.target)) { const f = items()[0]; (f || el).focus({ preventScroll: true }); } };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
+      try { if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true }); } catch {}
+    };
+  }, []);
+}
 function PanelFrame({ o, kind }) {
   const desktop = isDesktopNow();
   const ref = useRef();
   const drag = useRef(null);
+  useFocusTrap(ref, o);
   // swipe down to close on phones
   const onTouchStart = (e) => {
     if (desktop) return;
@@ -78,7 +108,7 @@ function PanelFrame({ o, kind }) {
   return (
     <div class={`ov ov-${kind} ${desktop ? 'is-desktop' : 'is-mobile'}`} style={{ zIndex: 100 + o.id }}>
       <div class="ov-scrim" onClick={() => !o.opts.persistent && o.close()} />
-      <div class={`ov-panel ov-panel-${kind} ${o.opts.wide ? 'wide' : ''}`} ref={ref} role="dialog" aria-modal="true" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+      <div class={`ov-panel ov-panel-${kind} ${o.opts.wide ? 'wide' : ''}`} ref={ref} role="dialog" aria-modal="true" tabIndex={-1} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
         {!desktop && kind !== 'dialog' && <div class="sheet-grab" aria-hidden="true"><span /></div>}
         {o.render(o.close)}
       </div>
@@ -120,7 +150,7 @@ export function SheetHead({ title, onClose, right, sub }) {
       </div>
       <div class="row gap-6">
         {right}
-        {onClose && <button class="icon-btn ghost" onClick={() => onClose()} aria-label={_t('Close')}><Icon name="x" /></button>}
+        {onClose && <button class="icon-btn ghost sheet-close" onClick={() => onClose()} aria-label={_t('Close')}><Icon name="x" /></button>}
       </div>
     </div>
   );
