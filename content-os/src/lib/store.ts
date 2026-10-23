@@ -1,6 +1,7 @@
 // In-memory store + persistence: Supabase sync (content_os_records) with a local cache and a persistent outbox.
 import { useSyncExternalStore } from 'react'
 import { COLLS, SCHEMA_VERSION, type Coll, type Collections, type Settings } from './types'
+import { DEFAULT_SLOTS, DEFAULT_PILLARS, DEFAULT_FORMATS } from './defaults'
 
 export type State = { [K in Coll]: Map<string, Collections[K]> }
 
@@ -22,6 +23,7 @@ export function defaultSettings(): Settings {
   const t = nowIso()
   return {
     id: 'settings', createdAt: t, updatedAt: t, displayName: 'Denizar', timezone: 'Asia/Jakarta', schemaVersion: SCHEMA_VERSION,
+    slots: DEFAULT_SLOTS.map((x) => ({ ...x })), pillars: DEFAULT_PILLARS.map((x) => ({ ...x })), formats: DEFAULT_FORMATS.map((x) => ({ ...x })),
   }
 }
 
@@ -157,7 +159,7 @@ export async function flush(): Promise<void> {
   if (P.mode === 'local' || !backend) {
     const ok = writeCache()
     if (P.mode === 'local') { dirty.clear(); saveOutbox() }
-    setP(ok ? { status: dirty.size ? 'offline' : 'saved', error: undefined } : { status: 'error', error: 'Penyimpanan browser penuh. Ekspor backup dulu.' })
+    setP(ok ? { status: dirty.size ? 'offline' : 'saved', error: undefined } : { status: 'error', error: 'Browser storage is full. Download a backup first.' })
     return
   }
   if (flushing) { flushTimer = setTimeout(flush, 400); return }
@@ -183,7 +185,7 @@ export async function flush(): Promise<void> {
     for (const [k, op] of batch) if (!dirty.has(k)) dirty.set(k, op)
     saveOutbox()
     const offline = (navigator as any).onLine === false || /fetch|network/i.test(String(e?.message))
-    setP(offline ? { status: 'offline' } : { status: 'error', error: e?.message || 'Gagal menyimpan' })
+    setP(offline ? { status: 'offline' } : { status: 'error', error: e?.message || "Couldn't save" })
     flushTimer = setTimeout(flush, offline ? 15000 : 30000)
   }
 }

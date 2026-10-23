@@ -4,9 +4,9 @@ export interface Route { path: string; parts: string[]; q: URLSearchParams }
 
 function parse(): Route {
   let h = location.hash.replace(/^#/, '')
-  if (!h.startsWith('/')) h = '/' + (h || 'overview')
+  if (!h.startsWith('/')) h = '/' + (h || 'today')
   const [p, qs] = h.split('?')
-  const path = p === '/' ? '/overview' : p
+  const path = p === '/' ? '/today' : p
   return { path, parts: path.split('/').filter(Boolean), q: new URLSearchParams(qs || '') }
 }
 
@@ -38,7 +38,7 @@ export function go(to: string, opts: { replace?: boolean } = {}) {
   if (opts.replace) { current = parse(); key = location.hash; subs.forEach((f) => f()) }
 }
 
-export function back(fallback = '/overview') {
+export function back(fallback = '/today') {
   if (history.length > 1 && (window as any).__navCount > 0) history.back()
   else go(fallback)
 }

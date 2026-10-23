@@ -9,21 +9,21 @@ export default function Login() {
   const [busy, setBusy] = useState(false)
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim() || !pw) { setErr('Isi email dan password.'); return }
+    if (!email.trim() || !pw) { setErr('Enter your email and password.'); return }
     setBusy(true); setErr('')
     const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: pw })
     setBusy(false)
-    if (error) setErr(error.message === 'Invalid login credentials' ? 'Email atau password salah.' : navigator.onLine === false ? 'Lagi offline. Sambungkan internet untuk masuk pertama kali.' : error.message)
+    if (error) setErr(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : navigator.onLine === false ? "You're offline. Connect to sign in the first time." : error.message)
   }
   return (
     <main className="main login">
-      <div className="brand-mini">vandenizar <span>/ content OS</span></div>
-      <h1 className="page-title mt24">Masuk.</h1>
-      <p className="muted mt8">Pakai akun Vandenizar Workspace. Data tersinkron antara iPhone dan Mac.</p>
+      <div className="brand-mini">vandenizar <span>/ content</span></div>
+      <h1 className="page-title mt24">Sign in.</h1>
+      <p className="muted mt8">Use your Vandenizar Workspace account. Everything syncs between your iPhone and Mac.</p>
       <form className="stack mt24" onSubmit={submit} noValidate>
         <Field label="Email" htmlFor="l-email"><input id="l-email" className="input" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Password" htmlFor="l-pw" error={err || undefined}><input id="l-pw" className="input" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
-        <Button type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? 'Masuk…' : 'Masuk'}</Button>
+        <Button type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
     </main>
   )

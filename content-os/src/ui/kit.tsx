@@ -74,7 +74,7 @@ export function Sheet({ open, onClose, title, children, footer, wide, label }: {
         {title != null && (
           <div className="sheet-head">
             <h2 className="sheet-title">{title}</h2>
-            <IconBtn label="Tutup" onClick={onClose}><X size={20} /></IconBtn>
+            <IconBtn label="Close" onClick={onClose}><X size={20} /></IconBtn>
           </div>
         )}
         <div className="sheet-body">{children}</div>
@@ -102,15 +102,15 @@ function AskHost() {
   return (
     <Sheet open onClose={() => done(null)} title={a.title} footer={
       <div className="row gap8 wrap end">
-        <Button variant="ghost" onClick={() => done(null)}>{a.cancel || 'Batal'}</Button>
+        <Button variant="ghost" onClick={() => done(null)}>{a.cancel || 'Cancel'}</Button>
         {a.extra && <Button onClick={() => done('extra')}>{a.extra}</Button>}
-        <Button variant={a.danger ? 'danger' : 'primary'} disabled={blocked} onClick={() => done('confirm')} data-autofocus={!a.typeToConfirm || undefined}>{a.confirm || 'Lanjut'}</Button>
+        <Button variant={a.danger ? 'danger' : 'primary'} disabled={blocked} onClick={() => done('confirm')} data-autofocus={!a.typeToConfirm || undefined}>{a.confirm || 'Continue'}</Button>
       </div>
     }>
       {a.body && <div className="muted body-text">{a.body}</div>}
       {a.typeToConfirm && (
         <label className="field">
-          <span className="field-label">Ketik <b>{a.typeToConfirm}</b> untuk menghapus permanen</span>
+          <span className="field-label">Type <b>{a.typeToConfirm}</b> to delete for good</span>
           <input id="typeconfirm" className="input" value={typed} onChange={(e) => setTyped(e.target.value)} data-autofocus autoComplete="off" />
         </label>
       )}
@@ -143,7 +143,7 @@ function ToastHost() {
 
 // ---------- Copy with fallback ----------
 const copyBus = createBus<{ text: string; title: string } | null>(null)
-export async function copyOrShow(text: string, title = 'Salin manual', okMsg = 'Tersalin') {
+export async function copyOrShow(text: string, title = 'Copy manually', okMsg = 'Copied') {
   const ok = await copyText(text)
   if (ok) toast(okMsg)
   else copyBus.set({ text, title })
@@ -156,7 +156,7 @@ function CopyHost() {
   if (!c) return null
   return (
     <Sheet open onClose={() => copyBus.set(null)} title={c.title}>
-      <p className="muted small">Browser menolak akses clipboard. Teks sudah dipilih, salin manual (tahan lalu Salin, atau Ctrl/Cmd+C).</p>
+      <p className="muted small">The browser blocked the clipboard. The text is selected, so copy it by hand (long-press then Copy, or Cmd+C).</p>
       <textarea ref={ref} className="input mono-ish" readOnly rows={8} value={c.text} onFocus={(e) => e.currentTarget.select()} />
     </Sheet>
   )
@@ -170,7 +170,7 @@ export function AutoTextarea({ value, onChange, minRows = 2, className, ...rest 
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return
     el.style.height = 'auto'
-    el.style.height = Math.max(el.scrollHeight + 2, minRows * 24 + 20) + 'px'
+    el.style.height = Math.max(el.scrollHeight + (el.classList.contains('input-plain') ? 0 : 2), minRows <= 1 ? 0 : minRows * 24 + 20) + 'px'
   }, [value, minRows])
   return <textarea ref={ref} className={cx('input textarea', className)} value={value} rows={minRows} onChange={(e) => onChange(e.target.value)} {...rest} />
 }
@@ -209,7 +209,7 @@ export function Chips<T extends string | number>({ value, onChange, options, lab
 
 // ---------- Menu ----------
 export interface MenuItem { label: string; icon?: React.ReactNode; onSelect: () => void; danger?: boolean; hidden?: boolean }
-export function Menu({ items, label = 'Menu lainnya', icon, className, trigger }: { items: MenuItem[]; label?: string; icon?: React.ReactNode; className?: string; trigger?: React.ReactNode }) {
+export function Menu({ items, label = 'More', icon, className, trigger }: { items: MenuItem[]; label?: string; icon?: React.ReactNode; className?: string; trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const btn = useRef<HTMLButtonElement>(null)
@@ -291,10 +291,10 @@ export function Badge({ children, tone }: { children: React.ReactNode; tone?: 'b
   return <span className={cx('badge', tone && 'badge-' + tone)}>{children}</span>
 }
 
-export function CopyBtn({ text, label = 'Salin', title }: { text: string; label?: string; title?: string }) {
+export function CopyBtn({ text, label = 'Copy', title }: { text: string; label?: string; title?: string }) {
   return <Button size="sm" icon={<Copy size={16} />} onClick={() => copyOrShow(text, title)}>{label}</Button>
 }
 
 export function Skeleton() {
-  return <div className="skel-wrap" aria-busy="true" aria-label="Memuat"><div className="skel" style={{ width: '40%' }} /><div className="skel" style={{ height: 120 }} /><div className="skel" /><div className="skel" /></div>
+  return <div className="skel-wrap" aria-busy="true" aria-label="Loading"><div className="skel" style={{ width: '40%' }} /><div className="skel" style={{ height: 120 }} /><div className="skel" /><div className="skel" /></div>
 }

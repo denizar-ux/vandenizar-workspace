@@ -1,66 +1,49 @@
 import React, { useState } from 'react'
-import { Instagram as IgIcon } from '../ui/IgIcon'
-import { AtSign, Trash2 } from 'lucide-react'
-import { put, remove } from '../lib/store'
-import { ideas, addIdea, ideaToThread, SLOTS, slotItem, fillSlot, thisWeek, firstLine } from '../lib/model'
-import { addDays } from '../lib/time'
+import { Lightbulb, Plus, Trash2, AtSign } from 'lucide-react'
+import { patch, put, remove } from '../lib/store'
+import { ideas, createPost, ideaToThread, firstLine, slotById } from '../lib/model'
+import { fmtDay } from '../lib/time'
 import { go } from '../lib/router'
-import { PageHead } from '../ui/Shell'
-import { Button, IconBtn, Sheet, Empty, toast } from '../ui/kit'
+import { PageHead, PhoneTop } from '../ui/Shell'
+import { Button, IconBtn, AutoTextarea, Empty, toast } from '../ui/kit'
+import { ScheduleSheet, firstFreeSlot } from '../ui/SlotPicker'
+import { openNew } from '../ui/QuickAdd'
+import { Instagram } from '../ui/IgIcon'
 import type { Item } from '../lib/types'
 
 export default function Ideas() {
-  const [text, setText] = useState('')
-  const [target, setTarget] = useState<Item | null>(null)
   const list = ideas()
-  const save = (e: React.FormEvent) => { e.preventDefault(); if (addIdea(text)) { setText(''); toast('Ide disimpan') } }
-  const week = thisWeek(), next = addDays(week, 7)
-
-  const toSlot = (w: string, slot: typeof SLOTS[number]['id']) => {
-    if (!target) return
-    fillSlot(w, slot, firstLine(target.text), target)
-    setTarget(null)
-    toast('Masuk ke jadwal', { label: 'Lihat', run: () => go(w === week ? '/week' : `/week?w=${w}`) })
-  }
-
+  const [toIg, setToIg] = useState<Item | null>(null)
+  const def = firstFreeSlot()
   return (
     <main className="main">
-      <PageHead title="Ide." sub="Simpan dulu, bentuknya nanti." />
-      <form className="composer" onSubmit={save}>
-        <input className="input-plain composer-input" aria-label="Ide baru" placeholder="Tulis ide, Enter buat simpan" value={text} onChange={(e) => setText(e.target.value)} />
-        {text.trim() && <Button type="submit" variant="primary" size="sm">Simpan</Button>}
-      </form>
-      <div className="stack mt16">
-        {list.length === 0 ? <Empty title="Belum ada ide" body="Ide yang belum dipakai nunggu di sini. Dari sini bisa langsung dimasukin ke slot minggu ini atau jadi draft Threads." /> : list.map((i) => (
-          <article key={i.id} className="idea">
-            <p className="body-text pre">{i.text}</p>
-            <div className="row gap8 wrap">
-              <Button size="sm" icon={<IgIcon size={15} />} onClick={() => setTarget(i)}>Jadi post IG</Button>
-              <Button size="sm" icon={<AtSign size={15} />} onClick={() => { ideaToThread(i.id); toast('Jadi draft Threads', { label: 'Lihat', run: () => go('/threads') }) }}>Jadi Threads</Button>
-              <span className="grow" />
-              <IconBtn label="Hapus ide" onClick={() => { const snap = { ...i }; remove('items', i.id); toast('Ide dihapus', { label: 'Batal', run: () => put('items', snap) }) }}><Trash2 size={17} /></IconBtn>
-            </div>
-          </article>
-        ))}
+      <PhoneTop />
+      <PageHead eyebrow="One inbox" title="Ideas." />
+      <div className="stack">
+        {list.map((i) => <IdeaCard key={i.id} it={i} onIg={() => setToIg(i)} />)}
+        {!list.length && <Empty icon={<Lightbulb size={24} />} title="Inbox is empty" body="Catch ideas here first. Turn them into an Instagram post or a Threads draft when you're ready." action={<Button variant="primary" icon={<Plus size={17} />} onClick={() => openNew({ kind: 'idea' })}>New idea</Button>} />}
       </div>
-
-      <Sheet open={!!target} onClose={() => setTarget(null)} title="Masukin ke slot mana?">
-        {[{ w: week, label: 'Minggu ini' }, { w: next, label: 'Minggu depan' }].map(({ w, label }) => (
-          <section key={w} className="stack" style={{ gap: 8 }}>
-            <h3 className="eyebrow">{label}</h3>
-            <div className="list">
-              {SLOTS.map((s) => {
-                const taken = slotItem(w, s.id)
-                return (
-                  <button key={s.id} className="li" disabled={!!taken} onClick={() => toSlot(w, s.id)}>
-                    <span className="li-main"><span className="li-title">{s.name}</span><span className="li-sub">{taken ? `Udah diisi: ${taken.title}` : 'Kosong'}</span></span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        ))}
-      </Sheet>
+      <ScheduleSheet open={!!toIg} onClose={() => setToIg(null)} title="Make it a post" week={null} slot={null} startWeek={def?.week} fresh
+        onPick={(w, s) => {
+          if (!toIg) return
+          const p = createPost({ title: firstLine(toIg.text), week: w, slot: s, fromIdea: toIg })
+          const sl = slotById(p.slot)
+          toast(sl && p.date ? `Added to ${sl.name}, ${fmtDay(p.date)}` : 'Added to Instagram', { label: 'Open', run: () => go('/post/' + p.id) })
+        }} />
     </main>
+  )
+}
+
+function IdeaCard({ it, onIg }: { it: Item; onIg: () => void }) {
+  return (
+    <article className="idea">
+      <AutoTextarea aria-label="Idea" className="input-plain idea-text" value={it.text || ''} minRows={1} onChange={(v) => patch('items', it.id, { text: v })} />
+      <div className="row gap8">
+        <Button size="sm" icon={<Instagram size={15} />} onClick={onIg}>Instagram</Button>
+        <Button size="sm" icon={<AtSign size={15} />} onClick={() => { const snap = { ...it }; const t = ideaToThread(it.id); toast('Moved to Threads drafts', { label: 'Undo', run: () => { if (t) remove('items', t.id); put('items', snap, { touch: false }) } }) }}>Threads</Button>
+        <span className="grow" />
+        <IconBtn label="Delete idea" onClick={() => { const snap = { ...it }; remove('items', it.id); toast('Idea deleted', { label: 'Undo', run: () => put('items', snap, { touch: false }) }) }}><Trash2 size={17} /></IconBtn>
+      </div>
+    </article>
   )
 }

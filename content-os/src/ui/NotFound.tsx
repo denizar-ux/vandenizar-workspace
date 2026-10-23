@@ -2,8 +2,8 @@ import React from 'react'
 import { go } from '../lib/router'
 import { Empty, Button } from './kit'
 
-export function NotFound({ what = 'Halaman', backTo = '/overview' }: { what?: string; backTo?: string }) {
+export function NotFound({ what = 'Page', backTo = '/today' }: { what?: string; backTo?: string }) {
   return (
-    <main className="main"><Empty title={`${what} tidak ditemukan`} body="Mungkin sudah dihapus permanen atau link-nya salah." action={<Button variant="primary" onClick={() => go(backTo)}>Kembali</Button>} /></main>
+    <main className="main"><Empty title={`${what} not found`} body="It may have been deleted, or the link is wrong." action={<Button variant="primary" onClick={() => go(backTo)}>Go back</Button>} /></main>
   )
 }

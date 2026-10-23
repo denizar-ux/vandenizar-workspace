@@ -3,12 +3,15 @@ import { useRoute, restoreScroll } from './lib/router'
 import { useVersion, P, flush } from './lib/store'
 import { Dock, Sidebar } from './ui/Shell'
 import { Hosts, Skeleton } from './ui/kit'
+import { QuickAddHost } from './ui/QuickAdd'
 import { NotFound } from './ui/NotFound'
 import Login from './pages/Login'
-import Week from './pages/Week'
-import ItemPage from './pages/Item'
+import Today from './pages/Today'
+import Instagram from './pages/Instagram'
+import Post from './pages/Post'
 import Threads from './pages/Threads'
 import Ideas from './pages/Ideas'
+import Calendar from './pages/Calendar'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -22,12 +25,14 @@ export default function App() {
   let editor = false
   if (!P.ready) page = <main className="main"><Skeleton /></main>
   else switch (a) {
-    case undefined: case 'week': case 'overview': page = <Week />; break
-    case 'item': editor = true; page = <ItemPage id={b} />; break
+    case undefined: case 'today': case 'week': case 'overview': page = <Today />; break
+    case 'instagram': page = <Instagram />; break
+    case 'post': case 'item': editor = true; page = <Post id={b} />; break
     case 'threads': page = <Threads />; break
     case 'ideas': page = <Ideas />; break
-    case 'settings': page = <Settings />; break
-    default: page = <NotFound backTo="/week" />
+    case 'calendar': page = <Calendar />; break
+    case 'settings': editor = true; page = <Settings />; break
+    default: page = <NotFound />
   }
 
   return (
@@ -35,6 +40,7 @@ export default function App() {
       <Sidebar />
       {page}
       <Dock hidden={editor} />
+      <QuickAddHost />
       <Hosts />
     </div>
   )
