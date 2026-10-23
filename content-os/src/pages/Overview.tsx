@@ -83,11 +83,11 @@ export default function Overview() {
           {next ? (
             <section className="hero" aria-label="Lanjutkan sekarang">
               <div className="row between">
-                <span className="eyebrow" style={{ color: 'rgba(17,17,15,.7)' }}>Lanjutkan sekarang{next.reason === 'overdue' ? ' · terlambat' : next.reason === 'pinned' ? ' · dipin' : ''}</span>
+                <span className="eyebrow" style={{ color: 'var(--ink-2)' }}>Lanjutkan sekarang{next.reason === 'overdue' ? ' · terlambat' : next.reason === 'pinned' ? ' · dipin' : ''}</span>
                 {next.reason === 'pinned' ? <Pin size={18} /> : <FileText size={20} />}
               </div>
               <h2 className="hero-title">{next.content?.title || next.task?.title}</h2>
-              <p className="small" style={{ color: 'rgba(17,17,15,.72)' }}>
+              <p className="small" style={{ color: 'var(--ink-2)' }}>
                 {next.content ? next.label : 'Tugas produksi'}{next.estimate ? ` · ${fmtDuration(next.estimate)}` : ''}
               </p>
               <Button variant="primary" size="lg" block className="mt8" onClick={startHero}>{heroCta(next)}<ArrowRight size={18} /></Button>
@@ -146,7 +146,7 @@ export default function Overview() {
               <div className="row gap8"><AlertTriangle size={20} /><h2 className="h3 grow">Perlu perhatian</h2><span className="small tnum">{attention.length}</span></div>
               <div className="col gap4">
                 {attention.slice(0, 3).map((a, i) => (
-                  <button key={i} className="tap row gap8" style={{ border: 0, background: 'rgba(255,255,255,.55)', borderRadius: 12, padding: '10px 12px', minHeight: 48 }}
+                  <button key={i} className="tap row gap8" style={{ border: 0, background: 'var(--wash)', borderRadius: 12, padding: '10px 12px', minHeight: 48 }}
                     onClick={() => {
                       if (a.kind === 'missed' && a.contentId) {
                         const c = get('contents', a.contentId)
@@ -155,7 +155,7 @@ export default function Overview() {
                     }}>
                     <span className="grow">
                       <span className="li-title" style={{ display: 'block' }}>{a.label}</span>
-                      <span className="li-sub" style={{ display: 'block', color: 'rgba(17,17,15,.7)' }}>{a.sub}</span>
+                      <span className="li-sub" style={{ display: 'block', color: 'var(--ink-2)' }}>{a.sub}</span>
                     </span>
                     <span className="small" style={{ fontWeight: 600 }}>Atur</span>
                   </button>

@@ -53,7 +53,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={editor ? 'app app-editor' : 'app'}>
       <Sidebar />
       <Suspense fallback={<main className="main"><Skeleton /></main>}>{page}</Suspense>
       <Dock hidden={editor} />

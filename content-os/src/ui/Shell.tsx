@@ -51,7 +51,7 @@ export function Dock({ hidden }: { hidden?: boolean }) {
             const I = t.icon
             return (
               <button key={t.id} className={cx('dock-item', tab === t.id && 'on')} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go('/' + t.id)}>
-                <I size={21} strokeWidth={1.8} /><span>{t.label}</span>
+                <span className="dock-ic"><I size={21} /></span><span>{t.label}</span>
               </button>
             )
           })}
@@ -66,7 +66,7 @@ export function Sidebar() {
   const tab = tabOf(r.parts)
   return (
     <aside className="side" aria-label="Navigasi utama">
-      <div className="side-brand">vandenizar <span>/ content OS</span></div>
+      <div className="side-brand"><b>vandenizar</b><span>Content OS</span></div>
       {TABS.map((t) => {
         const I = t.icon
         return (

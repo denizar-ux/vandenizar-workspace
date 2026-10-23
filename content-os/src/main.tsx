@@ -2,6 +2,10 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import App from './App'
+import { applyTheme } from './lib/theme'
+
+applyTheme()
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme()) } catch { /* old Safari */ }
 import { startSync, startLocal, signedOut, P } from './lib/store'
 import { ensureDefaults } from './lib/model'
 import { sb, makeBackend } from './lib/supabase'

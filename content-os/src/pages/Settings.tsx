@@ -9,6 +9,7 @@ import { loadDemo, clearDemo } from '../lib/seed'
 import { tzLabel, todayKey } from '../lib/time'
 import { back, go } from '../lib/router'
 import { SaveBadge } from '../ui/Shell'
+import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { Button, IconBtn, Field, Segmented, Sheet, ask, toast, copyOrShow, Accordion, Chips, cx } from '../ui/kit'
 import { TemplateEditor } from '../sheets/TemplateEditor'
 import { FORMAT_LABEL } from '../lib/templates'
@@ -23,6 +24,7 @@ export default function Settings() {
   const [imp, setImp] = useState<{ check: ImportCheck; name: string } | null>(null)
   const [exportText, setExportText] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [theme, setThemeState] = useState<Theme>(getTheme())
   const set = (p: Partial<typeof st>) => patch('settings', 'settings', p)
   const signOut = async () => {
     await flush()
@@ -67,6 +69,8 @@ export default function Settings() {
         <section className="card stack">
           <h2 className="h2">Profil & waktu</h2>
           {P.email && <div className="row gap8"><span className="grow small">Masuk sebagai <b>{P.email}</b></span><Button size="sm" variant="soft" icon={<LogOut size={16} />} onClick={signOut}>Keluar</Button></div>}
+          <div className="field"><span className="field-label">Tampilan</span>
+            <Segmented label="Tampilan" value={theme} onChange={(v) => { setThemeState(v); setTheme(v) }} options={[{ value: 'system', label: 'Ikuti perangkat' }, { value: 'light', label: 'Terang' }, { value: 'dark', label: 'Gelap' }]} /></div>
           <Field label="Nama di sapaan" htmlFor="s-name"><input id="s-name" className="input" value={st.displayName} onChange={(e) => set({ displayName: e.target.value })} /></Field>
           <Field label="Zona waktu" htmlFor="s-tz" hint={`Semua jadwal tampil dalam ${tzLabel(st.timezone)}. Waktu tersimpan dalam UTC.`}>
             <select id="s-tz" className="input" value={st.timezone} onChange={(e) => set({ timezone: e.target.value })}>
@@ -113,7 +117,7 @@ export default function Settings() {
 
         <section className="card stack">
           <h2 className="h2">Data & backup</h2>
-          <div className="banner" style={{ background: 'rgba(17,17,15,.04)' }}><Database size={18} />
+          <div className="banner" style={{ background: 'var(--surface-2)' }}><Database size={18} />
             <span className="grow small">{P.mode === 'synced'
               ? `Tersinkron ke database lewat akun ${P.email || ''}. Edit saat offline disimpan di perangkat ini dan dikirim begitu online. Ekspor backup berkala untuk salinan sendiri.`
               : 'Data tersimpan di browser perangkat ini. Ekspor backup untuk menjaga salinan.'}</span></div>

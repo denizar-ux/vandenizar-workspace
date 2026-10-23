@@ -171,7 +171,7 @@ function PostingDay({ d, items, compact }: { d: string; items: Content[]; compac
               {c.channel === 'threads' ? <AtSign size={22} /> : <Instagram size={22} />}
               <span className="grow" style={{ minWidth: 0 }}>
                 <span className="li-title clamp2" style={{ display: 'block' }}>{c.title}</span>
-                <span className="xs" style={{ color: 'rgba(17,17,15,.7)' }}>{c.channel === 'threads' ? 'Threads' : `Instagram ${c.format ? FORMAT_LABEL[c.format] : ''}`}</span>
+                <span className="xs" style={{ color: 'var(--ink-2)' }}>{c.channel === 'threads' ? 'Threads' : `Instagram ${c.format ? FORMAT_LABEL[c.format] : ''}`}</span>
               </span>
               <Badge tone={label === 'Terbit' ? 'ink' : undefined}>{label}</Badge>
             </button>
@@ -242,7 +242,7 @@ function Timeline({ d, today, blocks }: { d: string; today: string; blocks: { id
         const s = Math.max(mins(b.start), from * 60)
         const e = dateKey(b.end, z) !== d ? 24 * 60 : Math.max(mins(b.end), s + 20)
         const ln = lanes[b.id] || { lane: 0, of: 1 }
-        const style: React.CSSProperties = { top: ((s - from * 60) / 60) * H, height: Math.max(((e - s) / 60) * H - 3, 30), left: `calc(56px + (100% - 58px) * ${ln.lane / ln.of})`, right: 'auto', width: `calc((100% - 58px) / ${ln.of} - 4px)` }
+        const style: React.CSSProperties = { top: ((s - from * 60) / 60) * H, height: Math.max(((e - s) / 60) * H - 3, 46), left: `calc(56px + (100% - 58px) * ${ln.lane / ln.of})`, right: 'auto', width: `calc((100% - 58px) / ${ln.of} - 4px)` }
         const time = `${fmtTime(b.start, z, st.hour12)}–${fmtTime(b.end, z, st.hour12)}`
         if (b.batch) {
           const mem = batchMembers(b.batch.id)

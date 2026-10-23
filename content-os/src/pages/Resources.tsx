@@ -97,7 +97,7 @@ function ResourceCard({ r, open, onToggle }: { r: Resource; open: boolean; onTog
         <span className="ricon">{resIcon(r)}</span>
         <button className="tap grow" style={{ border: 0, background: 'none', padding: 0, minWidth: 0 }} onClick={onToggle} aria-expanded={open}>
           <span className="li-title" style={{ display: 'block' }}>{r.pinned && <Pin size={13} style={{ marginRight: 4 }} />}{r.title}</span>
-          <span className="xs" style={{ color: 'rgba(17,17,15,.68)' }}>{RTYPE_LABEL[r.type]}{r.type !== 'voice' && r.type !== 'hook' ? ' · ' + SKIND_LABEL[r.sourceKind] : ''}{used ? ` · dipakai ${used}` : ''}{r.demo ? ' · Contoh' : ''}</span>
+          <span className="xs" style={{ color: 'var(--ink-2)' }}>{RTYPE_LABEL[r.type]}{r.type !== 'voice' && r.type !== 'hook' ? ' · ' + SKIND_LABEL[r.sourceKind] : ''}{used ? ` · dipakai ${used}` : ''}{r.demo ? ' · Contoh' : ''}</span>
         </button>
         <Menu label={`Menu ${r.title}`} items={[
           { label: 'Edit', onSelect: () => openSheet({ type: 'resource', id: r.id }) },
@@ -123,8 +123,8 @@ export function ResourceBody({ r, img, url }: { r: Resource; img?: string; url: 
         </div>
       )}
       {r.body && <p className="body-text pre">{r.body}</p>}
-      {r.localPath && <div className="row gap8" style={{ background: 'rgba(255,255,255,.6)', borderRadius: 12, padding: '8px 8px 8px 12px' }}><Folder size={16} /><span className="grow small break">{r.localPath}</span><Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(r.localPath!, 'Salin lokasi', 'Lokasi tersalin')}>Salin lokasi</Button></div>}
-      {r.url && (url ? <div className="row gap8" style={{ background: 'rgba(255,255,255,.6)', borderRadius: 12, padding: '8px 8px 8px 12px' }}><Link2 size={16} /><a className="grow small break" href={url} target="_blank" rel="noopener noreferrer">{r.url}</a><IconBtn label="Salin link" onClick={() => copyOrShow(r.url!, 'Salin link')}><Copy size={15} /></IconBtn></div> : <p className="small muted break">{r.url} (link tidak valid)</p>)}
+      {r.localPath && <div className="row gap8" style={{ background: 'var(--wash)', borderRadius: 12, padding: '8px 8px 8px 12px' }}><Folder size={16} /><span className="grow small break">{r.localPath}</span><Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(r.localPath!, 'Salin lokasi', 'Lokasi tersalin')}>Salin lokasi</Button></div>}
+      {r.url && (url ? <div className="row gap8" style={{ background: 'var(--wash)', borderRadius: 12, padding: '8px 8px 8px 12px' }}><Link2 size={16} /><a className="grow small break" href={url} target="_blank" rel="noopener noreferrer">{r.url}</a><IconBtn label="Salin link" onClick={() => copyOrShow(r.url!, 'Salin link')}><Copy size={15} /></IconBtn></div> : <p className="small muted break">{r.url} (link tidak valid)</p>)}
       {r.tags.length > 0 && <div className="row gap6 wrap">{r.tags.map((t) => <Badge key={t}>{t}</Badge>)}</div>}
       <div className="row gap8">
         {r.type === 'hook' && <Button icon={<Copy size={16} />} onClick={() => copyOrShow(r.body, 'Salin hook')}>Salin</Button>}
@@ -142,7 +142,7 @@ function TemplateCard({ t, onEdit }: { t: Template; onEdit: () => void }) {
         <span className="ricon"><FileText size={20} /></span>
         <button className="tap grow" style={{ border: 0, background: 'none', padding: 0 }} onClick={onEdit}>
           <span className="li-title" style={{ display: 'block' }}>{t.name}</span>
-          <span className="xs" style={{ color: 'rgba(17,17,15,.68)' }}>Template · {t.compatibleFormats.map((f) => FORMAT_LABEL[f]).join(', ')}{t.builtin ? ' · bawaan' : ''}</span>
+          <span className="xs" style={{ color: 'var(--ink-2)' }}>Template · {t.compatibleFormats.map((f) => FORMAT_LABEL[f]).join(', ')}{t.builtin ? ' · bawaan' : ''}</span>
         </button>
         <Menu label={`Menu ${t.name}`} items={[
           { label: 'Edit', onSelect: onEdit },

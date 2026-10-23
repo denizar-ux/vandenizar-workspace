@@ -54,7 +54,7 @@ export default function Batch({ id }: { id: string }) {
       </div>
       <div className="stack-lg">
         <div className="card tint-lavender stack">
-          <span className="row gap8 eyebrow" style={{ color: 'rgba(17,17,15,.7)' }}><Layers size={16} />Satu setup, {contentCount} konten</span>
+          <span className="row gap8 eyebrow" style={{ color: 'var(--ink-2)' }}><Layers size={16} />Satu setup, {contentCount} konten</span>
           <label className="sr" htmlFor="b-name">Nama sesi</label>
           <input id="b-name" className="input input-plain content-title" value={b.title} onChange={(e) => patch('batches', b.id, { title: e.target.value })} />
           <p className="small">{fmtDay(dateKey(b.startAt, z))} · {fmtTime(b.startAt, z)}–{fmtTime(b.endAt, z)} {tzLabel(z)}</p>

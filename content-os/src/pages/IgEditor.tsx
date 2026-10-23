@@ -327,7 +327,7 @@ function ProductionTab({ c }: { c: Content }) {
       {nt ? (
         <section className="nexthero" aria-label="Langkah berikutnya">
           {nt.activity === 'write' ? <PenLine size={22} /> : nt.activity === 'edit' ? <Scissors size={22} /> : nt.activity === 'review' ? <CheckCircle2 size={22} /> : <Camera size={22} />}
-          <div className="grow"><div className="xs muted" style={{ color: 'rgba(17,17,15,.7)' }}>Langkah berikutnya</div><div className="h2">{nt.title}</div>{nt.estimateMinutes ? <div className="small">Estimasi {fmtDuration(nt.estimateMinutes)}</div> : null}</div>
+          <div className="grow"><div className="xs muted" style={{ color: 'var(--ink-2)' }}>Langkah berikutnya</div><div className="h2">{nt.title}</div>{nt.estimateMinutes ? <div className="small">Estimasi {fmtDuration(nt.estimateMinutes)}</div> : null}</div>
           <Button variant="primary" onClick={start}>{nt.status === 'doing' ? 'Lanjut' : 'Mulai'}</Button>
         </section>
       ) : tasks.length > 0 ? (

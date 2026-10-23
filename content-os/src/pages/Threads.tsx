@@ -37,7 +37,7 @@ export default function Threads() {
         <form className="card row gap8" style={{ padding: '6px 6px 6px 16px', borderRadius: 999 }} onSubmit={startQuick}>
           <PenLine size={18} className="muted" />
           <input className="input input-plain grow" aria-label="Mulai thread baru" placeholder="Lagi kepikiran apa?" value={quick} onChange={(e) => setQuick(e.target.value)} />
-          <IconBtn label="Mulai nulis" type="submit" style={{ background: 'var(--ink)', color: '#fff' }}><Plus size={20} /></IconBtn>
+          <IconBtn label="Mulai nulis" type="submit" style={{ background: 'var(--btn)', color: 'var(--btn-ink)' }}><Plus size={20} /></IconBtn>
         </form>
         <div className="seg" role="tablist" aria-label="Status">
           {([['draft', 'Draft'], ['ready', 'Siap'], ['published', 'Terbit']] as [T, string][]).map(([k, l]) => (
@@ -82,10 +82,8 @@ function ThreadCard({ c, tint }: { c: Content; tint: string }) {
         ]} />
       </div>
       <button className="tap" style={{ border: 0, background: 'none', padding: 0 }} onClick={open}>
-        <h3 className="h3 clamp2">{c.title}</h3>
-        {first && first.trim() !== c.title.replace(/…$/, '').trim() && <p className="small clamp3 mt8" style={{ color: 'rgba(17,17,15,.78)' }}>{first}</p>}
-        {!first && <p className="small mt8 muted">Masih kosong</p>}
-        <p className="xs mt8" style={{ color: 'rgba(17,17,15,.65)' }}>
+        <h3 className="h3 clamp3">{first || <span className="muted">Masih kosong</span>}</h3>
+        <p className="xs mt8" style={{ color: 'var(--ink-2)' }}>
           {c.status === 'published' && c.publishedAt ? `Terbit ${fmtDateTime(c.publishedAt, z, st.hour12)}` : c.plannedPublishAt ? `Rencana ${fmtDateTime(c.plannedPublishAt, z, st.hour12)} · diedit ${ago(c.updatedAt)}` : `Diedit ${ago(c.updatedAt)}`}
           {src && <> · <Link2 size={11} /> dari {'title' in src ? src.title : 'ide'}</>}
         </p>
