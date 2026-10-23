@@ -1,93 +1,63 @@
 import React, { useState } from 'react'
-import { PenLine, Plus, Search as SearchIcon, FileText, AtSign, Link2 } from 'lucide-react'
-import { all, get, settings, tz } from '../lib/store'
-import { postsOf, createThread } from '../lib/model'
-import { ago, fmtDateTime } from '../lib/time'
-import { go, useRoute, setQuery } from '../lib/router'
-import { pref, setPref } from '../lib/prefs'
-import { changeStage, lifecycleAction, duplicate } from '../lib/contentActions'
-import { Button, Menu, Empty, Badge, IconBtn, cx } from '../ui/kit'
-import type { Content } from '../lib/types'
-
-type T = 'draft' | 'ready' | 'published'
-const TINTS = ['tint-butter', 'tint-cyan', 'tint-lavender', 'tint-sage']
+import { Copy, Check, Trash2, RotateCcw } from 'lucide-react'
+import { patch, remove, put, tz } from '../lib/store'
+import { threadDrafts, threadPosted, addThread, markPosted } from '../lib/model'
+import { fmtShort, dateKey } from '../lib/time'
+import { PageHead } from '../ui/Shell'
+import { Button, IconBtn, AutoTextarea, Segmented, Empty, toast, copyOrShow } from '../ui/kit'
+import type { Item } from '../lib/types'
 
 export default function Threads() {
-  const r = useRoute()
-  const tab = (r.q.get('t') as T) || pref<T>('th:tab', 'draft')
-  const [q, setQ] = useState('')
-  const [quick, setQuick] = useState('')
-  const setTab = (t: T) => { setPref('th:tab', t); setQuery('t', t) }
-  const live = all('contents').filter((c) => c.channel === 'threads' && c.lifecycle === 'active')
-  const inTab = (t: T) => live.filter((c) => (t === 'draft' ? c.status === 'idea' || c.status === 'in_progress' : c.status === t))
-  const list = inTab(tab).filter((c) => !q || postsOf(c.id).some((p) => p.body.toLowerCase().includes(q.toLowerCase())) || c.title.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => tab === 'published' ? ((b.publishedAt || '') > (a.publishedAt || '') ? 1 : -1) : (b.updatedAt > a.updatedAt ? 1 : -1))
-
-  const startQuick = (e?: React.FormEvent) => {
-    e?.preventDefault()
-    const c = createThread({ text: quick })
-    setQuick('')
-    go(`/threads/${c.id}`)
-  }
+  const [text, setText] = useState('')
+  const [tab, setTab] = useState<'draft' | 'posted'>('draft')
+  const drafts = threadDrafts(), posted = threadPosted()
+  const list = tab === 'draft' ? drafts : posted
+  const save = () => { if (addThread(text)) { setText(''); setTab('draft'); toast('Draft disimpan') } }
 
   return (
     <main className="main">
-      <div className="pagehead" style={{ marginTop: 10 }}><h1 className="page-title">Threads.</h1></div>
-      <div className="stack">
-        <form className="card row gap8" style={{ padding: '6px 6px 6px 16px', borderRadius: 999 }} onSubmit={startQuick}>
-          <PenLine size={18} className="muted" />
-          <input className="input input-plain grow" aria-label="Mulai thread baru" placeholder="Lagi kepikiran apa?" value={quick} onChange={(e) => setQuick(e.target.value)} />
-          <IconBtn label="Mulai nulis" type="submit" style={{ background: 'var(--btn)', color: 'var(--btn-ink)' }}><Plus size={20} /></IconBtn>
-        </form>
-        <div className="seg" role="tablist" aria-label="Status">
-          {([['draft', 'Draft'], ['ready', 'Siap'], ['published', 'Terbit']] as [T, string][]).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={cx('seg-item', tab === k && 'on')} onClick={() => setTab(k)}>{l}<span className="seg-count">{inTab(k).length}</span></button>
-          ))}
+      <PageHead title="Threads." sub="Tulis draft, salin, terus tandai kalau udah diposting." />
+      <section className="composer">
+        <AutoTextarea aria-label="Draft Threads baru" value={text} minRows={3} placeholder="Lagi kepikiran apa?" onChange={setText}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save() }} />
+        <div className="row between">
+          <span className="xs muted tnum">{text.length ? `${text.length} karakter` : ''}</span>
+          <Button variant="primary" size="sm" disabled={!text.trim()} onClick={save}>Simpan draft</Button>
         </div>
-        <div className="search"><SearchIcon size={18} /><input className="input" aria-label="Cari tulisan" placeholder="Cari tulisan" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        {live.length === 0 ? (
-          <Empty icon={<AtSign size={22} />} title="Belum ada thread" body="Mulai dari satu kalimat. Judul tidak perlu." action={<Button variant="primary" onClick={() => startQuick()}>Mulai nulis</Button>} />
-        ) : list.length === 0 ? (
-          <Empty title={q ? 'Tidak ada tulisan yang cocok' : tab === 'draft' ? 'Tidak ada draft' : tab === 'ready' ? 'Belum ada yang siap' : 'Belum ada yang terbit'} action={q ? <Button onClick={() => setQ('')}>Reset pencarian</Button> : undefined} />
-        ) : list.map((c, i) => <ThreadCard key={c.id} c={c} tint={TINTS[i % TINTS.length]} />)}
+      </section>
+      <Segmented className="mt16" label="Status" value={tab} onChange={setTab} options={[{ value: 'draft', label: 'Draft', count: drafts.length }, { value: 'posted', label: 'Udah diposting', count: posted.length }]} />
+      <div className="stack mt16">
+        {list.length === 0
+          ? <Empty title={tab === 'draft' ? 'Belum ada draft' : 'Belum ada yang diposting'} body={tab === 'draft' ? 'Tulis di kolom atas. Satu draft = satu post.' : undefined} />
+          : list.map((t) => <ThreadCard key={t.id} t={t} />)}
       </div>
     </main>
   )
 }
 
-function ThreadCard({ c, tint }: { c: Content; tint: string }) {
-  const z = tz(), st = settings()
-  const posts = postsOf(c.id)
-  const n = posts.length
-  const first = posts.find((p) => p.body.trim())?.body || ''
-  const src = get('contents', c.sourceContentId) || get('ideas', c.sourceIdeaId)
-  const open = () => go(`/threads/${c.id}`)
+function ThreadCard({ t }: { t: Item }) {
+  const z = tz()
+  const posted = !!t.postedAt
   return (
-    <article className={cx('tcard on-tint', tint)}>
-      <div className="row gap8">
-        <FileText size={20} />
-        <Badge>{c.status === 'published' ? 'Terbit' : c.status === 'ready' ? 'Siap' : 'Draft'}</Badge>
-        {n > 1 && <Badge>Thread {n} post</Badge>}
-        {c.variantLabel && <Badge>{c.variantLabel}</Badge>}
-        {c.demo && <Badge tone="line">Contoh</Badge>}
-        <span className="grow" />
-        <Menu label={`Menu ${c.title}`} items={[
-          { label: 'Buka', onSelect: open },
-          { label: 'Tandai siap', onSelect: () => changeStage(c.id, 'ready'), hidden: c.status === 'ready' || c.status === 'published' },
-          { label: 'Kembalikan ke draft', onSelect: () => changeStage(c.id, 'in_progress'), hidden: c.status === 'idea' || c.status === 'in_progress' },
-          { label: 'Duplikasi', onSelect: () => duplicate(c.id) },
-          { label: 'Parkir', onSelect: () => lifecycleAction(c.id, 'parked') },
-          { label: 'Arsip', onSelect: () => lifecycleAction(c.id, 'archived') },
-          { label: 'Hapus', danger: true, onSelect: () => lifecycleAction(c.id, 'deleted') },
-        ]} />
+    <article className={posted ? 'tcard tcard-posted' : 'tcard'}>
+      {posted
+        ? <p className="body-text pre">{t.text}</p>
+        : <AutoTextarea aria-label="Isi draft" className="input-plain tcard-text" value={t.text || ''} minRows={2} onChange={(v) => patch('items', t.id, { text: v })} />}
+      <div className="row gap8 wrap">
+        {posted ? (
+          <>
+            <span className="small muted grow"><Check size={14} style={{ verticalAlign: -2 }} /> Diposting {fmtShort(dateKey(t.postedAt!, z), z)}</span>
+            <Button size="sm" variant="ghost" icon={<RotateCcw size={15} />} onClick={() => markPosted(t.id, false)}>Balikin ke draft</Button>
+          </>
+        ) : (
+          <>
+            <Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(t.text || '', 'Salin draft')}>Salin</Button>
+            <Button size="sm" variant="primary" icon={<Check size={15} />} onClick={() => { markPosted(t.id, true); toast('Ditandai udah diposting', { label: 'Batal', run: () => markPosted(t.id, false) }) }}>Udah posting</Button>
+            <span className="grow" />
+            <IconBtn label="Hapus draft" onClick={() => { const snap = { ...t }; remove('items', t.id); toast('Draft dihapus', { label: 'Batal', run: () => put('items', snap) }) }}><Trash2 size={17} /></IconBtn>
+          </>
+        )}
       </div>
-      <button className="tap" style={{ border: 0, background: 'none', padding: 0 }} onClick={open}>
-        <h3 className="h3 clamp3">{first || <span className="muted">Masih kosong</span>}</h3>
-        <p className="xs mt8" style={{ color: 'var(--ink-2)' }}>
-          {c.status === 'published' && c.publishedAt ? `Terbit ${fmtDateTime(c.publishedAt, z, st.hour12)}` : c.plannedPublishAt ? `Rencana ${fmtDateTime(c.plannedPublishAt, z, st.hour12)} · diedit ${ago(c.updatedAt)}` : `Diedit ${ago(c.updatedAt)}`}
-          {src && <> · <Link2 size={11} /> dari {'title' in src ? src.title : 'ide'}</>}
-        </p>
-      </button>
     </article>
   )
 }

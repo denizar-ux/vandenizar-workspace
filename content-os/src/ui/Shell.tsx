@@ -1,63 +1,37 @@
 import React from 'react'
-import { Home, CalendarDays, AtSign, FolderOpen, Plus, Search, Settings as Gear, Archive, Lightbulb, Check, Loader, AlertCircle, CloudOff } from 'lucide-react'
-import { Instagram } from './icons'
+import { CalendarDays, AtSign, Lightbulb, Settings as Gear, Check, Loader, AlertCircle, CloudOff } from 'lucide-react'
 import { go, useRoute } from '../lib/router'
 import { P, retrySave } from '../lib/store'
-import { createInstagram, createThread } from '../lib/model'
-import { openSheet } from './bus'
-import { cx, IconBtn } from './kit'
+import { cx } from './kit'
 
 export const TABS = [
-  { id: 'overview', label: 'Overview', icon: Home },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'instagram', label: 'Instagram', icon: Instagram },
+  { id: 'week', label: 'Minggu ini', icon: CalendarDays },
   { id: 'threads', label: 'Threads', icon: AtSign },
-  { id: 'resources', label: 'Resources', icon: FolderOpen },
+  { id: 'ideas', label: 'Ide', icon: Lightbulb },
 ] as const
 
 export function tabOf(parts: string[]): string {
-  const p = parts[0] || 'overview'
-  if (p === 'ideas' || p === 'settings' || p === 'archive') return 'overview'
-  if (p === 'batches') return 'calendar'
-  if (p === 'content') return 'instagram'
-  return p
+  const p = parts[0] || 'week'
+  return p === 'item' ? 'week' : p
 }
-
-export function fabAction(path: string, q: URLSearchParams) {
-  const p = path.split('/').filter(Boolean)[0] || 'overview'
-  if (p === 'instagram') { const c = createInstagram(); go(`/instagram/${c.id}?tab=write`); return }
-  if (p === 'threads') { const c = createThread(); go(`/threads/${c.id}`); return }
-  if (p === 'resources') { openSheet({ type: 'resource' }); return }
-  if (p === 'calendar') {
-    if (q.get('mode') === 'production') openSheet({ type: 'task', defaults: {} })
-    else openSheet({ type: 'schedulePost', date: q.get('d') || undefined })
-    return
-  }
-  openSheet({ type: 'capture' })
-}
-
-const FAB_LABEL: Record<string, string> = { overview: 'Tangkap ide', calendar: 'Tambah ke kalender', instagram: 'Draft Instagram baru', threads: 'Tulis thread baru', resources: 'Tambah bahan' }
 
 export function Dock({ hidden }: { hidden?: boolean }) {
   const r = useRoute()
   const tab = tabOf(r.parts)
   if (hidden) return null
   return (
-    <>
-      <button className="fab" aria-label={FAB_LABEL[tab] || 'Tambah'} title={FAB_LABEL[tab]} onClick={() => fabAction(r.path, r.q)}><Plus size={26} /></button>
-      <nav className="dock" aria-label="Navigasi utama">
-        <div className="dock-inner">
-          {TABS.map((t) => {
-            const I = t.icon
-            return (
-              <button key={t.id} className={cx('dock-item', tab === t.id && 'on')} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go('/' + t.id)}>
-                <span className="dock-ic"><I size={21} /></span><span>{t.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </nav>
-    </>
+    <nav className="dock dock-3" aria-label="Navigasi utama">
+      <div className="dock-inner">
+        {TABS.map((t) => {
+          const I = t.icon
+          return (
+            <button key={t.id} className={cx('dock-item', tab === t.id && 'on')} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go('/' + t.id)}>
+              <span className="dock-ic"><I size={21} /></span><span>{t.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </nav>
   )
 }
 
@@ -69,19 +43,10 @@ export function Sidebar() {
       <div className="side-brand"><b>vandenizar</b><span>Content OS</span></div>
       {TABS.map((t) => {
         const I = t.icon
-        return (
-          <button key={t.id} className={cx('side-item', tab === t.id && r.parts[0] !== 'settings' && r.parts[0] !== 'archive' && r.parts[0] !== 'ideas' && 'on')} onClick={() => go('/' + t.id)}>
-            <I size={19} strokeWidth={1.8} />{t.label}
-          </button>
-        )
+        return <button key={t.id} className={cx('side-item', tab === t.id && 'on')} onClick={() => go('/' + t.id)}><I size={19} />{t.label}</button>
       })}
-      <div className="side-sep" />
-      <button className={cx('side-item', r.parts[0] === 'ideas' && 'on')} onClick={() => go('/ideas')}><Lightbulb size={19} strokeWidth={1.8} />Inbox ide</button>
-      <button className="side-item" onClick={() => openSheet({ type: 'search' })}><Search size={19} strokeWidth={1.8} />Cari</button>
-      <button className="btn btn-primary side-cta" onClick={() => fabAction(r.path, r.q)}><Plus size={18} />{FAB_LABEL[tab] || 'Tambah'}</button>
       <div className="side-foot">
-        <button className={cx('side-item', r.parts[0] === 'archive' && 'on')} onClick={() => go('/archive')}><Archive size={19} strokeWidth={1.8} />Arsip</button>
-        <button className={cx('side-item', r.parts[0] === 'settings' && 'on')} onClick={() => go('/settings')}><Gear size={19} strokeWidth={1.8} />Settings</button>
+        <button className={cx('side-item', tab === 'settings' && 'on')} onClick={() => go('/settings')}><Gear size={19} />Settings</button>
         <div className="mt8" style={{ padding: '0 12px' }}><SaveBadge /></div>
       </div>
     </aside>
@@ -90,22 +55,21 @@ export function Sidebar() {
 
 export function SaveBadge() {
   const s = P
-  if (s.status === 'error') return (
-    <span className="save err" role="alert"><AlertCircle size={15} />Gagal menyimpan <button className="linkbtn" style={{ color: 'inherit' }} onClick={retrySave}>Coba lagi</button></span>
-  )
+  if (s.status === 'error') return <span className="save err" role="alert"><AlertCircle size={15} />Gagal menyimpan <button className="linkbtn" style={{ color: 'inherit' }} onClick={retrySave}>Coba lagi</button></span>
   if (s.status === 'saving') return <span className="save" aria-live="polite"><Loader size={14} />Menyimpan…</span>
-  if (s.status === 'offline') return <span className="save" aria-live="polite"><CloudOff size={15} />Offline · tersimpan di perangkat ini</span>
-  const where = s.mode === 'synced' ? 'Tersinkron' : s.mode === 'local' ? 'Tersimpan di perangkat ini' : 'Belum tersimpan'
-  return <span className="save" aria-live="polite"><Check size={15} />{where}</span>
+  if (s.status === 'offline') return <span className="save" aria-live="polite"><CloudOff size={15} />Offline, tersimpan di HP</span>
+  return <span className="save" aria-live="polite"><Check size={15} />{s.mode === 'synced' ? 'Tersinkron' : 'Tersimpan di perangkat ini'}</span>
 }
 
-export function PageTop({ right }: { right?: React.ReactNode }) {
+/** Page header: big light title like the Workspace, optional actions on the right. */
+export function PageHead({ title, sub, right }: { title: string; sub?: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="topbar">
-      <div className="brand-mini grow">vandenizar <span>/ content OS</span></div>
-      {right}
-      <IconBtn label="Cari" onClick={() => openSheet({ type: 'search' })}><Search size={21} /></IconBtn>
-      <IconBtn label="Settings" onClick={() => go('/settings')}><Gear size={21} /></IconBtn>
-    </div>
+    <header className="pagehead">
+      <div className="grow">
+        <h1 className="page-title">{title}</h1>
+        {sub && <p className="muted mt8">{sub}</p>}
+      </div>
+      {right && <div className="row gap4" style={{ flex: 'none' }}>{right}</div>}
+    </header>
   )
 }

@@ -24,29 +24,29 @@ describe('sync', () => {
     const srv = fakeServer()
     await store.startSync(srv.backend, 'x@y.z')
     expect(store.P.mode).toBe('synced')
-    store.put('ideas', { id: 'i1', text: 'satu', convertedContentIds: [], lifecycle: 'active', createdAt: '', updatedAt: '' })
+    store.put('items', { id: 'i1', text: 'satu', kind: 'idea', createdAt: '', updatedAt: '' })
     await store.flush()
-    expect(srv.rows.get('ideas/i1')!.data.text).toBe('satu')
+    expect(srv.rows.get('items/i1')!.data.text).toBe('satu')
 
     // remote edit (another device) with a newer timestamp
-    srv.remoteWrite({ coll: 'ideas', id: 'i1', deleted: false, data: { ...store.get('ideas', 'i1'), text: 'dua', updatedAt: '2999-01-01T00:00:00.000Z' } })
-    expect(store.get('ideas', 'i1')!.text).toBe('dua')
+    srv.remoteWrite({ coll: 'items', id: 'i1', deleted: false, data: { ...store.get('items', 'i1'), text: 'dua', updatedAt: '2999-01-01T00:00:00.000Z' } })
+    expect((store.get('items', 'i1') as any).text).toBe('dua')
 
     // a local unsent edit is never overwritten by an incoming row
-    store.patch('ideas', 'i1', { text: 'tiga' })
-    srv.remoteWrite({ coll: 'ideas', id: 'i1', deleted: false, data: { ...store.get('ideas', 'i1'), text: 'remote', updatedAt: '3999-01-01T00:00:00.000Z' } })
-    expect(store.get('ideas', 'i1')!.text).toBe('tiga')
+    store.patch('items', 'i1', { text: 'tiga' })
+    srv.remoteWrite({ coll: 'items', id: 'i1', deleted: false, data: { ...store.get('items', 'i1'), text: 'remote', updatedAt: '3999-01-01T00:00:00.000Z' } })
+    expect((store.get('items', 'i1') as any).text).toBe('tiga')
     await store.flush()
-    expect(srv.rows.get('ideas/i1')!.data.text).toBe('tiga')
+    expect(srv.rows.get('items/i1')!.data.text).toBe('tiga')
 
     // deletion travels as a tombstone
-    store.remove('ideas', 'i1')
+    store.remove('items', 'i1')
     await store.flush()
-    expect(srv.rows.get('ideas/i1')!.deleted).toBe(true)
-    srv.remoteWrite({ coll: 'ideas', id: 'i2', deleted: false, data: { id: 'i2', text: 'x', convertedContentIds: [], lifecycle: 'active', createdAt: '', updatedAt: '2026-01-01T00:00:00.000Z' } })
-    expect(store.get('ideas', 'i2')).toBeTruthy()
-    srv.remoteWrite({ coll: 'ideas', id: 'i2', deleted: true, data: {} })
-    expect(store.get('ideas', 'i2')).toBeUndefined()
+    expect(srv.rows.get('items/i1')!.deleted).toBe(true)
+    srv.remoteWrite({ coll: 'items', id: 'i2', deleted: false, data: { id: 'i2', text: 'x', kind: 'idea', createdAt: '', updatedAt: '2026-01-01T00:00:00.000Z' } })
+    expect(store.get('items', 'i2')).toBeTruthy()
+    srv.remoteWrite({ coll: 'items', id: 'i2', deleted: true, data: {} })
+    expect(store.get('items', 'i2')).toBeUndefined()
   })
 
   it('keeps edits in the outbox when the push fails', async () => {
@@ -55,13 +55,13 @@ describe('sync', () => {
     let fail = true
     const b = { ...srv.backend, push: async (r: any) => { if (fail) throw new Error('Failed to fetch'); return srv.backend.push(r) } }
     await store.startSync(b, 'x@y.z')
-    store.put('ideas', { id: 'k', text: 'offline', convertedContentIds: [], lifecycle: 'active', createdAt: '', updatedAt: '' })
+    store.put('items', { id: 'k', text: 'offline', kind: 'idea', createdAt: '', updatedAt: '' })
     await store.flush()
     expect(store.P.status).toBe('offline')
     expect(store.pendingCount()).toBe(1)
     fail = false
     await store.flush()
-    expect(srv.rows.get('ideas/k')!.data.text).toBe('offline')
+    expect(srv.rows.get('items/k')!.data.text).toBe('offline')
     expect(store.pendingCount()).toBe(0)
   })
 })

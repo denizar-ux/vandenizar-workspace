@@ -20,7 +20,7 @@ async function begin(user: { id: string; email?: string } | null | undefined) {
   await startSync(makeBackend(user.id), user.email)
   ensureDefaults()
 }
-if (import.meta.env.VITE_LOCAL === '1') { startLocal(); ensureDefaults(); started = true; import('./lib/store').then((m) => { (window as any).__S = m }) }
+if (import.meta.env.VITE_LOCAL === '1') { startLocal(); ensureDefaults(); started = true; import('./lib/store').then((m) => { (window as any).__S = m }); import('./lib/model').then((m) => { (window as any).__M = m }) }
 else sb.auth.getSession().then(({ data }) => begin(data.session?.user)).catch(() => signedOut())
 sb.auth.onAuthStateChange((evt, session) => {
   if (evt === 'SIGNED_IN') begin(session?.user)

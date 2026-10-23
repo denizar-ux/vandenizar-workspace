@@ -21,10 +21,7 @@ export const nowIso = () => new Date().toISOString()
 export function defaultSettings(): Settings {
   const t = nowIso()
   return {
-    id: 'settings', createdAt: t, updatedAt: t, displayName: 'Denizar', timezone: 'Asia/Jakarta',
-    hour12: false, defaultEstimate: 30, threadsCharLimit: null,
-    instagramUrl: 'https://www.instagram.com/', threadsUrl: 'https://www.threads.net/',
-    pinnedContentId: null, demoLoaded: false, schemaVersion: SCHEMA_VERSION,
+    id: 'settings', createdAt: t, updatedAt: t, displayName: 'Denizar', timezone: 'Asia/Jakarta', schemaVersion: SCHEMA_VERSION,
   }
 }
 
