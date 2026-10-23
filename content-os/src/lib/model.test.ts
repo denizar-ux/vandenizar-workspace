@@ -126,6 +126,21 @@ describe('stage dates and today', () => {
   })
 })
 
+describe('auto plan', () => {
+  it('fills only empty future script/film/edit dates for a new post', () => {
+    const p = M.createPost({ title: 'x' })
+    S_put_date(p.id, '2026-10-30')
+    M.autoPlan(p.id, '2026-10-24')
+    expect(get('items', p.id)).toMatchObject({ scriptDate: '2026-10-27', filmDate: '2026-10-28', editDate: '2026-10-29' })
+    const q = M.createPost({ title: 'y' })
+    S_put_date(q.id, '2026-10-25')
+    M.autoPlan(q.id, '2026-10-24')
+    expect(get('items', q.id)).toMatchObject({ scriptDate: null, filmDate: null, editDate: '2026-10-24' })
+  })
+})
+
+function S_put_date(id: string, d: string) { put('items', { ...get('items', id)!, date: d }) }
+
 describe('threads, resources and old ideas', () => {
   it('schedules threads with a WIB time, lists them on the day and as overdue', () => {
     const a = M.addThread('later one', '2026-10-24', '19:00')!

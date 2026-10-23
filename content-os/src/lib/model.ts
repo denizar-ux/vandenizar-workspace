@@ -120,7 +120,8 @@ export function createPost({ title, week = null, slot = null, notes = '' }: NewP
     hook: '', script: '', caption: '', notes,
     pillar: s?.pillar ?? null, format: s?.format ?? formats()[0]?.id ?? null, postedAt: null, createdAt: '', updatedAt: '',
   })
-  return it
+  autoPlan(it.id)
+  return get('items', it.id)!
 }
 
 /** Put a post into a slot of a week (or unschedule with slot = null). */
@@ -129,6 +130,7 @@ export function schedule(id: string, week: string | null, slot: string | null) {
   if (!s || !week) { patch('items', id, { week: null, slot: null, date: null }); return }
   const it = get('items', id)
   patch('items', id, { week, slot: s.id, date: addDays(week, s.day), pillar: it?.pillar ?? s.pillar ?? null })
+  autoPlan(id)
 }
 /** The slot a post date belongs to: the free slot on that weekday, else the current slot if it is free that week. */
 function slotForDate(it: Item, date: string): string | null {
@@ -230,6 +232,25 @@ export function dateConflicts(it: Item): string[] {
     if (a && b && a > b) out.push(`${TASKS[i].label} (${fmtDay(a)}) is after ${TASKS[j].label} (${fmtDay(b)})`)
   }
   return out
+}
+
+/** Quiet default for new or moved posts: fill only EMPTY script/film/edit dates at 3/2/1 days before the post,
+ *  skip any that would land in the past, never break the order, never touch stages already done. */
+export function autoPlan(id: string, t = today()) {
+  const it = get('items', id); if (!it || !it.date) return
+  const p: Partial<Item> = {}
+  let next = it.date
+  for (const [field, off] of [['editDate', 1], ['filmDate', 2], ['scriptDate', 3]] as [DateField, number][]) {
+    const task = TASKS.find((x) => x.field === field)!
+    const cur = it[field]
+    if (cur) { next = cur < next ? cur : next; continue }
+    if (isTaskDone(it, task)) continue
+    const d = addDays(it.date, -off)
+    if (d < t || d > next) continue
+    ;(p as any)[field] = d
+    next = d
+  }
+  if (Object.keys(p).length) patch('items', id, p)
 }
 
 /** Fill script/film/edit backwards from the post date (3, 2, 1 days before), never before today,
