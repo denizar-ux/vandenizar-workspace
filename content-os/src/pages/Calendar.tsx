@@ -63,9 +63,14 @@ export default function Calendar() {
                     {x?.threads.map((th) => <span key={th.id} className={cx('dot dot-thread', th.postedAt && 'dot-done')} />)}
                     {x?.empty.map((e) => <span key={'e' + e.slot.id} className="dot dot-empty" />)}
                   </span>
-                  {x?.tasks.map((k) => <span key={k.it.id + k.task.key} className={cx('mchip', k.task.key === 'post' ? 'bg-' + (slotById(k.it.slot)?.tint || 'none') : 'mchip-film', k.done && 'mchip-done', !k.done && k.date < t && 'mchip-late')}>{k.task.key === 'post' ? '' : k.task.label + ': '}{firstLine(k.it.title) || 'Untitled'}</span>)}
-                  {x?.threads.map((th) => <span key={th.id} className={cx('mchip mchip-thread', th.postedAt && 'mchip-done')}>Threads{th.time ? ' ' + th.time.replace(':', '.') : ''}</span>)}
-                  {x?.empty.map((e) => <span key={'e' + e.slot.id} className="mchip mchip-empty">{e.slot.name}</span>)}
+                  {(() => {
+                    const chips: React.ReactNode[] = [
+                      ...(x?.tasks || []).map((k) => <span key={k.it.id + k.task.key} className={cx('mchip', k.task.key === 'post' ? 'bg-' + (slotById(k.it.slot)?.tint || 'none') : 'mchip-film', k.done && 'mchip-done', !k.done && k.date < t && 'mchip-late')}>{k.task.key === 'post' ? '' : k.task.label + ': '}{firstLine(k.it.title) || 'Untitled'}</span>),
+                      ...(x?.threads || []).map((th) => <span key={th.id} className={cx('mchip mchip-thread', th.postedAt && 'mchip-done')}>Threads{th.time ? ' ' + th.time.replace(':', '.') : ''}</span>),
+                      ...(x?.empty || []).map((e) => <span key={'e' + e.slot.id} className="mchip mchip-empty">{e.slot.name}</span>),
+                    ]
+                    return <>{chips.slice(0, 3)}{chips.length > 3 && <span className="mmore">+{chips.length - 3} more</span>}</>
+                  })()}
                 </button>
               )
             })}
