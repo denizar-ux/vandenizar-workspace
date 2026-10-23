@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
-import { ArrowLeft, LogOut, Download, Plus, ChevronRight, Trash2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { ArrowLeft, LogOut, Download, Plus, ChevronRight, Trash2, Bell, BellOff } from 'lucide-react'
 import { settings, patch, P, flush, pendingCount, clearLocal, serialize, uid } from '../lib/store'
-import { slots, newSlot, saveSlot, deleteSlot, pillars, formats, saveTag, deleteTag, tagUsage, pillarName, formatName, igItems } from '../lib/model'
+import { slots, newSlot, saveSlot, deleteSlot, pillars, formats, saveTag, deleteTag, tagUsage, pillarName, formatName, igItems, notifyPrefs, setNotify } from '../lib/model'
 import { saveFile } from '../lib/download'
 import { todayKey, WEEKDAYS, WEEKDAYS_S } from '../lib/time'
 import { back } from '../lib/router'
@@ -10,6 +10,7 @@ import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { PageHead, SaveBadge } from '../ui/Shell'
 import { Button, IconBtn, Field, Segmented, Chips, Sheet, ask, toast, copyOrShow, cx } from '../ui/kit'
 import { TINTS, type Slot, type Tag } from '../lib/types'
+import { pushSupported, pushStatus, enablePush, disablePush, testPush, isIOS, isStandalone } from '../lib/push'
 
 type TagKind = 'pillars' | 'formats'
 
@@ -55,6 +56,8 @@ export default function Settings() {
 
         <TagSection kind="pillars" title="Pillars" sub="What your content is about. Used to filter Instagram." list={pillars()} onEdit={(t, isNew) => setTag({ kind: 'pillars', t, isNew })} />
         <TagSection kind="formats" title="Formats" list={formats()} onEdit={(t, isNew) => setTag({ kind: 'formats', t, isNew })} />
+
+        <Notifications />
 
         <section className="stack">
           <h2 className="h2">You</h2>
@@ -153,5 +156,53 @@ function TagSheet({ kind, init, isNew, onClose }: { kind: TagKind; init: Tag; is
     }>
       <Field label="Name" htmlFor="tg-name"><input id="tg-name" className="input" data-autofocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} /></Field>
     </Sheet>
+  )
+}
+
+function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return <button type="button" role="switch" aria-checked={on} aria-label={label} className={cx('switch', on && 'on')} onClick={() => onChange(!on)}><span /></button>
+}
+
+function Notifications() {
+  const [on, setOn] = useState<boolean | null>(null)
+  const [busy, setBusy] = useState(false)
+  const n = notifyPrefs()
+  useEffect(() => { pushStatus().then(setOn) }, [])
+  const run = async (fn: () => Promise<unknown>, ok?: string) => {
+    setBusy(true)
+    try { await fn(); if (ok) toast(ok) } catch (e: any) { toast(e?.message || 'Something went wrong', undefined, 'error') }
+    setBusy(false); setOn(await pushStatus())
+  }
+  const needsHome = isIOS() && !isStandalone()
+  return (
+    <section className="stack">
+      <div><h2 className="h2">Notifications</h2><p className="muted small mt4">Sent to this phone even when the app is closed.</p></div>
+      <div className="card stack">
+        {on ? (
+          <div className="row gap8 wrap">
+            <span className="grow row gap6 small" style={{ fontWeight: 600 }}><Bell size={17} />On for this device</span>
+            <Button size="sm" disabled={busy} onClick={() => run(async () => { const n = await testPush(); if (!n) throw new Error('No device received it. Try turning it off and on again.') }, 'Test sent')}>Send test</Button>
+            <Button size="sm" variant="ghost" icon={<BellOff size={15} />} disabled={busy} onClick={() => run(disablePush, 'Turned off for this device')}>Turn off</Button>
+          </div>
+        ) : (
+          <div className="stack" style={{ gap: 10 }}>
+            {needsHome
+              ? <p className="small">On iPhone, notifications only work from the Home Screen app. Tap <b>Share</b>, then <b>Add to Home Screen</b>, open Content OS from there and come back here.</p>
+              : !pushSupported() ? <p className="small muted">This browser can't show notifications.</p> : null}
+            {!needsHome && pushSupported() && <Button variant="primary" icon={<Bell size={16} />} disabled={busy || on === null} style={{ alignSelf: 'flex-start' }} onClick={() => run(enablePush, 'Notifications on')}>Turn on for this device</Button>}
+          </div>
+        )}
+        <div className="nrow">
+          <div className="grow"><div className="nrow-title">Morning summary</div><div className="small muted">Only on days with a shoot or a post.</div></div>
+          <input type="time" className="input time" aria-label="Morning summary time" value={n.morningTime} disabled={!n.morning} onChange={(e) => e.target.value && setNotify({ morningTime: e.target.value })} />
+          <Switch label="Morning summary" on={n.morning} onChange={(v) => setNotify({ morning: v })} />
+        </div>
+        <div className="nrow">
+          <div className="grow"><div className="nrow-title">Time to post</div><div className="small muted">On the post day of each planned post.</div></div>
+          <input type="time" className="input time" aria-label="Post reminder time" value={n.postTime} disabled={!n.postReminder} onChange={(e) => e.target.value && setNotify({ postTime: e.target.value })} />
+          <Switch label="Post reminder" on={n.postReminder} onChange={(v) => setNotify({ postReminder: v })} />
+        </div>
+      </div>
+    </section>
   )
 }

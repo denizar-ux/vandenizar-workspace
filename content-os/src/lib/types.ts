@@ -22,6 +22,10 @@ export interface Slot {
 
 export interface Tag { id: string; name: string }
 
+export interface Ref { id: string; url: string; note?: string }
+
+export interface NotifyPrefs { morning: boolean; morningTime: string; postReminder: boolean; postTime: string }
+
 export interface Settings extends Base {
   displayName: string
   timezone: string
@@ -29,6 +33,7 @@ export interface Settings extends Base {
   slots: Slot[]
   pillars: Tag[]
   formats: Tag[]
+  notify?: NotifyPrefs
 }
 
 export type Stage = 'idea' | 'script' | 'film' | 'edit' | 'ready' | 'done'
@@ -52,6 +57,10 @@ export interface Item extends Base {
   filmDate?: string | null
   pillar?: string | null
   format?: string | null
+  /** reference links (inspiration, shot list on Drive, moodboards) */
+  refs?: Ref[]
+  /** link to the finished edit (Drive, Frame.io…) */
+  finalUrl?: string
   // ---- thread / idea ----
   text?: string
   /** ig: when it was marked posted; thread: when it was posted */

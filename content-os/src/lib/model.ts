@@ -104,7 +104,7 @@ export interface NewPost { title: string; week?: string | null; slot?: string | 
 export function createPost({ title, week = null, slot = null, fromIdea }: NewPost): Item {
   const s = slotById(slot)
   const it = put('items', {
-    id: uid(), kind: 'ig', title: title.trim(), stage: 'idea',
+    id: uid(), kind: 'ig', title: title.trim(), stage: 'idea', refs: [], finalUrl: '',
     week: s && week ? week : null, slot: s && week ? s.id : null, date: s && week ? addDays(week, s.day) : null, filmDate: null,
     hook: '', script: '', caption: '', notes: fromIdea?.text && fromIdea.text.trim() !== title.trim() ? fromIdea.text.trim() : '',
     pillar: s?.pillar ?? null, format: s?.format ?? formats()[0]?.id ?? null, postedAt: null, createdAt: '', updatedAt: '',
@@ -145,7 +145,7 @@ export function advance(id: string): Stage | undefined {
 /** Send a post back to the idea inbox so nothing is lost. */
 export function backToIdeas(id: string): Item | undefined {
   const it = get('items', id); if (!it) return
-  const text = [it.title, it.hook, it.script, it.notes].filter((x) => x && x.trim()).join('\n\n')
+  const text = [it.title, it.hook, it.script, it.notes, ...(it.refs || []).map((r) => r.url + (r.note ? ' (' + r.note + ')' : ''))].filter((x) => x && x.trim()).join('\n\n')
   const idea = text.trim() ? put('items', { id: uid(), kind: 'idea', text, createdAt: '', updatedAt: '' }) : undefined
   remove('items', id)
   return idea
@@ -153,7 +153,7 @@ export function backToIdeas(id: string): Item | undefined {
 
 export function duplicatePost(id: string): Item | undefined {
   const it = get('items', id); if (!it) return
-  return put('items', { ...it, id: uid(), title: (it.title || '') + ' (copy)', stage: 'idea', week: null, slot: null, date: null, filmDate: null, postedAt: null, createdAt: '', updatedAt: '' })
+  return put('items', { ...it, id: uid(), title: (it.title || '') + ' (copy)', stage: 'idea', week: null, slot: null, date: null, filmDate: null, finalUrl: '', postedAt: null, createdAt: '', updatedAt: '' })
 }
 
 export type Group = { key: string; label: string; items: Item[] }
@@ -222,3 +222,45 @@ export const firstLine = (t = '') => {
   const l = t.trim().split('\n')[0].trim()
   return l.length > 80 ? l.slice(0, 77).trimEnd() + '…' : l
 }
+
+// ---------- links ----------
+/** Accepts "instagram.com/reel/x" or a full URL; returns a safe http(s) URL or null. */
+export function normalizeUrl(raw: string): string | null {
+  let s = raw.trim()
+  if (!s) return null
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s
+  try { const u = new URL(s); return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.includes('.') ? u.toString() : null } catch { return null }
+}
+const SITES: [RegExp, string][] = [
+  [/(^|\.)instagram\.com$/, 'Instagram'], [/(^|\.)tiktok\.com$/, 'TikTok'], [/(^|\.)(youtube\.com|youtu\.be)$/, 'YouTube'],
+  [/(^|\.)(pinterest\.[a-z.]+|pin\.it)$/, 'Pinterest'], [/(^|\.)drive\.google\.com$/, 'Google Drive'], [/(^|\.)docs\.google\.com$/, 'Google Docs'],
+  [/(^|\.)(photos\.app\.goo\.gl|photos\.google\.com)$/, 'Google Photos'], [/(^|\.)icloud\.com$/, 'iCloud'], [/(^|\.)vimeo\.com$/, 'Vimeo'],
+  [/(^|\.)frame\.io$/, 'Frame.io'], [/(^|\.)(threads\.net|threads\.com)$/, 'Threads'], [/(^|\.)(x\.com|twitter\.com)$/, 'X'], [/(^|\.)dropbox\.com$/, 'Dropbox'],
+]
+export function linkLabel(url: string): string {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '')
+    for (const [re, name] of SITES) if (re.test(h)) return name
+    return h
+  } catch { return url }
+}
+export function addRef(id: string, url: string, note = '') {
+  const it = get('items', id); if (!it) return null
+  const u = normalizeUrl(url); if (!u) return null
+  const ref = { id: uid(), url: u, note: note.trim() }
+  patch('items', id, { refs: [...(it.refs || []), ref] })
+  return ref
+}
+export function updateRef(id: string, refId: string, p: { note?: string }) {
+  const it = get('items', id); if (!it) return
+  patch('items', id, { refs: (it.refs || []).map((r) => (r.id === refId ? { ...r, ...p } : r)) })
+}
+export function removeRef(id: string, refId: string) {
+  const it = get('items', id); if (!it) return
+  patch('items', id, { refs: (it.refs || []).filter((r) => r.id !== refId) })
+}
+
+// ---------- notifications ----------
+export const DEFAULT_NOTIFY = { morning: true, morningTime: '08:00', postReminder: true, postTime: '19:00' }
+export const notifyPrefs = () => ({ ...DEFAULT_NOTIFY, ...(settings().notify || {}) })
+export function setNotify(p: Partial<typeof DEFAULT_NOTIFY>) { put('settings', { ...settings(), notify: { ...notifyPrefs(), ...p } }) }

@@ -108,3 +108,27 @@ describe('ideas and threads', () => {
     expect(all('items').filter((i) => i.kind === 'idea').length).toBe(0)
   })
 })
+
+describe('references and links', () => {
+  it('normalizes, labels, adds, edits and removes reference links', () => {
+    expect(M.normalizeUrl('instagram.com/reel/abc')).toBe('https://instagram.com/reel/abc')
+    expect(M.normalizeUrl('javascript:alert(1)')).toBeNull()
+    expect(M.normalizeUrl('hello')).toBeNull()
+    expect(M.linkLabel('https://www.tiktok.com/@x/video/1')).toBe('TikTok')
+    expect(M.linkLabel('https://youtu.be/abc')).toBe('YouTube')
+    expect(M.linkLabel('https://pin.it/xyz')).toBe('Pinterest')
+    expect(M.linkLabel('https://studio.example.com/a')).toBe('studio.example.com')
+    const p = M.createPost({ title: 'refs', week: W, slot: 'work' })
+    const r = M.addRef(p.id, 'drive.google.com/file/d/1', 'shot list')!
+    expect(M.addRef(p.id, 'not a link')).toBeNull()
+    M.updateRef(p.id, r.id, { note: 'shot list v2' })
+    expect(get('items', p.id)!.refs).toEqual([{ id: r.id, url: 'https://drive.google.com/file/d/1', note: 'shot list v2' }])
+    expect(M.backToIdeas(p.id)!.text).toContain('drive.google.com')
+  })
+  it('notification prefs default and save', () => {
+    expect(M.notifyPrefs()).toEqual({ morning: true, morningTime: '08:00', postReminder: true, postTime: '19:00' })
+    M.setNotify({ postTime: '20:30' })
+    expect(M.notifyPrefs().postTime).toBe('20:30')
+    expect(settings().notify!.morning).toBe(true)
+  })
+})

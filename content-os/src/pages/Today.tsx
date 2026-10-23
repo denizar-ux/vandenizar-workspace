@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight, ArrowRight, Copy, Lightbulb, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowRight, Copy, Lightbulb, Check, Link2, Play } from 'lucide-react'
 import { settings, tz } from '../lib/store'
-import { upNext, slots, slotItem, extraItems, weekProgress, thisWeek, today, threadDrafts, ideas, stageOf, setStage, schedule, slotById, firstLine, type UpNext } from '../lib/model'
+import { upNext, slots, slotItem, extraItems, weekProgress, thisWeek, today, threadDrafts, ideas, stageOf, setStage, schedule, slotById, firstLine, normalizeUrl, type UpNext } from '../lib/model'
 import { addDays, fmtDay, greeting } from '../lib/time'
 import { go, useRoute, setQuery } from '../lib/router'
 import { PhoneTop } from '../ui/Shell'
-import { Button, IconBtn, toast, copyOrShow, cx } from '../ui/kit'
+import { Button, IconBtn, Sheet, toast, copyOrShow, cx } from '../ui/kit'
+import { RefListView } from '../ui/Refs'
 import { Stepper, NextButton, SlotTile, DraftCard, PostCard } from '../ui/parts'
 import { ScheduleSheet, weekName } from '../ui/SlotPicker'
 import { openNew } from '../ui/QuickAdd'
@@ -77,6 +78,7 @@ export default function Today() {
 
 function UpNextCard({ up }: { up: UpNext }) {
   const [resched, setResched] = useState(false)
+  const [mats, setMats] = useState(false)
   if (up.type === 'clear') {
     return (
       <section className="upnext tint-sage">
@@ -99,6 +101,8 @@ function UpNextCard({ up }: { up: UpNext }) {
   const it = up.item
   const s = slotById(it.slot)
   const st = stageOf(it.stage)
+  const video = it.finalUrl ? normalizeUrl(it.finalUrl) : null
+  const hasMats = !!(it.refs?.length || it.script?.trim() || it.hook?.trim())
   const label = up.type === 'late' ? `Late · was due ${fmtDay(it.date!)}` : up.type === 'film' ? 'Film today' : up.type === 'post' ? 'Post today' : `Up next · ${fmtDay(it.date!)}`
   return (
     <section className={cx('upnext', up.type === 'late' ? 'tint-danger' : s ? 'tint-' + s.tint : 'card')}>
@@ -113,12 +117,21 @@ function UpNextCard({ up }: { up: UpNext }) {
       <div className="row gap8 wrap">
         {up.type === 'film'
           ? <Button variant="primary" onClick={() => { const prev = it.stage!; setStage(it.id, 'edit'); toast('Filmed. Next: edit', { label: 'Undo', run: () => setStage(it.id, prev) }) }}><Check size={16} />Filmed</Button>
-          : <NextButton it={it} size="md" />}
-        {up.type === 'post' && it.caption?.trim() && <Button icon={<Copy size={16} />} onClick={() => copyOrShow(it.caption!, 'Copy caption')}>Copy caption</Button>}
+          : up.type !== 'post' && <NextButton it={it} size="md" />}
+        {up.type === 'post' && video && <a className="btn" href={video} target="_blank" rel="noopener noreferrer"><Play size={16} /><span>Open video</span></a>}
+        {up.type === 'post' && it.caption?.trim() && <Button icon={<Copy size={16} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy caption</Button>}
+        {up.type === 'post' && <NextButton it={it} size="md" />}
+        {up.type === 'film' && hasMats && <Button icon={<Link2 size={16} />} onClick={() => setMats(true)}>Materials</Button>}
         {up.type === 'late' && <Button onClick={() => setResched(true)}>Reschedule</Button>}
-        {up.type !== 'post' && up.type !== 'late' && <Button variant="ghost" onClick={() => go('/post/' + it.id)}>Open</Button>}
+        {up.type !== 'post' && up.type !== 'late' && !(up.type === 'film' && hasMats) && <Button variant="ghost" onClick={() => go('/post/' + it.id)}>Open</Button>}
       </div>
       {up.type === 'late' && up.more > 0 && <button className="linkbtn" style={{ alignSelf: 'flex-start', color: 'var(--ink-2)' }} onClick={() => go('/instagram')}>+{up.more} more late · see all</button>}
+      <Sheet open={mats} onClose={() => setMats(false)} title="Materials">
+        {(it.refs || []).length > 0 && <RefListView it={it} />}
+        {it.hook?.trim() && <div className="mat"><span className="eyebrow">Hook</span><p className="pre body-text">{it.hook}</p></div>}
+        {it.script?.trim() && <div className="mat"><span className="eyebrow">Script</span><p className="pre body-text">{it.script}</p></div>}
+        <Button variant="ghost" onClick={() => { setMats(false); go('/post/' + it.id) }}>Open post<ArrowRight size={16} /></Button>
+      </Sheet>
       <ScheduleSheet open={resched} onClose={() => setResched(false)} title="Move to" week={it.week || null} slot={it.slot || null} startWeek={thisWeek()} exceptId={it.id} onPick={(w, sl) => { schedule(it.id, w, sl); toast(sl ? `Moved to ${slotById(sl)?.name}` : 'Unscheduled') }} />
     </section>
   )

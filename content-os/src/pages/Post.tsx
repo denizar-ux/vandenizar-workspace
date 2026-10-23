@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check } from 'lucide-react'
+import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check, ArrowUpRight } from 'lucide-react'
 import { get, patch, put, remove, tz } from '../lib/store'
-import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, setPostDate, backToIdeas, duplicatePost, firstLine } from '../lib/model'
+import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, setPostDate, backToIdeas, duplicatePost, firstLine, normalizeUrl } from '../lib/model'
 import { fmtDay, fmtShort, dateKey } from '../lib/time'
 import { back, go } from '../lib/router'
 import { SaveBadge } from '../ui/Shell'
@@ -9,6 +9,7 @@ import { IconBtn, Menu, AutoTextarea, Button, Accordion, Chips, toast, copyOrSho
 import { NextButton, postWhen } from '../ui/parts'
 import { ScheduleSheet } from '../ui/SlotPicker'
 import { NotFound } from '../ui/NotFound'
+import { References } from '../ui/Refs'
 import type { Item } from '../lib/types'
 
 export default function Post({ id }: { id: string }) {
@@ -32,7 +33,7 @@ export default function Post({ id }: { id: string }) {
     const idea = backToIdeas(id); back('/instagram')
     toast('Moved back to Ideas', { label: 'Undo', run: () => { if (idea) remove('items', idea.id); put('items', snap, { touch: false }) } })
   }
-  const summary = [it.date ? fmtDay(it.date) : 'Not scheduled', formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
+  const summary = [it.date ? fmtDay(it.date) : 'Not scheduled', it.finalUrl?.trim() ? 'Video added' : null, formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
 
   return (
     <main className="main editor">
@@ -65,6 +66,8 @@ export default function Post({ id }: { id: string }) {
           </div>
         </div>
 
+        <References it={it} />
+
         <Block label="Hook">
           <AutoTextarea aria-label="Hook" value={it.hook || ''} onChange={(v) => set({ hook: v })} minRows={2} placeholder="The first 2 seconds. Why would someone stop?" />
         </Block>
@@ -91,6 +94,7 @@ export default function Post({ id }: { id: string }) {
             <DateField label="Post date" value={it.date || ''} onChange={(v) => setPostDate(id, v || null)} />
             <DateField label="Film date" value={it.filmDate || ''} onChange={(v) => set({ filmDate: v || null })} />
           </div>
+          <FinalVideo value={it.finalUrl || ''} onChange={(v) => set({ finalUrl: v })} />
           {pillars().length > 0 && <div className="field"><span className="field-label">Pillar</span><Chips label="Pillar" value={it.pillar || ''} onChange={(v) => set({ pillar: v || null })} options={[...pillars().map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'None' }]} /></div>}
           {formats().length > 0 && <div className="field"><span className="field-label">Format</span><Chips label="Format" value={it.format || ''} onChange={(v) => set({ format: v || null })} options={[...formats().map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'None' }]} /></div>}
         </Accordion>
@@ -128,5 +132,23 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
         {value && <button type="button" className="date-clear" aria-label={`Clear ${label.toLowerCase()}`} onClick={(e) => { e.preventDefault(); onChange('') }}><X size={15} /></button>}
       </span>
     </label>
+  )
+}
+
+function FinalVideo({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const url = normalizeUrl(value)
+  const bad = !!value.trim() && !url
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor="final-url">Final video link</label>
+      <input id="final-url" className="input" inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="Drive, Frame.io, Dropbox…" value={value} onChange={(e) => onChange(e.target.value)} />
+      {bad && <span className="field-error">That doesn't look like a link.</span>}
+      {url && (
+        <div className="row gap8">
+          <a className="btn btn-sm" href={url} target="_blank" rel="noopener noreferrer"><ArrowUpRight size={15} /><span>Open</span></a>
+          <Button size="sm" variant="ghost" icon={<Copy size={15} />} onClick={() => copyOrShow(url, 'Copy link', 'Link copied')}>Copy link</Button>
+        </div>
+      )}
+    </div>
   )
 }
