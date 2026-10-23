@@ -63,6 +63,8 @@ export function CalendarPage({ query }) {
   useStore();
   const desktop = useMedia(DESKTOP_Q);
   const [view, setView] = useState(() => (query.v === 'day' || query.v === 'week' ? query.v : null) || loadView() || 'day');
+  // a link like #/calendar?v=week should switch the view even when the page is already open
+  useEffect(() => { if (query.v === 'day' || query.v === 'week') { setView(query.v); saveView(query.v); } }, [query.v]);
   const t0 = today();
   const s = M.settings();
   const d = query.d && /^\d{4}-\d{2}-\d{2}$/.test(query.d) ? query.d : t0;
@@ -73,6 +75,50 @@ export function CalendarPage({ query }) {
   const pick = (v) => { setView(v); saveView(v); };
   const soon = M.nextDeadlineSoon(2);
   const uns = M.unscheduledTasks();
+  const step = (dir) => go(addDays(d, dir * (view === 'week' || !desktop ? 7 : 1)));
+  const swipe = useSwipe((dir) => go(addDays(d, dir * 7)));
+  const strip = (
+    <div class="wstrip" role="tablist" aria-label="Days of this week" {...(desktop ? {} : swipe)}>
+      {week.map((x) => {
+        const its = dayItems(x);
+        const n = its.timed.filter((i) => !i.done).length + its.allDay.length;
+        return (
+          <button role="tab" aria-selected={x === d && view === 'day'} class={'ws-day' + (x === d && view === 'day' ? ' on' : '') + (x === t0 ? ' today' : '')} onClick={() => { go(x); if (view === 'week') pick('day'); }}>
+            <span class="ws-dow">{fmtWeekdayShort(x)}</span><b class="ws-num">{dayNum(x)}</b><i class={'ws-dot' + (n ? ' on' : '')} />
+          </button>
+        );
+      })}
+    </div>
+  );
+  if (!desktop) {
+    const dd = dayItems(d);
+    const planned = dd.timed.filter((i) => !i.done);
+    const mins = planned.reduce((a, i) => a + i.dur, 0);
+    return (
+      <div class="page cal-page is-m">
+        <PageHeader title="Plan time." actions={<AddBtn label="Add task" onClick={() => openQuickAdd({ date: d })} />} />
+        {soon && <a class="banner-soft t-lavender" href={'#' + soon.path}><Icon name="bell" size={18} /><span class="grow ellipsis">Deadline {relDay(soon.date).toLowerCase()}: {soon.title}</span><Icon name="chevronRight" size={16} /></a>}
+        <div class="cal-bar">
+          <div class="cal-bar-row">
+            <div class="cal-month">{fmtMonth(d)}</div>
+            <Segmented class="compact" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
+          </div>
+          <div class="cal-strip-row">
+            <button class="icon-btn xs" aria-label="Previous week" onClick={() => step(-1)}><Icon name="chevronLeft" size={18} /></button>
+            {strip}
+            <button class="icon-btn xs" aria-label="Next week" onClick={() => step(1)}><Icon name="chevronRight" size={18} /></button>
+          </div>
+        </div>
+        <div class="cal-sub">
+          <span class="grow ellipsis">{view === 'day' ? [relDay(d), planned.length ? planned.length + ' block' + (planned.length === 1 ? '' : 's') + ' · ' + fmtMinutes(mins) : 'Nothing timed'].join(' · ') : fmtShort(week[0]) + ' – ' + fmtShort(week[6])}</span>
+          {!week.includes(t0) && <button class="chip-btn" onClick={() => go(t0)}>Today</button>}
+          <button class={'chip-btn' + (uns.length ? ' on' : '')} onClick={() => openUnscheduled(d)}>Unscheduled <b class="tnum">{uns.length}</b></button>
+        </div>
+        {view === 'week' ? <Agenda days={week} onPickDay={(x) => { go(x); pick('day'); }} /> : <Grid days={days} week={false} onPickDay={(x) => go(x)} />}
+        {view === 'day' && <div class="cal-hint">Tap an empty slot to add. Hold a block to move it, drag its bottom edge to change the estimate. Deadlines never move.</div>}
+      </div>
+    );
+  }
   return (
     <div class="page cal-page">
       <PageHeader title="Plan time." actions={<AddBtn label="Add task" onClick={() => openQuickAdd({ date: d })} />} />
@@ -82,24 +128,56 @@ export function CalendarPage({ query }) {
         <div class="row gap-6">
           <Segmented class="compact" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
           {!week.includes(t0) && <button class="btn sm outline" onClick={() => go(t0)}>Today</button>}
-          <button class="icon-btn soft sm" aria-label="Previous" onClick={() => go(addDays(d, view === 'week' ? -7 : -1))}><Icon name="chevronLeft" size={18} /></button>
-          <button class="icon-btn soft sm" aria-label="Next" onClick={() => go(addDays(d, view === 'week' ? 7 : 1))}><Icon name="chevronRight" size={18} /></button>
+          <button class="icon-btn soft sm" aria-label="Previous" onClick={() => step(-1)}><Icon name="chevronLeft" size={18} /></button>
+          <button class="icon-btn soft sm" aria-label="Next" onClick={() => step(1)}><Icon name="chevronRight" size={18} /></button>
         </div>
       </div>
-      {view === 'day' && <div class="wstrip" role="tablist" aria-label="Days of this week">
-        {week.map((x) => {
-          const its = dayItems(x);
-          const n = its.timed.filter((i) => !i.done).length + its.allDay.length;
-          return (
-            <button role="tab" aria-selected={x === d} class={'ws-day' + (x === d && view === 'day' ? ' on' : '') + (x === t0 ? ' today' : '')} onClick={() => { go(x); if (view === 'week' && !desktop) pick('day'); }}>
-              <span class="ws-dow">{fmtWeekdayShort(x)}</span><b class="ws-num">{dayNum(x)}</b><i class={'ws-dot' + (n ? ' on' : '')} />
-            </button>
-          );
-        })}
-      </div>}
+      {view === 'day' && strip}
       <Grid days={days} week={view === 'week'} onPickDay={(x) => { go(x); pick('day'); }} />
       <button class="drawer-btn" onClick={() => openUnscheduled(d)}><Icon name="more2" size={18} /><span class="grow">Unscheduled · {uns.length} task{uns.length === 1 ? '' : 's'}</span><Icon name="chevronRight" size={16} /></button>
-      <div class="cal-hint">All times WIB. Tap an empty slot to add a task. {desktop ? 'Drag' : 'Hold and drag'} a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
+      <div class="cal-hint">All times WIB. Click an empty slot to add a task. Drag a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
+    </div>
+  );
+}
+
+// Horizontal swipe on an element: dir -1 = previous, 1 = next.
+function useSwipe(on) {
+  const st = useRef(null);
+  return {
+    onTouchStart: (e) => { const t = e.touches[0]; st.current = { x: t.clientX, y: t.clientY }; },
+    onTouchEnd: (e) => { const a = st.current; st.current = null; if (!a) return; const t = e.changedTouches[0]; const dx = t.clientX - a.x, dy = t.clientY - a.y; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) on(dx < 0 ? 1 : -1); },
+  };
+}
+
+// Phone week view: a list grouped by day instead of seven cramped columns.
+function Agenda({ days, onPickDay }) {
+  const t0 = today();
+  return (
+    <div class="agenda">
+      {days.map((d) => {
+        const { timed, allDay } = dayItems(d);
+        const mins = timed.filter((i) => !i.done).reduce((a, i) => a + i.dur, 0);
+        const empty = !timed.length && !allDay.length;
+        return (
+          <section class={'ag-day' + (d === t0 ? ' today' : '') + (d < t0 ? ' past' : '')}>
+            <button class="ag-date" onClick={() => onPickDay(d)} aria-label={'Open ' + fmtDay(d)}>
+              <span class="ag-dow">{fmtWeekdayShort(d)}</span><b class="ag-num">{dayNum(d)}</b>
+            </button>
+            <div class="ag-items">
+              {(d === t0 || mins > 0) && <div class="ag-meta">{[d === t0 ? 'Today' : '', mins ? fmtMinutes(mins) + ' planned' : ''].filter(Boolean).join(' · ')}</div>}
+              {allDay.map((it) => <button class={'cal-chip t-' + it.tone} onClick={() => openItem(it)}>{it.tone === 'deadline' && <Icon name="flag" size={11} />}<span class="ellipsis">{it.title}</span></button>)}
+              {timed.map((it) => (
+                <button class={'ag-item' + (it.done ? ' done' : '')} onClick={() => openItem(it)}>
+                  <span class="ag-time tnum">{toHHMM(it.start)}<small>{fmtMinutes(it.dur)}</small></span>
+                  <span class={'ag-bar t-' + it.tone} />
+                  <span class="ag-main"><span class="ag-title">{it.title}</span>{it.sub && <span class="ag-sub">{it.sub}</span>}</span>
+                </button>
+              ))}
+              {empty && (d < t0 ? <div class="ag-empty past">Nothing planned</div> : <button class="ag-empty" onClick={() => openQuickAdd({ date: d })}><span>Nothing planned</span><span class="ag-add"><Icon name="plus" size={14} />Add</span></button>)}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

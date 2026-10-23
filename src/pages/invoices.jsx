@@ -142,6 +142,8 @@ function PaymentSheet({ inv, payment, close }) {
     if (amt <= 0) return toast('Enter an amount above zero.', { tone: 'warn' });
     if (amt > maxAllowed) return toast('That is more than the ' + fmtMoney(maxAllowed, inv.currency) + ' still owed.', { tone: 'warn' });
     if (!p.date) return toast('Add the date you received it.', { tone: 'warn' });
+    // A "full" or "final" payment that doesn't clear the balance is really a partial one.
+    if (!payment && amt < maxAllowed && (p.kind === 'Full payment' || p.kind === 'Final payment')) p.kind = c.paid === 0 ? 'DP / deposit' : 'Partial payment';
     if (payment) { put('payments', { ...payment, ...p, amount: amt, history: [...(payment.history || []), { at: Date.now(), before: { amount: payment.amount, date: payment.date, method: payment.method, kind: payment.kind } }] }); toast('Payment updated'); }
     else { M.recordPayment(inv, { ...p, amount: amt }); const after = M.calcInvoice(get('invoices', inv.id)); toast(after.status === 'paid' ? 'Paid in full' : 'Recorded. ' + fmtMoney(after.balance, inv.currency) + ' left.'); }
     close();

@@ -8,6 +8,7 @@ import { get, all, put, patch, remove, uid, useStore } from '../lib/db.js';
 import { today, fmtShort, isoOf, relDay, fmtFull } from '../lib/date.js';
 import { fmtMoney } from '../lib/money.js';
 import * as M from '../lib/model.js';
+import { openQuickAdd } from '../App.jsx';
 import { openClientSheet } from './clients.jsx';
 import { createInvoiceAndOpen } from './invoices.jsx';
 import { openSearch } from '../App.jsx';
@@ -208,7 +209,7 @@ export function ProjectDetail({ id }) {
     }
   };
   const menu = (e) => openMenu(e, [
-    { label: 'Add task', icon: 'plus', onSelect: () => M.newTask({ title: 'New task', projectId: id }) && toast('Task added') },
+    { label: 'Add task', icon: 'plus', onSelect: () => openQuickAdd({ projectId: id }) },
     { label: 'Record feedback', icon: 'chat', onSelect: () => openFeedbackSheet(p) },
     M.projectBilling(p) && { label: 'Create invoice', icon: 'file', onSelect: () => createInvoiceAndOpen({ projectId: id, clientId: p.clientId || '' }) },
     { divider: true },
