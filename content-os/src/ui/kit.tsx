@@ -209,7 +209,7 @@ export function Chips<T extends string | number>({ value, onChange, options, lab
 
 // ---------- Menu ----------
 export interface MenuItem { label: string; icon?: React.ReactNode; onSelect: () => void; danger?: boolean; hidden?: boolean }
-export function Menu({ items, label = 'Menu lainnya', icon, className }: { items: MenuItem[]; label?: string; icon?: React.ReactNode; className?: string }) {
+export function Menu({ items, label = 'Menu lainnya', icon, className, trigger }: { items: MenuItem[]; label?: string; icon?: React.ReactNode; className?: string; trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const btn = useRef<HTMLButtonElement>(null)
@@ -241,8 +241,8 @@ export function Menu({ items, label = 'Menu lainnya', icon, className }: { items
   }, [open])
   return (
     <>
-      <button ref={btn} type="button" className={cx('iconbtn', className)} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}>
-        {icon || <MoreHorizontal size={20} />}
+      <button ref={btn} type="button" className={cx(trigger ? 'pill-menu' : 'iconbtn', className)} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}>
+        {trigger || icon || <MoreHorizontal size={20} />}
       </button>
       {open && pos && createPortal(
         <div ref={pop} className="menu" role="menu" style={{ top: pos.top, left: pos.left }}>

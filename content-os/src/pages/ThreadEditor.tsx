@@ -88,7 +88,7 @@ export default function ThreadEditor({ id }: { id: string }) {
             return (
               <div key={p.id} className={cx('post-ed', multi && 'multi')}>
                 {multi && <span className="xs muted tnum">{i + 1}/{posts.length}</span>}
-                <AutoTextarea aria-label={multi ? `Post ${i + 1}` : 'Tulisan'} value={p.body} onChange={(v) => setBody(p.id, v, i)} minRows={i === 0 && !multi ? 5 : 3}
+                <AutoTextarea aria-label={multi ? `Post ${i + 1}` : 'Tulisan'} value={p.body} onChange={(v) => setBody(p.id, v, i)} minRows={!multi ? 5 : 2}
                   placeholder={i === 0 ? 'Tulis apa yang lagi lu pikirin.' : 'Lanjutan thread'} data-autofocus={i === 0 && !p.body ? true : undefined} autoFocus={i === 0 && !p.body} />
                 <div className="post-tools">
                   <span className={cx('tnum grow', over && 'field-error')}>{limit != null ? `${n}/${limit}` : `${n} karakter`}</span>

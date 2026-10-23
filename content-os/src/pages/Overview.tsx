@@ -51,7 +51,7 @@ export default function Overview() {
   }
 
   return (
-    <main className="main">
+    <main className="main ov">
       <PageTop />
       <div className="mt8">
         <p className="muted">Hello {st.displayName || 'Denizar'},</p>
@@ -66,10 +66,10 @@ export default function Overview() {
           </>} />
         </div>
       ) : (
-        <div className="stack-lg mt16">
+        <div className="ov-grid mt16"><div className="stack-lg">
           <div className="stack" style={{ gap: 8 }}>
             <div className="filters" role="group" aria-label="Waktu yang tersedia">
-              {([['all', 'Semua'], [15, '15 menit'], [30, '30 menit'], [60, '1 jam']] as [TimeFilter, string][]).map(([v, l]) => (
+              {([['all', 'Bebas'], [15, '15 menit'], [30, '30 menit'], [60, '1 jam']] as [TimeFilter, string][]).map(([v, l]) => (
                 <button key={String(v)} className={cx('fpill', tf === v && 'on')} aria-pressed={tf === v} onClick={() => setT(v)}>{l}</button>
               ))}
             </div>
@@ -132,6 +132,7 @@ export default function Overview() {
             )}
           </section>
 
+          </div><div className="stack-lg">
           {ready.length > 0 && (
             <button className="card tint-sage tap row gap12" onClick={() => go('/instagram?stage=ready')}>
               <PlayCircle size={22} />
@@ -180,7 +181,7 @@ export default function Overview() {
             </div>
           </section>
           <div className="row center" style={{ justifyContent: 'center' }}><SaveBadge /></div>
-        </div>
+        </div></div>
       )}
     </main>
   )

@@ -2,7 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import App from './App'
-import { startSync, signedOut, P } from './lib/store'
+import { startSync, startLocal, signedOut, P } from './lib/store'
 import { ensureDefaults } from './lib/model'
 import { sb, makeBackend } from './lib/supabase'
 
@@ -16,7 +16,8 @@ async function begin(user: { id: string; email?: string } | null | undefined) {
   await startSync(makeBackend(user.id), user.email)
   ensureDefaults()
 }
-sb.auth.getSession().then(({ data }) => begin(data.session?.user)).catch(() => signedOut())
+if (import.meta.env.VITE_LOCAL === '1') { startLocal(); ensureDefaults(); started = true; import('./lib/store').then((m) => { (window as any).__S = m }) }
+else sb.auth.getSession().then(({ data }) => begin(data.session?.user)).catch(() => signedOut())
 sb.auth.onAuthStateChange((evt, session) => {
   if (evt === 'SIGNED_IN') begin(session?.user)
   if (evt === 'SIGNED_OUT' && P.auth === 'in') location.reload()

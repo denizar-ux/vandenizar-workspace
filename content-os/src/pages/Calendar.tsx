@@ -42,7 +42,7 @@ export default function Calendar() {
   const dueOn = (d: string) => liveTasks.filter((t) => t.dueDate === d && !effectiveSchedule(t))
   const hasProd = (d: string) => blocksOn(d).length + dueOn(d).length > 0
   const unscheduledPosts = all('contents').filter((c) => c.lifecycle === 'active' && c.status !== 'published' && !c.plannedPublishAt && (ch === 'all' || c.channel === ch))
-  const unscheduledTasks = candidateTasks().filter((t) => !effectiveSchedule(t) && (act === 'all' || t.activity === act))
+  const unscheduledTasks = candidateTasks().filter((t) => !effectiveSchedule(t) && t.dueDate !== sel && (act === 'all' || t.activity === act))
   const risky = all('contents').filter((c) => c.lifecycle === 'active' && postAtRisk(c).length > 0)
 
   // ---- navigation ----
@@ -106,7 +106,7 @@ export default function Calendar() {
           </>
         ) : (
           <>
-            <Chips label="Jenis kerja" value={act} onChange={(v) => setQuery('act', v === 'all' ? null : v)} options={[{ value: 'all', label: 'Semua' }, { value: 'write', label: 'Nulis' }, { value: 'record', label: 'Rekam' }, { value: 'edit', label: 'Edit' }, { value: 'review', label: 'Review' }]} />
+            <Chips scroll label="Jenis kerja" value={act} onChange={(v) => setQuery('act', v === 'all' ? null : v)} options={[{ value: 'all', label: 'Semua' }, { value: 'write', label: 'Nulis' }, { value: 'record', label: 'Rekam' }, { value: 'edit', label: 'Edit' }, { value: 'review', label: 'Review' }]} />
             <div className="row between"><h2 className="h2">{fmtDay(sel)}</h2><span className="xs muted">{tzLabel(z)}</span></div>
             {risky.length > 0 && (
               <div className="banner tint-danger"><AlertTriangle size={18} /><span className="grow">{risky.length} rencana post terdampak</span>

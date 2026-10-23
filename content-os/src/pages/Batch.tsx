@@ -89,7 +89,6 @@ export default function Batch({ id }: { id: string }) {
                       <span className={cx('li-title', t.status === 'done' && 'done-text')} style={{ display: 'block' }}>{t.title}</span>
                       <span className="li-sub">{ACTIVITY_LABEL[t.activity]} · {c ? c.title : 'Tanpa konten'}{t.lifecycle !== 'active' || !taskLive(t) ? ' · tidak aktif' : ''}</span>
                     </button>
-                    {c && <Button size="sm" variant="ghost" onClick={() => go(c.channel === 'threads' ? `/threads/${c.id}` : `/instagram/${c.id}?tab=production`)}>Konten</Button>}
                     <IconBtn label={`Lepas ${t.title}`} onClick={() => release(t.id)}><X size={17} /></IconBtn>
                   </div>
                 )

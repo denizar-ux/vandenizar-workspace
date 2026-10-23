@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
 import {
   ArrowLeft, ChevronRight, Plus, ArrowUp, ArrowDown, Trash2, Camera, Layers, Folder, Link2, FileText, Image as ImageIcon,
-  CalendarDays, Copy, ExternalLink, CheckCircle2, PenLine, Repeat, AlertTriangle, X, Pin,
+  CalendarDays, Copy, ExternalLink, CheckCircle2, PenLine, Repeat, AlertTriangle, X, Pin, Scissors,
 } from 'lucide-react'
 import { get, patch, put, uid, remove, settings, tz, all } from '../lib/store'
 import {
   sectionsOf, tasksOf, subtasksOf, shotsOf, readinessOf, resourcesOf, nextTask, progress, effectiveSchedule, setTaskStatus,
   openSubtaskCount, addTask, moveInList, templatesFor, unlinkResource, liveTax, postAtRisk, isTaskOverdue,
 } from '../lib/model'
-import { fmtDateTime, fmtShort, dateKey, fmtDuration, fmtTime } from '../lib/time'
+import { fmtDateTime, fmtShort, dateKey, fmtDuration, fmtTime, relDay } from '../lib/time'
 import { FORMAT_LABEL, STATUS_LABEL } from '../lib/templates'
 import { go, back, useRoute, setQuery } from '../lib/router'
 import { safeUrl } from '../lib/prefs'
@@ -74,8 +74,7 @@ function StagePicker({ c }: { c: Content }) {
   const tone = { idea: 'cyan', in_progress: 'butter', ready: 'sage', published: 'lavender' } as const
   return (
     <span className="row gap4">
-      <Badge tone={tone[c.status]}>{STATUS_LABEL[c.status]}</Badge>
-      <Menu label="Ubah tahap" icon={<ChevronRight size={16} style={{ transform: 'rotate(90deg)' }} />} className="" items={(['idea', 'in_progress', 'ready', 'published'] as Status[]).filter((s) => s !== c.status).map((s) => ({ label: s === 'published' ? 'Tandai sudah terbit' : `Pindah ke ${STATUS_LABEL[s]}`, onSelect: () => changeStage(c.id, s) }))} />
+      <Menu label={`Tahap: ${STATUS_LABEL[c.status]}. Ubah tahap`} className={'badge-' + tone[c.status]} trigger={<>{STATUS_LABEL[c.status]}<ChevronRight size={15} style={{ transform: 'rotate(90deg)' }} /></>} items={(['idea', 'in_progress', 'ready', 'published'] as Status[]).filter((s) => s !== c.status).map((s) => ({ label: s === 'published' ? 'Tandai sudah terbit' : `Pindah ke ${STATUS_LABEL[s]}`, onSelect: () => changeStage(c.id, s) }))} />
     </span>
   )
 }
@@ -304,8 +303,9 @@ export async function toggleTask(t: Task, done: boolean) {
 export function taskWhen(t: Task): string | null {
   const z = tz(), st = settings()
   const sch = effectiveSchedule(t)
-  if (sch) return `${fmtShort(dateKey(sch.start, z), z)} ${fmtTime(sch.start, z, st.hour12)}`
-  if (t.dueDate) return `Tenggat ${fmtShort(t.dueDate, z)}`
+  const day = (d: string) => { const r = relDay(d, z); return r === 'Hari ini' || r === 'Besok' || r === 'Kemarin' ? r.toLowerCase() : fmtShort(d, z) }
+  if (sch) { const d = day(dateKey(sch.start, z)); return `${d.charAt(0).toUpperCase() + d.slice(1)} ${fmtTime(sch.start, z, st.hour12)}` }
+  if (t.dueDate) return `Tenggat ${day(t.dueDate)}`
   return null
 }
 
@@ -326,7 +326,7 @@ function ProductionTab({ c }: { c: Content }) {
     <div className="stack-lg">
       {nt ? (
         <section className="nexthero" aria-label="Langkah berikutnya">
-          <Camera size={22} />
+          {nt.activity === 'write' ? <PenLine size={22} /> : nt.activity === 'edit' ? <Scissors size={22} /> : nt.activity === 'review' ? <CheckCircle2 size={22} /> : <Camera size={22} />}
           <div className="grow"><div className="xs muted" style={{ color: 'rgba(17,17,15,.7)' }}>Langkah berikutnya</div><div className="h2">{nt.title}</div>{nt.estimateMinutes ? <div className="small">Estimasi {fmtDuration(nt.estimateMinutes)}</div> : null}</div>
           <Button variant="primary" onClick={start}>{nt.status === 'doing' ? 'Lanjut' : 'Mulai'}</Button>
         </section>

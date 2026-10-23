@@ -317,3 +317,18 @@ body.kbd .ed-actions { display: none; }
 }
 .app-login { padding-left: 0 !important; }
 .main.login { max-width: 420px; padding-top: 12vh; }
+
+/* ---- review fixes ---- */
+.btn { text-decoration: none; }
+.btn svg, .iconbtn svg, .side-item svg { flex: none; }
+.btn > span { display: inline-flex; align-items: center; gap: 6px; }
+.input.content-title { font-size: 22px; font-weight: 620; letter-spacing: -.025em; line-height: 1.2; }
+.pill-menu { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px 0 11px; border-radius: 999px; border: 0; font-size: 13px; font-weight: 600; }
+.post-ed.multi .textarea { min-height: 0; }
+@media (min-width: 1024px) {
+  .toasts { bottom: 96px; }
+  .topbar .brand-mini { visibility: hidden; }
+  .main.ov { max-width: 1120px; }
+  .ov-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+}
+.ov-grid > .stack-lg { min-width: 0; }
