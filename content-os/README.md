@@ -3,9 +3,9 @@
 Denizar's content planner. Live at https://vandenizar-content-os.vercel.app (Vercel project `vandenizar-content-os`, root directory `content-os/`, deploys on every push to `main`).
 
 ## Screens
-- **Today**: one "up next" card (Film today has Materials: references, hook, script; Post today has Open video + Copy caption) (late post, film today, post today, next post, or the next empty slot), this week's slots as tiles, latest Threads drafts, idea count.
-- **Instagram**: posts in progress grouped Late / This week / Next week / Later / Not scheduled, plus Posted by month. Each card has its next-step button.
-- **Post**: title, 6 stages (Idea, Script, Film, Edit, Ready, Posted), References (links with optional notes), Hook, Script, Caption (copy), Notes. Details: slot, post date, film date, final video link, pillar, format.
+- **Today**: only what is dated today: every script, film, edit and post task, each with a check (moves the post to the next stage, undo). Film rows have Materials (references, hook, script); post rows have Open video and Copy caption. Overdue tasks fold into one bar. Nothing today shows the next dated task.
+- **Instagram**: this week's slots as tiles (week arrows; past empty slots show "Nothing posted"), then posts in progress grouped Late / This week / Next week / Later / Not scheduled, plus Posted by month. Each card has its next-step button.
+- **Post**: title, 6 stages (Idea, Script, Film, Edit, Ready, Posted), References (links with optional notes), Hook, Script, Caption (copy), Notes. Schedule: Script, Film, Edit and Post dates (must stay in that order; refused with a reason otherwise), slot row, "Fill from post date" (3/2/1 days before) and "Fix dates" when a slot move breaks the order. Details: final video link, pillar, format.
 - **Threads**: drafts edited in place, Copy, Posted (undo), Posted tab. No target.
 - **Ideas**: one inbox. Turn an idea into an Instagram post (pick a slot) or a Threads draft.
 - **Calendar**: month view of post days, film days and empty slots.

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check, ArrowUpRight } from 'lucide-react'
+import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check, ArrowUpRight, AlertTriangle, Wand2 } from 'lucide-react'
 import { get, patch, put, remove, tz } from '../lib/store'
-import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, setPostDate, backToIdeas, duplicatePost, firstLine, normalizeUrl } from '../lib/model'
+import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, backToIdeas, duplicatePost, firstLine, normalizeUrl, TASKS, isTaskDone, dateBounds, setStageDate, dateConflicts, planBackwards, type DateField as DF } from '../lib/model'
 import { fmtDay, fmtShort, dateKey } from '../lib/time'
 import { back, go } from '../lib/router'
 import { SaveBadge } from '../ui/Shell'
@@ -33,7 +33,10 @@ export default function Post({ id }: { id: string }) {
     const idea = backToIdeas(id); back('/instagram')
     toast('Moved back to Ideas', { label: 'Undo', run: () => { if (idea) remove('items', idea.id); put('items', snap, { touch: false }) } })
   }
-  const summary = [it.date ? fmtDay(it.date) : 'Not scheduled', it.finalUrl?.trim() ? 'Video added' : null, formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
+  const conflicts = dateConflicts(it)
+  const canPlan = !!it.date && !done && TASKS.slice(0, 3).some((t) => !isTaskDone(it, t) && !it[t.field])
+  const setDate = (f: DF, v: string) => { const r = setStageDate(id, f, v || null); if (!r.ok) toast(r.error, undefined, 'error') }
+  const summary = [it.finalUrl?.trim() ? 'Video added' : null, formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
 
   return (
     <main className="main editor">
@@ -66,6 +69,25 @@ export default function Post({ id }: { id: string }) {
           </div>
         </div>
 
+        <section className="block">
+          <div className="block-head">
+            <h2 className="block-label grow">Schedule</h2>
+            {(canPlan || conflicts.length > 0) && <Button size="sm" variant="ghost" icon={<Wand2 size={15} />} onClick={() => { planBackwards(id); toast('Planned back from the post date') }}>{conflicts.length ? 'Fix dates' : 'Fill from post date'}</Button>}
+          </div>
+          {conflicts.length > 0 && <div className="warnbox" role="alert"><AlertTriangle size={17} /><span>{conflicts.join('. ')}.</span></div>}
+          <div className="sched">
+            {TASKS.map((t) => {
+              const b = dateBounds(it, t.field)
+              return <DateField key={t.key} label={t.label} done={isTaskDone(it, t)} value={(it[t.field] as string) || ''} min={b.min} max={b.max} onChange={(v) => setDate(t.field, v)} />
+            })}
+          </div>
+          <button className="rowcard slotrow" onClick={() => setSched(true)}>
+            {s ? <span className={cx('pick-dot', 'bg-' + s.tint)} /> : <span className="pick-dot pick-dot-none" />}
+            <span className="grow">{s && it.week ? `${s.name} slot · week of ${fmtShort(it.week, z)}` : it.date ? 'No slot on this day' : 'Not in a slot'}</span>
+            <span className="small muted">Change</span>
+          </button>
+        </section>
+
         <References it={it} />
 
         <Block label="Hook">
@@ -82,18 +104,6 @@ export default function Post({ id }: { id: string }) {
         </Block>
 
         <Accordion title="Details" right={<span className="small muted acc-sum">{summary}</span>}>
-          <div className="field">
-            <span className="field-label">Slot</span>
-            <button className="rowcard" onClick={() => setSched(true)}>
-              {s && <span className={cx('pick-dot', 'bg-' + s.tint)} />}
-              <span className="grow">{s && it.week ? `${s.name} · week of ${fmtShort(it.week, z)}` : 'Not in a slot'}</span>
-              <span className="small muted">Change</span>
-            </button>
-          </div>
-          <div className="grid2">
-            <DateField label="Post date" value={it.date || ''} onChange={(v) => setPostDate(id, v || null)} />
-            <DateField label="Film date" value={it.filmDate || ''} onChange={(v) => set({ filmDate: v || null })} />
-          </div>
           <FinalVideo value={it.finalUrl || ''} onChange={(v) => set({ finalUrl: v })} />
           {pillars().length > 0 && <div className="field"><span className="field-label">Pillar</span><Chips label="Pillar" value={it.pillar || ''} onChange={(v) => set({ pillar: v || null })} options={[...pillars().map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'None' }]} /></div>}
           {formats().length > 0 && <div className="field"><span className="field-label">Format</span><Chips label="Format" value={it.format || ''} onChange={(v) => set({ format: v || null })} options={[...formats().map((p) => ({ value: p.id, label: p.name })), { value: '', label: 'None' }]} /></div>}
@@ -122,14 +132,14 @@ function Block({ label, right, children }: { label: string; right?: React.ReactN
   )
 }
 
-function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function DateField({ label, value, onChange, min, max, done }: { label: string; value: string; onChange: (v: string) => void; min?: string; max?: string; done?: boolean }) {
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
+    <label className={cx('field', done && 'field-done')}>
+      <span className="field-label row gap4">{label}{done && <Check size={14} strokeWidth={2.6} />}</span>
       <span className="datewrap">
         <span className={cx('input datebtn', !value && 'unset')} aria-hidden>{value ? fmtDay(value) : 'Not set'}</span>
-        <input type="date" className="date-native" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* not supported */ } }} />
-        {value && <button type="button" className="date-clear" aria-label={`Clear ${label.toLowerCase()}`} onClick={(e) => { e.preventDefault(); onChange('') }}><X size={15} /></button>}
+        <input type="date" className="date-native" aria-label={`${label} date`} value={value} min={min} max={max} onChange={(e) => onChange(e.target.value)} onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* not supported */ } }} />
+        {value && <button type="button" className="date-clear" aria-label={`Clear ${label.toLowerCase()} date`} onClick={(e) => { e.preventDefault(); onChange('') }}><X size={15} /></button>}
       </span>
     </label>
   )

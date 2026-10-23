@@ -60,18 +60,14 @@ async function runForUser(userId: string) {
   const posts = recs.filter((r) => r.coll === 'items').map((r) => r.data).filter((i) => i && i.kind === 'ig' && i.stage !== 'done');
   const out: { key: string; title: string; body: string; url: string }[] = [];
 
-  // Morning summary: only when something is planned today
+  // Morning summary: every script, film, edit and post task dated today that isn't done yet
   if (n.morning !== false && inWindow(now.min, toMin(n.morningTime, 480))) {
-    const films = posts.filter((i) => i.filmDate === now.date && STAGES.indexOf(i.stage || 'idea') <= 2)
-    const due = posts.filter((i) => i.date === now.date)
-    if (films.length || due.length) {
-      const parts = [
-        ...films.map((i) => 'Film: ' + short(i.title || 'Untitled', 40)),
-        ...due.map((i) => 'Post: ' + short(i.title || 'Untitled', 40) + (i.stage !== 'ready' ? ` (${LABEL[i.stage || 'idea']})` : '')),
-      ];
-      const count = films.length + due.length;
-      out.push({ key: `cos:am:${now.date}`, title: count === 1 ? 'Today, one thing' : `Today, ${count} things`, body: parts.join('\n'), url: '#/today' });
+    const TASKS = [['scriptDate', 'Script', 1], ['filmDate', 'Film', 2], ['editDate', 'Edit', 3], ['date', 'Post', 4]] as const
+    const lines: string[] = []
+    for (const [field, label, idx] of TASKS) {
+      for (const i of posts) if (i[field] === now.date && STAGES.indexOf(i.stage || 'idea') <= idx) lines.push(`${label}: ${short(i.title || 'Untitled', 40)}`)
     }
+    if (lines.length) out.push({ key: `cos:am:${now.date}`, title: lines.length === 1 ? 'Today, one thing' : `Today, ${lines.length} things`, body: lines.join('\n'), url: '#/today' })
   }
 
   // Post-time reminder for each post due today

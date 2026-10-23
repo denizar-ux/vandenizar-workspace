@@ -1,6 +1,6 @@
 // Domain layer: weekly Instagram slots (customisable), Threads drafts, one idea inbox.
 import { all, get, put, patch, remove, uid, nowIso, tz, S, settings, defaultSettings } from './store'
-import { todayKey, weekStart, addDays } from './time'
+import { todayKey, weekStart, addDays, weekdayIndex, fmtDay } from './time'
 import { DEFAULT_SLOTS, DEFAULT_PILLARS, DEFAULT_FORMATS } from './defaults'
 import { SCHEMA_VERSION, type Item, type Slot, type Stage, type Tag } from './types'
 
@@ -105,7 +105,7 @@ export function createPost({ title, week = null, slot = null, fromIdea }: NewPos
   const s = slotById(slot)
   const it = put('items', {
     id: uid(), kind: 'ig', title: title.trim(), stage: 'idea', refs: [], finalUrl: '',
-    week: s && week ? week : null, slot: s && week ? s.id : null, date: s && week ? addDays(week, s.day) : null, filmDate: null,
+    week: s && week ? week : null, slot: s && week ? s.id : null, date: s && week ? addDays(week, s.day) : null, scriptDate: null, filmDate: null, editDate: null,
     hook: '', script: '', caption: '', notes: fromIdea?.text && fromIdea.text.trim() !== title.trim() ? fromIdea.text.trim() : '',
     pillar: s?.pillar ?? null, format: s?.format ?? formats()[0]?.id ?? null, postedAt: null, createdAt: '', updatedAt: '',
   })
@@ -120,13 +120,19 @@ export function schedule(id: string, week: string | null, slot: string | null) {
   const it = get('items', id)
   patch('items', id, { week, slot: s.id, date: addDays(week, s.day), pillar: it?.pillar ?? s.pillar ?? null })
 }
-/** Set a custom post date; the post keeps its slot only if the date stays in the slot's week. */
-export function setPostDate(id: string, date: string | null) {
+/** The slot a post date belongs to: the free slot on that weekday, else the current slot if it is free that week. */
+function slotForDate(it: Item, date: string): string | null {
+  const week = weekStart(date)
+  const match = slots().find((s) => s.day === weekdayIndex(date) && isSlotFree(week, s.id, it.id))
+  if (match) return match.id
+  if (it.slot && slotById(it.slot) && (week === it.week || isSlotFree(week, it.slot, it.id))) return it.slot
+  return null
+}
+/** Set the post date by hand; the slot follows the weekday when one fits. */
+function applyPostDate(id: string, date: string | null) {
   const it = get('items', id); if (!it) return
   if (!date) { patch('items', id, { date: null, week: null, slot: null }); return }
-  const week = weekStart(date)
-  const keep = !!it.slot && (week === it.week || isSlotFree(week, it.slot, id))
-  patch('items', id, { date, week, slot: keep ? it.slot : null })
+  patch('items', id, { date, week: weekStart(date), slot: slotForDate(it, date) })
 }
 export function isSlotFree(week: string, slot: string, exceptId?: string) {
   const it = slotItem(week, slot)
@@ -153,7 +159,7 @@ export function backToIdeas(id: string): Item | undefined {
 
 export function duplicatePost(id: string): Item | undefined {
   const it = get('items', id); if (!it) return
-  return put('items', { ...it, id: uid(), title: (it.title || '') + ' (copy)', stage: 'idea', week: null, slot: null, date: null, filmDate: null, finalUrl: '', postedAt: null, createdAt: '', updatedAt: '' })
+  return put('items', { ...it, id: uid(), title: (it.title || '') + ' (copy)', stage: 'idea', week: null, slot: null, date: null, scriptDate: null, filmDate: null, editDate: null, finalUrl: '', postedAt: null, createdAt: '', updatedAt: '' })
 }
 
 export type Group = { key: string; label: string; items: Item[] }
@@ -163,36 +169,105 @@ export function openGroups(t = today()): Group[] {
   const open = igItems().filter((i) => i.stage !== 'done').sort(byDate)
   const g: Group[] = [
     { key: 'late', label: 'Late', items: open.filter((i) => isLate(i, t)) },
-    { key: 'week', label: 'This week', items: open.filter((i) => !isLate(i, t) && i.date && i.date < next) },
-    { key: 'next', label: 'Next week', items: open.filter((i) => i.date && i.date >= next && i.date < addDays(next, 7)) },
-    { key: 'later', label: 'Later', items: open.filter((i) => i.date && i.date >= addDays(next, 7)) },
+    { key: 'week', label: 'Posting this week', items: open.filter((i) => !isLate(i, t) && i.date && i.date < next) },
+    { key: 'next', label: 'Posting next week', items: open.filter((i) => i.date && i.date >= next && i.date < addDays(next, 7)) },
+    { key: 'later', label: 'Posting later', items: open.filter((i) => i.date && i.date >= addDays(next, 7)) },
     { key: 'none', label: 'Not scheduled', items: open.filter((i) => !i.date) },
   ]
   return g.filter((x) => x.items.length)
 }
 export const postedItems = () => igItems().filter((i) => i.stage === 'done').sort((a, b) => ((b.postedAt || b.date || '') > (a.postedAt || a.date || '') ? 1 : -1))
 
-// ---------- Today: the one thing to do next ----------
-export type UpNext =
-  | { type: 'late' | 'film' | 'post' | 'next'; item: Item; more: number }
-  | { type: 'empty'; slot: Slot; date: string; week: string }
-  | { type: 'clear'; posted: number }
+// ---------- schedule: one date per stage ----------
+export type DateField = 'scriptDate' | 'filmDate' | 'editDate' | 'date'
+export interface TaskDef { key: 'script' | 'film' | 'edit' | 'post'; field: DateField; label: string; todo: string; done: string; idx: number }
+/** idx = the stage index this task finishes; finishing it moves the post to the next stage. */
+export const TASKS: TaskDef[] = [
+  { key: 'script', field: 'scriptDate', label: 'Script', todo: 'Write the script', done: 'Script done', idx: 1 },
+  { key: 'film', field: 'filmDate', label: 'Film', todo: 'Film it', done: 'Filmed', idx: 2 },
+  { key: 'edit', field: 'editDate', label: 'Edit', todo: 'Edit it', done: 'Edit done', idx: 3 },
+  { key: 'post', field: 'date', label: 'Post', todo: 'Post it', done: 'Posted', idx: 4 },
+]
+export const taskOf = (k: TaskDef['key']) => TASKS.find((t) => t.key === k)!
+export const isTaskDone = (it: Item, t: TaskDef) => stageIndex(it.stage) > t.idx
 
-export function upNext(t = today()): UpNext {
-  const open = igItems().filter((i) => i.stage !== 'done')
-  const late = open.filter((i) => isLate(i, t)).sort(byDate)
-  if (late.length) return { type: 'late', item: late[0], more: late.length - 1 }
-  const film = open.filter((i) => i.filmDate === t && stageIndex(i.stage) <= stageIndex('film')).sort(byDate)
-  if (film.length) return { type: 'film', item: film[0], more: 0 }
-  const post = open.filter((i) => i.date === t).sort(byDate)
-  if (post.length) return { type: 'post', item: post[0], more: 0 }
-  const wk = weekStart(t), end = addDays(wk, 6)
-  const upcoming = open.filter((i) => i.date && i.date > t && i.date <= end).sort(byDate)
-  // an empty slot that comes before the next planned post needs attention first
-  const empty = slots().map((s) => ({ s, date: addDays(wk, s.day) })).filter((x) => x.date >= t && !slotItem(wk, x.s.id))
-  if (empty.length && (!upcoming.length || empty[0].date <= upcoming[0].date!)) return { type: 'empty', slot: empty[0].s, date: empty[0].date, week: wk }
-  if (upcoming.length) return { type: 'next', item: upcoming[0], more: 0 }
-  return { type: 'clear', posted: weekProgress(wk).posted }
+/** Finish a task: the post moves past that stage. Returns the previous stage for undo. */
+export function completeTask(id: string, t: TaskDef): Stage | undefined {
+  const it = get('items', id); if (!it || isTaskDone(it, t)) return
+  const prev = it.stage || 'idea'
+  setStage(id, STAGES[t.idx + 1].id)
+  return prev
+}
+
+/** Allowed range for a stage date: after every earlier stage date, before every later one. */
+export function dateBounds(it: Item, field: DateField): { min?: string; max?: string } {
+  const i = TASKS.findIndex((t) => t.field === field)
+  const before = TASKS.slice(0, i).map((t) => it[t.field]).filter(Boolean) as string[]
+  const after = TASKS.slice(i + 1).map((t) => it[t.field]).filter(Boolean) as string[]
+  return { min: before.length ? before.sort()[before.length - 1] : undefined, max: after.length ? after.sort()[0] : undefined }
+}
+
+/** Set a stage date. Refuses dates that break script <= film <= edit <= post and says why. */
+export function setStageDate(id: string, field: DateField, value: string | null): { ok: true } | { ok: false; error: string } {
+  const it = get('items', id); if (!it) return { ok: false, error: 'Post not found' }
+  if (value) {
+    const t = TASKS.find((x) => x.field === field)!
+    const i = TASKS.indexOf(t)
+    for (const e of TASKS.slice(0, i)) { const d = it[e.field]; if (d && d > value) return { ok: false, error: `${t.label} can't be before ${e.label} (${fmtDay(d)}).` } }
+    for (const l of TASKS.slice(i + 1)) { const d = it[l.field]; if (d && d < value) return { ok: false, error: `${t.label} can't be after ${l.label} (${fmtDay(d)}).` } }
+  }
+  if (field === 'date') applyPostDate(id, value)
+  else patch('items', id, { [field]: value } as any)
+  return { ok: true }
+}
+
+/** Dates that are out of order (can happen when a post is moved to an earlier slot). */
+export function dateConflicts(it: Item): string[] {
+  const out: string[] = []
+  for (let i = 0; i < TASKS.length; i++) for (let j = i + 1; j < TASKS.length; j++) {
+    const a = it[TASKS[i].field], b = it[TASKS[j].field]
+    if (a && b && a > b) out.push(`${TASKS[i].label} (${fmtDay(a)}) is after ${TASKS[j].label} (${fmtDay(b)})`)
+  }
+  return out
+}
+
+/** Fill script/film/edit backwards from the post date (3, 2, 1 days before), never before today,
+ *  skipping stages already done and keeping dates that already fit. */
+export function planBackwards(id: string, t = today()) {
+  const it = get('items', id); if (!it || !it.date) return
+  const p: Partial<Item> = {}
+  let next = it.date
+  for (const [field, off] of [['editDate', 1], ['filmDate', 2], ['scriptDate', 3]] as [DateField, number][]) {
+    const task = TASKS.find((x) => x.field === field)!
+    const cur = it[field]
+    if (isTaskDone(it, task)) { if (cur && cur > next) (p as any)[field] = next; else if (cur) next = cur; continue }
+    if (cur && cur <= next && cur >= t) { next = cur; continue }
+    let d = addDays(it.date, -off)
+    if (d < t) d = t
+    if (d > next) d = next
+    ;(p as any)[field] = d
+    next = d
+  }
+  if (Object.keys(p).length) patch('items', id, p)
+}
+
+export interface DayTask { it: Item; task: TaskDef; date: string; done: boolean }
+function allTasks(): DayTask[] {
+  const out: DayTask[] = []
+  for (const it of igItems()) for (const task of TASKS) { const d = it[task.field]; if (d) out.push({ it, task, date: d, done: isTaskDone(it, task) }) }
+  return out
+}
+const taskSort = (a: DayTask, b: DayTask) => (a.done === b.done ? 0 : a.done ? 1 : -1) || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) || a.task.idx - b.task.idx || ((a.it.title || '') < (b.it.title || '') ? -1 : 1)
+/** Everything dated on a day: script, film, edit and post tasks. Undone first. */
+export const tasksOn = (d: string) => allTasks().filter((x) => x.date === d).sort(taskSort)
+export const tasksBetween = (a: string, b: string) => allTasks().filter((x) => x.date >= a && x.date <= b)
+/** Dated tasks before today that are not done. */
+export const overdueTasks = (t = today()) => allTasks().filter((x) => x.date < t && !x.done).sort(taskSort)
+/** The next undone dated task after a day. */
+export const nextTaskAfter = (t = today()) => allTasks().filter((x) => x.date > t && !x.done).sort(taskSort)[0]
+/** The next undone dated task of one post (for cards). */
+export function nextTaskOf(it: Item): DayTask | undefined {
+  return TASKS.filter((t) => !isTaskDone(it, t) && it[t.field]).map((t) => ({ it, task: t, date: it[t.field] as string, done: false }))[0]
 }
 
 // ---------- Threads ----------

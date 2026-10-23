@@ -53,8 +53,10 @@ export interface Item extends Base {
   notes?: string
   /** planned post day (YYYY-MM-DD) */
   date?: string | null
-  /** planned shoot day (YYYY-MM-DD) */
+  /** planned day for each stage (YYYY-MM-DD); order must be script <= film <= edit <= post */
+  scriptDate?: string | null
   filmDate?: string | null
+  editDate?: string | null
   pillar?: string | null
   format?: string | null
   /** reference links (inspiration, shot list on Drive, moodboards) */

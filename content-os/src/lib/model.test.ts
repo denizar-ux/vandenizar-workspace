@@ -29,10 +29,13 @@ describe('slots and posts', () => {
     expect(get('items', p.id)!.date).toBe('2026-10-21')
     expect(M.isSlotFree(W, 'shot')).toBe(false)
     expect(M.isSlotFree(W, 'shot', p.id)).toBe(true)
-    // custom date inside next week keeps the slot when it is free there
-    M.setPostDate(p.id, addDays(W, 9))
+    // a post date on a weekday with a free slot lands in that slot
+    M.setStageDate(p.id, 'date', addDays(W, 12)) // Saturday next week -> Desk
     expect(get('items', p.id)!.week).toBe(addDays(W, 7))
-    expect(get('items', p.id)!.slot).toBe('shot')
+    expect(get('items', p.id)!.slot).toBe('desk')
+    // a weekday without a slot keeps the current slot when it is free that week
+    M.setStageDate(p.id, 'date', addDays(W, 8)) // Tuesday
+    expect(get('items', p.id)!.slot).toBe('desk')
     M.schedule(p.id, null, null)
     expect(get('items', p.id)!.date).toBeNull()
   })
@@ -68,25 +71,58 @@ describe('slots and posts', () => {
   })
 })
 
-describe('up next', () => {
+describe('stage dates and today', () => {
   const T = '2026-10-21' // Wednesday
-  it('picks late first, then film today, then post today, then empty slot or next post', () => {
-    expect(M.upNext(T)).toMatchObject({ type: 'empty' })
-    const work = M.createPost({ title: 'Mon post', week: W, slot: 'work' })
-    const shot = M.createPost({ title: 'Wed post', week: W, slot: 'shot' })
-    expect(M.upNext(T)).toMatchObject({ type: 'late', item: { id: work.id } })
-    M.setStage(work.id, 'done')
-    expect(M.upNext(T)).toMatchObject({ type: 'post', item: { id: shot.id } })
-    const story = M.createPost({ title: 'Fri post', week: W, slot: 'story' })
-    put('items', { ...get('items', story.id)!, filmDate: T })
-    expect(M.upNext(T)).toMatchObject({ type: 'film', item: { id: story.id } })
-    M.setStage(shot.id, 'done'); M.setStage(story.id, 'edit')
-    // Friday is planned, Saturday desk is empty, so the next planned post comes first
-    expect(M.upNext(T)).toMatchObject({ type: 'next', item: { id: story.id } })
-    M.setStage(story.id, 'done')
-    expect(M.upNext(T)).toMatchObject({ type: 'empty', slot: { id: 'desk' } })
-    M.createPost({ title: 'desk', week: W, slot: 'desk' }); M.setStage(M.slotItem(W, 'desk')!.id, 'done')
-    expect(M.upNext(T)).toMatchObject({ type: 'clear', posted: 4 })
+  it('keeps script <= film <= edit <= post and explains refusals', () => {
+    const p = M.createPost({ title: 'Rumah Nenek', week: W, slot: 'story' }) // post Fri 23
+    expect(M.setStageDate(p.id, 'filmDate', '2026-10-24')).toEqual({ ok: false, error: expect.stringContaining("Film can't be after Post") })
+    expect(M.setStageDate(p.id, 'filmDate', '2026-10-21').ok).toBe(true)
+    expect(M.setStageDate(p.id, 'scriptDate', '2026-10-22')).toEqual({ ok: false, error: expect.stringContaining("Script can't be after Film") })
+    expect(M.setStageDate(p.id, 'scriptDate', '2026-10-20').ok).toBe(true)
+    expect(M.setStageDate(p.id, 'date', '2026-10-20')).toEqual({ ok: false, error: expect.stringContaining("Post can't be before") })
+    expect(M.dateBounds(get('items', p.id)!, 'editDate')).toEqual({ min: '2026-10-21', max: '2026-10-23' })
+    expect(M.dateConflicts(get('items', p.id)!)).toEqual([])
+    // moving the post to an earlier slot creates a conflict that planBackwards fixes
+    M.schedule(p.id, W, 'work') // Mon 19
+    expect(M.dateConflicts(get('items', p.id)!).length).toBeGreaterThan(0)
+    M.planBackwards(p.id, '2026-10-19')
+    const it = get('items', p.id)!
+    expect(M.dateConflicts(it)).toEqual([])
+    expect([it.scriptDate, it.filmDate, it.editDate, it.date]).toEqual(['2026-10-19', '2026-10-19', '2026-10-19', '2026-10-19'])
+  })
+  it('plans backwards 3/2/1 days and skips done stages', () => {
+    const p = M.createPost({ title: 'x', week: addDays(W, 7), slot: 'story' }) // post Fri 30
+    M.planBackwards(p.id, T)
+    let it = get('items', p.id)!
+    expect([it.scriptDate, it.filmDate, it.editDate]).toEqual(['2026-10-27', '2026-10-28', '2026-10-29'])
+    M.setStageDate(p.id, 'scriptDate', null)
+    M.setStage(p.id, 'film') // script already done
+    M.planBackwards(p.id, T)
+    it = get('items', p.id)!
+    expect(it.scriptDate).toBeNull()
+    // a done stage dated after a new, earlier post date is pulled back so nothing stays out of order
+    M.setStageDate(p.id, 'scriptDate', '2026-10-27')
+    M.schedule(p.id, addDays(W, 7), 'work') // post Mon 26
+    expect(M.dateConflicts(get('items', p.id)!).length).toBeGreaterThan(0)
+    M.planBackwards(p.id, T)
+    expect(M.dateConflicts(get('items', p.id)!)).toEqual([])
+  })
+  it('lists every task dated today, completes them and moves the stage', () => {
+    const a = M.createPost({ title: 'A', week: W, slot: 'shot' }) // post Wed 21
+    const b = M.createPost({ title: 'B', week: W, slot: 'story' })
+    M.setStageDate(b.id, 'filmDate', T)
+    const c = M.createPost({ title: 'C', week: W, slot: 'desk' })
+    M.setStageDate(c.id, 'scriptDate', T)
+    const d = M.createPost({ title: 'D' })
+    M.setStageDate(d.id, 'editDate', '2026-10-20') // overdue edit
+    expect(M.tasksOn(T).map((x) => x.task.key + ':' + x.it.title)).toEqual(['script:C', 'film:B', 'post:A'])
+    expect(M.overdueTasks(T).map((x) => x.task.key)).toEqual(['edit'])
+    M.completeTask(b.id, M.taskOf('film'))
+    expect(get('items', b.id)!.stage).toBe('edit')
+    M.completeTask(a.id, M.taskOf('post'))
+    expect(get('items', a.id)!.stage).toBe('done')
+    expect(M.tasksOn(T).map((x) => x.task.key + (x.done ? '✓' : ''))).toEqual(['script', 'film✓', 'post✓'])
+    expect(M.nextTaskAfter(T)!.it.title).toBe('B')
   })
 })
 

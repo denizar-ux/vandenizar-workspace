@@ -1,12 +1,13 @@
 import React from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { tz } from '../lib/store'
-import { openGroups, postedItems, igItems, pillars, slotById, firstLine } from '../lib/model'
-import { fmtShort, dateKey, MONTHS } from '../lib/time'
+import { openGroups, postedItems, igItems, pillars, slotById, firstLine, slots, slotItem, extraItems, weekProgress, thisWeek } from '../lib/model'
+import { fmtShort, dateKey, MONTHS, addDays } from '../lib/time'
 import { go, useRoute, setQuery } from '../lib/router'
 import { PageHead, PhoneTop } from '../ui/Shell'
-import { Segmented, Chips, Empty, Button, cx } from '../ui/kit'
-import { PostCard } from '../ui/parts'
+import { Segmented, Chips, Empty, Button, IconBtn, cx } from '../ui/kit'
+import { PostCard, SlotTile } from '../ui/parts'
+import { weekName } from '../ui/SlotPicker'
 import { openNew } from '../ui/QuickAdd'
 import { Instagram as IgIcon } from '../ui/IgIcon'
 import type { Item } from '../lib/types'
@@ -42,6 +43,8 @@ export default function Instagram() {
           {showFilter && <Chips label="Pillar" scroll value={pf} onChange={(v) => setQuery('pillar', v === 'all' ? null : v)} options={[{ value: 'all', label: 'All pillars' }, ...usedPillars.map((p) => ({ value: p.id, label: p.name }))]} />}
         </div>
 
+        {tab === 'open' && <WeekSlots week={r.q.get('w') || thisWeek()} />}
+
         {tab === 'open' && (groups.length ? <div className="groups">{groups.map((g) => (
           <section key={g.key} className="stack">
             <h2 className={cx('group-title', g.key === 'late' && 'late')}>{g.label} <span className="muted">{g.items.length}</span></h2>
@@ -70,5 +73,26 @@ export default function Instagram() {
         }) : <Empty icon={<IgIcon size={24} />} title="Nothing posted yet" body="Posts land here when you mark them posted." />)}
       </div>
     </main>
+  )
+}
+
+/** The weekly rhythm: one tile per slot. Tap an empty one to plan it. */
+function WeekSlots({ week }: { week: string }) {
+  const now = thisWeek()
+  const { posted, total } = weekProgress(week)
+  const extras = extraItems(week)
+  return (
+    <section className="stack" aria-label={weekName(week)}>
+      <div className="section-head">
+        <h2 className="h2 grow">{weekName(week)} <span className="muted h2-sub">{posted} of {total} posted</span></h2>
+        {week !== now && <Button size="sm" variant="ghost" onClick={() => setQuery('w', null)}>This week</Button>}
+        <IconBtn label="Previous week" onClick={() => setQuery('w', addDays(week, -7))}><ChevronLeft size={20} /></IconBtn>
+        <IconBtn label="Next week" onClick={() => setQuery('w', addDays(week, 7))}><ChevronRight size={20} /></IconBtn>
+      </div>
+      <div className="tiles">
+        {slots().map((s) => <SlotTile key={s.id} slot={s} week={week} date={addDays(week, s.day)} it={slotItem(week, s.id)} />)}
+      </div>
+      {extras.length > 0 && <p className="small muted">Also this week: {extras.map((i) => firstLine(i.title) || 'Untitled').join(', ')}</p>}
+    </section>
   )
 }

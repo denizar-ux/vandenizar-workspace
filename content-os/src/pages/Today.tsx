@@ -1,27 +1,26 @@
 import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight, ArrowRight, Copy, Lightbulb, Check, Link2, Play } from 'lucide-react'
+import { Check, Copy, Play, Link2, ChevronDown, ArrowRight, Plus } from 'lucide-react'
 import { settings, tz } from '../lib/store'
-import { upNext, slots, slotItem, extraItems, weekProgress, thisWeek, today, threadDrafts, ideas, stageOf, setStage, schedule, slotById, firstLine, normalizeUrl, type UpNext } from '../lib/model'
-import { addDays, fmtDay, greeting } from '../lib/time'
-import { go, useRoute, setQuery } from '../lib/router'
+import { tasksOn, overdueTasks, nextTaskAfter, completeTask, setStage, slotById, today, normalizeUrl, firstLine, STAGES, stageIndex, type DayTask } from '../lib/model'
+import { fmtDay, greeting, relDay } from '../lib/time'
+import { go } from '../lib/router'
 import { PhoneTop } from '../ui/Shell'
-import { Button, IconBtn, Sheet, toast, copyOrShow, cx } from '../ui/kit'
-import { RefListView } from '../ui/Refs'
-import { Stepper, NextButton, SlotTile, DraftCard, PostCard } from '../ui/parts'
-import { ScheduleSheet, weekName } from '../ui/SlotPicker'
+import { Button, toast, copyOrShow, cx } from '../ui/kit'
+import { MaterialsSheet } from '../ui/Refs'
 import { openNew } from '../ui/QuickAdd'
 
 export default function Today() {
-  const r = useRoute()
-  const z = tz(), t = today(), now = thisWeek()
-  const week = r.q.get('w') || now
-  const { posted, total } = weekProgress(week)
-  const drafts = threadDrafts()
-  const idl = ideas()
-  const extras = extraItems(week)
+  const z = tz(), t = today()
+  const list = tasksOn(t)
+  const open = list.filter((x) => !x.done)
+  const done = list.filter((x) => x.done)
+  const over = overdueTasks(t)
+  const next = nextTaskAfter(t)
+  const [showOver, setShowOver] = useState(false)
+  const summary = open.length ? `${open.length} thing${open.length > 1 ? 's' : ''} today${done.length ? ` · ${done.length} done` : ''}` : list.length ? 'All done for today.' : 'Nothing scheduled today.'
 
   return (
-    <main className="main wide">
+    <main className="main">
       <PhoneTop />
       <div className="hello">
         <div className="hello-line">{greeting(z)}, {settings().displayName || 'there'}</div>
@@ -29,110 +28,70 @@ export default function Today() {
         <h1 className="page-title">Start here.</h1>
       </div>
 
-      <div className="today-grid">
-        <div className="stack-lg">
-          <UpNextCard up={upNext(t)} />
+      <div className="stack">
+        <p className="today-sum">{summary}</p>
 
-          <section className="stack" aria-label={weekName(week)}>
-            <div className="section-head">
-              <h2 className="h2 grow">{weekName(week)} <span className="muted h2-sub">{posted} of {total} posted</span></h2>
-              {week !== now && <Button size="sm" variant="ghost" onClick={() => setQuery('w', null)}>Today</Button>}
-              <IconBtn label="Previous week" onClick={() => setQuery('w', addDays(week, -7))}><ChevronLeft size={20} /></IconBtn>
-              <IconBtn label="Next week" onClick={() => setQuery('w', addDays(week, 7))}><ChevronRight size={20} /></IconBtn>
-            </div>
-            <div className="tiles">
-              {slots().map((s) => <SlotTile key={s.id} slot={s} week={week} date={addDays(week, s.day)} it={slotItem(week, s.id)} />)}
-            </div>
-            {extras.length > 0 && (
-              <div className="stack mt8">
-                <span className="eyebrow">Also this week</span>
-                {extras.map((i) => <PostCard key={i.id} it={i} />)}
-              </div>
-            )}
-          </section>
-        </div>
-
-        <div className="stack-lg">
-          <section className="stack">
-            <div className="section-head">
-              <h2 className="h2 grow">Threads <span className="muted h2-sub">{drafts.length ? `${drafts.length} draft${drafts.length > 1 ? 's' : ''}` : ''}</span></h2>
-              <button className="linkbtn row gap4" onClick={() => go('/threads')}>All<ArrowRight size={15} /></button>
-            </div>
-            {drafts.length
-              ? drafts.slice(0, 2).map((d) => <DraftCard key={d.id} it={d} compact />)
-              : <button className="rowcard" onClick={() => openNew({ kind: 'thread' })}><span className="grow muted">No drafts. Write one when something comes to mind.</span><ArrowRight size={17} className="muted" /></button>}
-          </section>
-          <section className="stack">
-            <div className="section-head"><h2 className="h2 grow">Ideas</h2></div>
-            <button className="rowcard" onClick={() => go('/ideas')}>
-              <Lightbulb size={19} />
-              <span className="grow">{idl.length ? <><b>{idl.length}</b> waiting{idl[0] ? <span className="muted"> · latest: {firstLine(idl[0].text)}</span> : null}</> : <span className="muted">Inbox is empty</span>}</span>
-              <ArrowRight size={17} className="muted" />
+        {over.length > 0 && (
+          <div className="overdue">
+            <button className="overdue-head" aria-expanded={showOver} onClick={() => setShowOver(!showOver)}>
+              <span className="grow">{over.length} overdue from earlier days</span><ChevronDown size={18} className={cx('acc-chev', showOver && 'up')} />
             </button>
-          </section>
-        </div>
+            {showOver && <div className="stack" style={{ gap: 8 }}>{over.map((x) => <TaskRow key={x.it.id + x.task.key} x={x} showDate />)}</div>}
+          </div>
+        )}
+
+        {open.map((x) => <TaskRow key={x.it.id + x.task.key} x={x} />)}
+
+        {!open.length && (
+          <div className="today-empty">
+            {next
+              ? <><span className="eyebrow">Next up · {relDay(next.date, z)}</span><button className="today-next" onClick={() => go('/post/' + next.it.id)}><b>{next.task.label}</b> {firstLine(next.it.title) || 'Untitled'}<ArrowRight size={17} /></button></>
+              : <><p className="muted">No dates planned yet. Give a post its script, film, edit and post days and they show up here on the day.</p><Button variant="primary" icon={<Plus size={16} />} style={{ alignSelf: 'flex-start' }} onClick={() => openNew({ kind: 'ig' })}>Plan a post</Button></>}
+          </div>
+        )}
+
+        {done.length > 0 && (
+          <>
+            <span className="eyebrow mt8">Done today</span>
+            {done.map((x) => <TaskRow key={x.it.id + x.task.key} x={x} />)}
+          </>
+        )}
       </div>
     </main>
   )
 }
 
-function UpNextCard({ up }: { up: UpNext }) {
-  const [resched, setResched] = useState(false)
+function TaskRow({ x, showDate }: { x: DayTask; showDate?: boolean }) {
   const [mats, setMats] = useState(false)
-  if (up.type === 'clear') {
-    return (
-      <section className="upnext tint-sage">
-        <span className="eyebrow">This week</span>
-        <h2 className="upnext-title">{up.posted ? `All ${up.posted} posted. Nice.` : 'Nothing planned this week.'}</h2>
-        <div className="row gap8 wrap"><Button variant="primary" onClick={() => setQuery('w', addDays(thisWeek(), 7))}>Plan next week<ArrowRight size={16} /></Button></div>
-      </section>
-    )
-  }
-  if (up.type === 'empty') {
-    return (
-      <section className="upnext upnext-empty">
-        <span className="eyebrow">Up next · {fmtDay(up.date)} · {up.slot.name}</span>
-        <h2 className="upnext-title">Nothing planned yet.</h2>
-        {up.slot.hint && <p className="ink2">{up.slot.hint}</p>}
-        <div className="row gap8 wrap"><Button variant="primary" onClick={() => openNew({ kind: 'ig', week: up.week, slot: up.slot.id })}>Plan it<ArrowRight size={16} /></Button></div>
-      </section>
-    )
-  }
-  const it = up.item
+  const { it, task, done } = x
   const s = slotById(it.slot)
-  const st = stageOf(it.stage)
   const video = it.finalUrl ? normalizeUrl(it.finalUrl) : null
-  const hasMats = !!(it.refs?.length || it.script?.trim() || it.hook?.trim())
-  const label = up.type === 'late' ? `Late · was due ${fmtDay(it.date!)}` : up.type === 'film' ? 'Film today' : up.type === 'post' ? 'Post today' : `Up next · ${fmtDay(it.date!)}`
+  // un-checking is only safe right after finishing this task (stage is exactly the next one)
+  const canUndo = done && stageIndex(it.stage) === task.idx + 1
+  const toggle = () => {
+    if (done) { if (canUndo) setStage(it.id, STAGES[task.idx].id); return }
+    const prev = completeTask(it.id, task)
+    if (prev) toast(`${task.done}: ${firstLine(it.title) || 'Untitled'}`, { label: 'Undo', run: () => setStage(it.id, prev) })
+  }
   return (
-    <section className={cx('upnext', up.type === 'late' ? 'tint-danger' : s ? 'tint-' + s.tint : 'card')}>
-      <span className="eyebrow">{label}{s ? ' · ' + s.name : ''}</span>
-      <button className="upnext-open" onClick={() => go('/post/' + it.id)}>
-        <h2 className="upnext-title">{it.title || 'Untitled'}</h2>
-      </button>
-      <div className="stack" style={{ gap: 8 }}>
-        <Stepper stage={it.stage} />
-        <span className="small">Now: <b>{st.doing}</b></span>
+    <article className={cx('task', done ? 'task-done' : s ? 'tint-' + s.tint : 'card')}>
+      <div className="task-top">
+        <button className={cx('task-check', done && 'on')} role="checkbox" aria-checked={done} aria-label={done ? `${task.done}${canUndo ? ', tap to undo' : ''}` : `Mark ${task.label.toLowerCase()} done`} disabled={done && !canUndo} onClick={toggle}>
+          {done && <Check size={16} strokeWidth={3} />}
+        </button>
+        <button className="task-main" onClick={() => go('/post/' + it.id)}>
+          <span className="eyebrow">{task.label}{showDate ? ' · ' + fmtDay(x.date) : ''}{s ? ' · ' + s.name : ''}</span>
+          <span className="task-title">{it.title || 'Untitled'}</span>
+        </button>
       </div>
-      <div className="row gap8 wrap">
-        {up.type === 'film'
-          ? <Button variant="primary" onClick={() => { const prev = it.stage!; setStage(it.id, 'edit'); toast('Filmed. Next: edit', { label: 'Undo', run: () => setStage(it.id, prev) }) }}><Check size={16} />Filmed</Button>
-          : up.type !== 'post' && <NextButton it={it} size="md" />}
-        {up.type === 'post' && video && <a className="btn" href={video} target="_blank" rel="noopener noreferrer"><Play size={16} /><span>Open video</span></a>}
-        {up.type === 'post' && it.caption?.trim() && <Button icon={<Copy size={16} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy caption</Button>}
-        {up.type === 'post' && <NextButton it={it} size="md" />}
-        {up.type === 'film' && hasMats && <Button icon={<Link2 size={16} />} onClick={() => setMats(true)}>Materials</Button>}
-        {up.type === 'late' && <Button onClick={() => setResched(true)}>Reschedule</Button>}
-        {up.type !== 'post' && up.type !== 'late' && !(up.type === 'film' && hasMats) && <Button variant="ghost" onClick={() => go('/post/' + it.id)}>Open</Button>}
-      </div>
-      {up.type === 'late' && up.more > 0 && <button className="linkbtn" style={{ alignSelf: 'flex-start', color: 'var(--ink-2)' }} onClick={() => go('/instagram')}>+{up.more} more late · see all</button>}
-      <Sheet open={mats} onClose={() => setMats(false)} title="Materials">
-        {(it.refs || []).length > 0 && <RefListView it={it} />}
-        {it.hook?.trim() && <div className="mat"><span className="eyebrow">Hook</span><p className="pre body-text">{it.hook}</p></div>}
-        {it.script?.trim() && <div className="mat"><span className="eyebrow">Script</span><p className="pre body-text">{it.script}</p></div>}
-        <Button variant="ghost" onClick={() => { setMats(false); go('/post/' + it.id) }}>Open post<ArrowRight size={16} /></Button>
-      </Sheet>
-      <ScheduleSheet open={resched} onClose={() => setResched(false)} title="Move to" week={it.week || null} slot={it.slot || null} startWeek={thisWeek()} exceptId={it.id} onPick={(w, sl) => { schedule(it.id, w, sl); toast(sl ? `Moved to ${slotById(sl)?.name}` : 'Unscheduled') }} />
-    </section>
+      {!done && (task.key === 'film' || task.key === 'post') && (
+        <div className="task-actions">
+          {task.key === 'film' && <Button size="sm" icon={<Link2 size={15} />} onClick={() => setMats(true)}>Materials</Button>}
+          {task.key === 'post' && video && <a className="btn btn-sm" href={video} target="_blank" rel="noopener noreferrer"><Play size={15} /><span>Open video</span></a>}
+          {task.key === 'post' && it.caption?.trim() && <Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy caption</Button>}
+        </div>
+      )}
+      {mats && <MaterialsSheet it={it} open onClose={() => setMats(false)} onOpenPost={() => go('/post/' + it.id)} />}
+    </article>
   )
 }

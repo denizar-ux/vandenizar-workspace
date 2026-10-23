@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { ArrowRight, Check, Copy, Trash2, RotateCcw, Plus } from 'lucide-react'
-import { STAGES, stageIndex, stageOf, advance, slotById, pillarName, formatName, isLate, markPosted, THREADS_LIMIT, firstLine } from '../lib/model'
+import { STAGES, stageIndex, stageOf, advance, slotById, pillarName, formatName, isLate, markPosted, THREADS_LIMIT, firstLine, nextTaskOf, dateConflicts, today } from '../lib/model'
 import { patch, remove, put, tz } from '../lib/store'
 import { fmtDay, fmtShort, dateKey, WEEKDAYS_S } from '../lib/time'
 import { go } from '../lib/router'
@@ -38,14 +38,16 @@ export function postWhen(it: Item) {
 /** Instagram list card. */
 export function PostCard({ it }: { it: Item }) {
   const late = isLate(it)
-  const meta = [formatName(it.format), pillarName(it.pillar), it.filmDate && stageIndex(it.stage) <= stageIndex('film') ? 'Film ' + fmtDay(it.filmDate) : null].filter(Boolean).join(' · ')
+  const nt = it.stage !== 'done' ? nextTaskOf(it) : undefined
+  const clash = dateConflicts(it).length > 0
+  const meta = [nt && nt.task.key !== 'post' ? `${nt.task.label} ${fmtDay(nt.date)}` : null, formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
   const tint = tintOf(it)
   return (
     <article className={cx('pcard', tint ? 'tint-' + tint : 'pcard-plain')}>
       <button className="pcard-open" onClick={() => go('/post/' + it.id)}>
         <div className="pcard-top">
           <span className="eyebrow">{postWhen(it)}</span>
-          {late ? <span className="badge badge-danger">Late</span> : <span className="badge badge-wash">{stageOf(it.stage).label}</span>}
+          {late ? <span className="badge badge-danger">Late</span> : clash ? <span className="badge badge-danger">Check dates</span> : <span className="badge badge-wash">{stageOf(it.stage).label}</span>}
         </div>
         <h3 className="pcard-title">{it.title || 'Untitled'}</h3>
         {meta && <p className="small ink2">{meta}</p>}
@@ -58,6 +60,14 @@ export function PostCard({ it }: { it: Item }) {
 
 /** A weekly slot on Today: filled or empty. */
 export function SlotTile({ slot, week, date, it }: { slot: Slot; week: string; date: string; it?: Item }) {
+  if (!it && date < today()) {
+    return (
+      <div className="tile tile-empty tile-missed" aria-label={`${slot.name}, ${fmtDay(date)}: nothing posted`}>
+        <span className="eyebrow">{WEEKDAYS_S[slot.day]} · {slot.name}</span>
+        <span className="tile-title muted">Nothing posted</span>
+      </div>
+    )
+  }
   if (!it) {
     return (
       <button className="tile tile-empty" onClick={() => openNew({ kind: 'ig', week, slot: slot.id })} aria-label={`Plan ${slot.name}, ${fmtDay(date)}`}>
