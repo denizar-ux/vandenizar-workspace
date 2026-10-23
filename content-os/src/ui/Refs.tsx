@@ -3,7 +3,7 @@ import { Link2, ArrowUpRight, Trash2, Plus } from 'lucide-react'
 import { addRef, updateRef, removeRef, linkLabel } from '../lib/model'
 import { patch } from '../lib/store'
 import type { Item, Ref } from '../lib/types'
-import { Button, IconBtn, Sheet, toast, cx } from './kit'
+import { Button, IconBtn, toast, cx } from './kit'
 
 const tail = (url: string) => { try { const u = new URL(url); const p = (u.pathname + u.search).replace(/\/$/, ''); return u.hostname.replace(/^www\./, '') + (p.length > 28 ? p.slice(0, 27) + '…' : p) } catch { return url } }
 
@@ -60,18 +60,4 @@ export function References({ it }: { it: Item }) {
 /** Read-only list, for the Materials sheet on Today. */
 export function RefListView({ it }: { it: Item }) {
   return <div className="refs">{(it.refs || []).map((r) => <RefRow key={r.id} it={it} r={r} editable={false} />)}</div>
-}
-
-/** Everything needed on set: references, hook, script. */
-export function MaterialsSheet({ it, open, onClose, onOpenPost }: { it: Item; open: boolean; onClose: () => void; onOpenPost: () => void }) {
-  const empty = !(it.refs || []).length && !it.hook?.trim() && !it.script?.trim()
-  return (
-    <Sheet open={open} onClose={onClose} title={it.title || 'Materials'}>
-      {(it.refs || []).length > 0 && <RefListView it={it} />}
-      {it.hook?.trim() && <div className="mat"><span className="eyebrow">Hook</span><p className="pre body-text">{it.hook}</p></div>}
-      {it.script?.trim() && <div className="mat"><span className="eyebrow">Script</span><p className="pre body-text">{it.script}</p></div>}
-      {empty && <p className="muted">No references, hook or script yet.</p>}
-      <Button variant="ghost" onClick={() => { onClose(); onOpenPost() }}>Open post</Button>
-    </Sheet>
-  )
 }

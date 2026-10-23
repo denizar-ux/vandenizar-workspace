@@ -25,6 +25,17 @@ export function ensureDefaults() {
   if (!Array.isArray(cur.pillars)) fix.pillars = DEFAULT_PILLARS.map((x) => ({ ...x }))
   if (!Array.isArray(cur.formats)) fix.formats = DEFAULT_FORMATS.map((x) => ({ ...x }))
   if (Object.keys(fix).length) put('settings', { ...cur, ...fix, schemaVersion: SCHEMA_VERSION })
+  migrateIdeas()
+}
+
+/** The Ideas inbox was removed: old ideas become Instagram posts at the Idea stage, not scheduled. */
+export function migrateIdeas() {
+  for (const i of all('items').filter((x) => x.kind === 'idea')) {
+    const text = (i.text || '').trim()
+    const title = firstLine(text)
+    put('items', { id: i.id, kind: 'ig', title, stage: 'idea', notes: text !== title ? text : '', hook: '', script: '', caption: '', refs: [], finalUrl: '',
+      week: null, slot: null, date: null, scriptDate: null, filmDate: null, editDate: null, pillar: null, format: formats()[0]?.id ?? null, postedAt: null, createdAt: i.createdAt, updatedAt: '' })
+  }
 }
 
 /** Slots in weekday order. */
@@ -100,16 +111,15 @@ export function weekProgress(week: string) {
 
 const byDate = (a: Item, b: Item) => (a.date || '9999') < (b.date || '9999') ? -1 : (a.date || '9999') > (b.date || '9999') ? 1 : (a.createdAt < b.createdAt ? -1 : 1)
 
-export interface NewPost { title: string; week?: string | null; slot?: string | null; fromIdea?: Item }
-export function createPost({ title, week = null, slot = null, fromIdea }: NewPost): Item {
+export interface NewPost { title: string; week?: string | null; slot?: string | null; notes?: string }
+export function createPost({ title, week = null, slot = null, notes = '' }: NewPost): Item {
   const s = slotById(slot)
   const it = put('items', {
     id: uid(), kind: 'ig', title: title.trim(), stage: 'idea', refs: [], finalUrl: '',
     week: s && week ? week : null, slot: s && week ? s.id : null, date: s && week ? addDays(week, s.day) : null, scriptDate: null, filmDate: null, editDate: null,
-    hook: '', script: '', caption: '', notes: fromIdea?.text && fromIdea.text.trim() !== title.trim() ? fromIdea.text.trim() : '',
+    hook: '', script: '', caption: '', notes,
     pillar: s?.pillar ?? null, format: s?.format ?? formats()[0]?.id ?? null, postedAt: null, createdAt: '', updatedAt: '',
   })
-  if (fromIdea) remove('items', fromIdea.id)
   return it
 }
 
@@ -146,15 +156,6 @@ export function advance(id: string): Stage | undefined {
   const it = get('items', id); if (!it) return
   const i = stageIndex(it.stage)
   if (i < STAGES.length - 1) { setStage(id, STAGES[i + 1].id); return STAGES[i + 1].id }
-}
-
-/** Send a post back to the idea inbox so nothing is lost. */
-export function backToIdeas(id: string): Item | undefined {
-  const it = get('items', id); if (!it) return
-  const text = [it.title, it.hook, it.script, it.notes, ...(it.refs || []).map((r) => r.url + (r.note ? ' (' + r.note + ')' : ''))].filter((x) => x && x.trim()).join('\n\n')
-  const idea = text.trim() ? put('items', { id: uid(), kind: 'idea', text, createdAt: '', updatedAt: '' }) : undefined
-  remove('items', id)
-  return idea
 }
 
 export function duplicatePost(id: string): Item | undefined {
@@ -272,25 +273,34 @@ export function nextTaskOf(it: Item): DayTask | undefined {
 
 // ---------- Threads ----------
 export const THREADS_LIMIT = 500
-export const threadDrafts = () => all('items').filter((i) => i.kind === 'thread' && !i.postedAt).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
+const threadKey = (t: Item) => (t.date ? t.date + ' ' + (t.time || '99:99') : '9999') + t.createdAt
+/** Drafts: scheduled ones first by date and time, then the rest newest first. */
+export const threadDrafts = () => {
+  const d = all('items').filter((i) => i.kind === 'thread' && !i.postedAt)
+  return [...d.filter((x) => x.date).sort((a, b) => (threadKey(a) < threadKey(b) ? -1 : 1)), ...d.filter((x) => !x.date).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))]
+}
 export const threadPosted = () => all('items').filter((i) => i.kind === 'thread' && i.postedAt).sort((a, b) => (b.postedAt! > a.postedAt! ? 1 : -1))
-export function addThread(text: string): Item | null {
+export function addThread(text: string, date: string | null = null, time: string | null = null): Item | null {
   if (!text.trim()) return null
-  return put('items', { id: uid(), kind: 'thread', text: text.trim(), postedAt: null, createdAt: '', updatedAt: '' })
+  return put('items', { id: uid(), kind: 'thread', text: text.trim(), date, time: date ? time : null, postedAt: null, createdAt: '', updatedAt: '' })
+}
+export function scheduleThread(id: string, date: string | null, time: string | null) {
+  patch('items', id, { date, time: date ? time : null })
 }
 export const markPosted = (id: string, posted: boolean) => patch('items', id, { postedAt: posted ? nowIso() : null })
+/** Threads planned for a day (posted ones last). */
+export const threadsOn = (d: string) => all('items').filter((i) => i.kind === 'thread' && i.date === d).sort((a, b) => (!!a.postedAt === !!b.postedAt ? (threadKey(a) < threadKey(b) ? -1 : 1) : a.postedAt ? 1 : -1))
+export const overdueThreads = (t = today()) => all('items').filter((i) => i.kind === 'thread' && !i.postedAt && i.date && i.date < t).sort((a, b) => (threadKey(a) < threadKey(b) ? -1 : 1))
 
-// ---------- Ideas ----------
-export const ideas = () => all('items').filter((i) => i.kind === 'idea').sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
-export function addIdea(text: string): Item | null {
-  if (!text.trim()) return null
-  return put('items', { id: uid(), kind: 'idea', text: text.trim(), createdAt: '', updatedAt: '' })
+// ---------- Resources ----------
+export const links = () => all('items').filter((i) => i.kind === 'link').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+export function addLink(name: string, url: string): Item | null {
+  const u = normalizeUrl(url); if (!u) return null
+  return put('items', { id: uid(), kind: 'link', title: name.trim() || linkLabel(u), url: u, createdAt: '', updatedAt: '' })
 }
-export function ideaToThread(id: string): Item | null {
-  const it = get('items', id); if (!it) return null
-  const t = addThread(it.text || '')
-  remove('items', id)
-  return t
+export function updateLink(id: string, name: string, url: string): boolean {
+  const u = normalizeUrl(url); if (!u) return false
+  patch('items', id, { title: name.trim() || linkLabel(u), url: u }); return true
 }
 
 export const firstLine = (t = '') => {

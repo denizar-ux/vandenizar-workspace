@@ -176,7 +176,7 @@ function Notifications() {
   const needsHome = isIOS() && !isStandalone()
   return (
     <section className="stack">
-      <div><h2 className="h2">Notifications</h2><p className="muted small mt4">Sent to this phone even when the app is closed.</p></div>
+      <div><h2 className="h2">Notifications</h2><p className="muted small mt4">Sent to this phone even when the app is closed. Times are WIB (Jakarta).</p></div>
       <div className="card stack">
         {on ? (
           <div className="row gap8 wrap">

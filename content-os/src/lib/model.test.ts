@@ -126,22 +126,32 @@ describe('stage dates and today', () => {
   })
 })
 
-describe('ideas and threads', () => {
-  it('moves ideas into posts or threads without losing text', () => {
-    const idea = M.addIdea('Coffee before editing\na small ritual before I start')!
-    const p = M.createPost({ title: M.firstLine(idea.text), week: W, slot: 'desk', fromIdea: idea })
-    expect(p.title).toBe('Coffee before editing')
-    expect(p.notes).toContain('small ritual')
-    expect(M.ideas().length).toBe(0)
-    M.backToIdeas(p.id)
-    expect(M.ideas()[0].text).toContain('Coffee before editing')
-    const t = M.ideaToThread(M.ideas()[0].id)!
-    expect(t.kind).toBe('thread')
-    M.markPosted(t.id, true)
-    expect(M.threadDrafts().length).toBe(0)
-    expect(M.threadPosted().length).toBe(1)
-    expect(M.addIdea('   ')).toBeNull()
-    expect(all('items').filter((i) => i.kind === 'idea').length).toBe(0)
+describe('threads, resources and old ideas', () => {
+  it('schedules threads with a WIB time, lists them on the day and as overdue', () => {
+    const a = M.addThread('later one', '2026-10-24', '19:00')!
+    const b = M.addThread('earlier one', '2026-10-24', '08:30')!
+    M.addThread('no date')
+    expect(M.threadDrafts().map((t) => t.text)).toEqual(['earlier one', 'later one', 'no date'])
+    expect(M.threadsOn('2026-10-24').map((t) => t.id)).toEqual([b.id, a.id])
+    M.markPosted(b.id, true)
+    expect(M.threadsOn('2026-10-24').map((t) => t.id)).toEqual([a.id, b.id])
+    expect(M.overdueThreads('2026-10-25').map((t) => t.id)).toEqual([a.id])
+    M.scheduleThread(a.id, null, '10:00')
+    expect(get('items', a.id)!.time).toBeNull()
+  })
+  it('keeps resources as name + link', () => {
+    expect(M.addLink('', 'not a link')).toBeNull()
+    const l = M.addLink('', 'raindrop.io/my')!
+    expect(l.title).toBe('raindrop.io')
+    expect(M.updateLink(l.id, 'Raindrop', 'https://app.raindrop.io')).toBe(true)
+    expect(M.links()[0]).toMatchObject({ title: 'Raindrop', url: 'https://app.raindrop.io/' })
+  })
+  it('turns old ideas into unscheduled Instagram posts at the Idea stage', () => {
+    put('items', { id: 'old', kind: 'idea', text: 'Coffee before editing\na small ritual', createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '' })
+    M.ensureDefaults()
+    const it = get('items', 'old')!
+    expect(it).toMatchObject({ kind: 'ig', title: 'Coffee before editing', stage: 'idea', date: null })
+    expect(it.notes).toContain('small ritual')
   })
 })
 
@@ -159,7 +169,6 @@ describe('references and links', () => {
     expect(M.addRef(p.id, 'not a link')).toBeNull()
     M.updateRef(p.id, r.id, { note: 'shot list v2' })
     expect(get('items', p.id)!.refs).toEqual([{ id: r.id, url: 'https://drive.google.com/file/d/1', note: 'shot list v2' }])
-    expect(M.backToIdeas(p.id)!.text).toContain('drive.google.com')
   })
   it('notification prefs default and save', () => {
     expect(M.notifyPrefs()).toEqual({ morning: true, morningTime: '08:00', postReminder: true, postTime: '19:00' })

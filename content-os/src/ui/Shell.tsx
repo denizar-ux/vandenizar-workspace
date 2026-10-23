@@ -1,5 +1,5 @@
 import React from 'react'
-import { House, AtSign, Lightbulb, CalendarDays, Settings as Gear, Check, Loader, AlertCircle, CloudOff, Plus } from 'lucide-react'
+import { House, AtSign, Link2, CalendarDays, Settings as Gear, Check, Loader, AlertCircle, CloudOff, Plus } from 'lucide-react'
 import { go, useRoute } from '../lib/router'
 import { P, retrySave } from '../lib/store'
 import { Instagram } from './IgIcon'
@@ -10,8 +10,8 @@ export const TABS = [
   { id: 'today', label: 'Today', icon: House },
   { id: 'instagram', label: 'Instagram', icon: Instagram },
   { id: 'threads', label: 'Threads', icon: AtSign },
-  { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'resources', label: 'Resources', icon: Link2 },
 ] as const
 
 export function tabOf(parts: string[]): string {
@@ -21,7 +21,7 @@ export function tabOf(parts: string[]): string {
 
 /** What the + button creates on each screen. */
 function kindFor(tab: string): NewKind {
-  return tab === 'threads' ? 'thread' : tab === 'ideas' ? 'idea' : tab === 'instagram' ? 'ig' : 'idea'
+  return tab === 'threads' ? 'thread' : tab === 'resources' ? 'link' : 'ig'
 }
 
 export function Dock({ hidden }: { hidden?: boolean }) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check, ArrowUpRight, AlertTriangle, Wand2 } from 'lucide-react'
 import { get, patch, put, remove, tz } from '../lib/store'
-import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, backToIdeas, duplicatePost, firstLine, normalizeUrl, TASKS, isTaskDone, dateBounds, setStageDate, dateConflicts, planBackwards, type DateField as DF } from '../lib/model'
+import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, duplicatePost, firstLine, normalizeUrl, TASKS, isTaskDone, dateBounds, setStageDate, dateConflicts, planBackwards, type DateField as DF } from '../lib/model'
 import { fmtDay, fmtShort, dateKey } from '../lib/time'
 import { back, go } from '../lib/router'
 import { SaveBadge } from '../ui/Shell'
@@ -10,6 +10,7 @@ import { NextButton, postWhen } from '../ui/parts'
 import { ScheduleSheet } from '../ui/SlotPicker'
 import { NotFound } from '../ui/NotFound'
 import { References } from '../ui/Refs'
+import { DateField } from '../ui/DateInput'
 import type { Item } from '../lib/types'
 
 export default function Post({ id }: { id: string }) {
@@ -28,11 +29,6 @@ export default function Post({ id }: { id: string }) {
     remove('items', id); back('/instagram')
     toast('Post deleted', { label: 'Undo', run: () => { put('items', snap, { touch: false }); go('/post/' + id) } })
   }
-  const toIdeas = () => {
-    const snap = { ...it }
-    const idea = backToIdeas(id); back('/instagram')
-    toast('Moved back to Ideas', { label: 'Undo', run: () => { if (idea) remove('items', idea.id); put('items', snap, { touch: false }) } })
-  }
   const conflicts = dateConflicts(it)
   const canPlan = !!it.date && !done && TASKS.slice(0, 3).some((t) => !isTaskDone(it, t) && !it[t.field])
   const setDate = (f: DF, v: string) => { const r = setStageDate(id, f, v || null); if (!r.ok) toast(r.error, undefined, 'error') }
@@ -47,7 +43,6 @@ export default function Post({ id }: { id: string }) {
         <Menu items={[
           { label: it.week ? 'Change slot' : 'Schedule', icon: <CalendarClock size={18} />, onSelect: () => setSched(true) },
           { label: 'Duplicate', icon: <CopyPlus size={18} />, onSelect: () => { const d = duplicatePost(id); if (d) { go('/post/' + d.id); toast('Duplicated, not scheduled yet') } } },
-          { label: 'Back to Ideas', icon: <Lightbulb size={18} />, onSelect: toIdeas },
           { label: 'Delete', icon: <Trash2 size={18} />, danger: true, onSelect: del },
         ]} />
       </div>
@@ -132,18 +127,6 @@ function Block({ label, right, children }: { label: string; right?: React.ReactN
   )
 }
 
-function DateField({ label, value, onChange, min, max, done }: { label: string; value: string; onChange: (v: string) => void; min?: string; max?: string; done?: boolean }) {
-  return (
-    <label className={cx('field', done && 'field-done')}>
-      <span className="field-label row gap4">{label}{done && <Check size={14} strokeWidth={2.6} />}</span>
-      <span className="datewrap">
-        <span className={cx('input datebtn', !value && 'unset')} aria-hidden>{value ? fmtDay(value) : 'Not set'}</span>
-        <input type="date" className="date-native" aria-label={`${label} date`} value={value} min={min} max={max} onChange={(e) => onChange(e.target.value)} onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* not supported */ } }} />
-        {value && <button type="button" className="date-clear" aria-label={`Clear ${label.toLowerCase()} date`} onClick={(e) => { e.preventDefault(); onChange('') }}><X size={15} /></button>}
-      </span>
-    </label>
-  )
-}
 
 function FinalVideo({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const url = normalizeUrl(value)

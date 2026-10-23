@@ -1,4 +1,4 @@
-// Content OS push: morning summary and post-time reminders.
+// Content OS push: morning summary, post-time reminders and scheduled Threads.
 // Called every minute by pg_cron (x-cron-secret header), or by a signed-in user to send a test.
 // Uses its own subscriptions table so Workspace reminders never land in the Content OS app (and the reverse).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
@@ -58,6 +58,7 @@ async function runForUser(userId: string) {
   const n = settings.notify || {};
   const slotName = (id: string) => (settings.slots || []).find((s: any) => s.id === id)?.name;
   const posts = recs.filter((r) => r.coll === 'items').map((r) => r.data).filter((i) => i && i.kind === 'ig' && i.stage !== 'done');
+  const threads = recs.filter((r) => r.coll === 'items').map((r) => r.data).filter((i) => i && i.kind === 'thread' && !i.postedAt && i.date === now.date);
   const out: { key: string; title: string; body: string; url: string }[] = [];
 
   // Morning summary: every script, film, edit and post task dated today that isn't done yet
@@ -67,6 +68,7 @@ async function runForUser(userId: string) {
     for (const [field, label, idx] of TASKS) {
       for (const i of posts) if (i[field] === now.date && STAGES.indexOf(i.stage || 'idea') <= idx) lines.push(`${label}: ${short(i.title || 'Untitled', 40)}`)
     }
+    for (const t of threads) lines.push(`Threads${t.time ? ' ' + String(t.time).replace(':', '.') : ''}: ${short(t.text || '', 40)}`)
     if (lines.length) out.push({ key: `cos:am:${now.date}`, title: lines.length === 1 ? 'Today, one thing' : `Today, ${lines.length} things`, body: lines.join('\n'), url: '#/today' })
   }
 
@@ -77,6 +79,12 @@ async function runForUser(userId: string) {
       const extra = ready ? (i.finalUrl ? 'Video and caption are ready.' : 'Caption is ready to copy.') : `Still at ${LABEL[i.stage || 'idea']}. Post it or move it.`;
       out.push({ key: `cos:post:${i.id}:${now.date}`, title: 'Time to post: ' + short(i.title || 'Untitled'), body: [slotName(i.slot), extra].filter(Boolean).join(' · '), url: '#/post/' + i.id });
     }
+  }
+
+  // Threads: at their own time, or at the post reminder time when they have none
+  for (const t of threads) {
+    const at = t.time ? toMin(t.time, 19 * 60) : (n.postReminder !== false ? toMin(n.postTime, 19 * 60) : null);
+    if (at != null && inWindow(now.min, at)) out.push({ key: `cos:th:${t.id}:${now.date}`, title: 'Time to post on Threads', body: short(t.text || '', 120), url: '#/today' });
   }
 
   let sent = 0;

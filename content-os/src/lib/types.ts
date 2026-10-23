@@ -40,7 +40,8 @@ export type Stage = 'idea' | 'script' | 'film' | 'edit' | 'ready' | 'done'
 
 /** One record type for everything. `kind` decides which fields matter. */
 export interface Item extends Base {
-  kind: 'ig' | 'thread' | 'idea'
+  /** idea is legacy (migrated to ig on load); link = a resource */
+  kind: 'ig' | 'thread' | 'idea' | 'link'
   // ---- ig ----
   /** Monday (YYYY-MM-DD, WIB) of the week this post is planned in */
   week?: string | null
@@ -63,8 +64,12 @@ export interface Item extends Base {
   refs?: Ref[]
   /** link to the finished edit (Drive, Frame.io…) */
   finalUrl?: string
-  // ---- thread / idea ----
+  // ---- thread ----
   text?: string
+  /** thread: planned post time HH:MM (WIB), with `date` */
+  time?: string | null
+  // ---- link (resource) ----
+  url?: string
   /** ig: when it was marked posted; thread: when it was posted */
   postedAt?: string | null
 }

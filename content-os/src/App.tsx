@@ -10,7 +10,7 @@ import Today from './pages/Today'
 import Instagram from './pages/Instagram'
 import Post from './pages/Post'
 import Threads from './pages/Threads'
-import Ideas from './pages/Ideas'
+import Resources from './pages/Resources'
 import Calendar from './pages/Calendar'
 import Settings from './pages/Settings'
 
@@ -29,7 +29,8 @@ export default function App() {
     case 'instagram': page = <Instagram />; break
     case 'post': case 'item': editor = true; page = <Post id={b} />; break
     case 'threads': page = <Threads />; break
-    case 'ideas': page = <Ideas />; break
+    case 'resources': page = <Resources />; break
+    case 'ideas': page = <Instagram />; break
     case 'calendar': page = <Calendar />; break
     case 'settings': editor = true; page = <Settings />; break
     default: page = <NotFound />

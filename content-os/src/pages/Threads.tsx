@@ -18,17 +18,24 @@ export default function Threads() {
   return (
     <main className="main">
       <PhoneTop />
-      <PageHead eyebrow="Write, copy, post" title="Threads." />
+      <PageHead eyebrow="Write, schedule, post" title="Threads." />
       <div className="stack">
         <Segmented className="seg-fit" label="Show" value={tab} onChange={(v) => setQuery('tab', v === 'drafts' ? null : v)} options={[{ value: 'drafts', label: 'Drafts', count: drafts.length }, { value: 'posted', label: 'Posted', count: posted.length }]} />
         {base.length > 8 && (
           <label className="search"><Search size={18} /><input className="input" placeholder={tab === 'drafts' ? 'Search drafts' : 'Search posted'} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" /></label>
         )}
-        {list.map((t) => <DraftCard key={t.id} it={t} />)}
+        {tab === 'drafts' && !q.trim() ? (
+          <>
+            {list.some((t) => t.date) && <h2 className="group-title mt8">Scheduled</h2>}
+            {list.filter((t) => t.date).map((t) => <DraftCard key={t.id} it={t} />)}
+            {list.some((t) => t.date) && list.some((t) => !t.date) && <h2 className="group-title mt8">Not scheduled</h2>}
+            {list.filter((t) => !t.date).map((t) => <DraftCard key={t.id} it={t} />)}
+          </>
+        ) : list.map((t) => <DraftCard key={t.id} it={t} />)}
         {!list.length && (q.trim()
           ? <Empty title="No matches" body={`Nothing with “${q.trim()}”.`} />
           : tab === 'drafts'
-            ? <Empty icon={<AtSign size={24} />} title="No drafts" body="Write it down while it's fresh. Copy it when you post, then mark it posted." action={<Button variant="primary" icon={<Plus size={17} />} onClick={() => openNew({ kind: 'thread' })}>Write a draft</Button>} />
+            ? <Empty icon={<AtSign size={24} />} title="No drafts" body="Write it down while it's fresh. Give it a day and time if you want it on Today, then copy it when you post." action={<Button variant="primary" icon={<Plus size={17} />} onClick={() => openNew({ kind: 'thread' })}>Write a draft</Button>} />
             : <Empty icon={<AtSign size={24} />} title="Nothing posted yet" body="Drafts you mark as posted show up here." />)}
       </div>
     </main>

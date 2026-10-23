@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
-import { ArrowRight, Check, Copy, Trash2, RotateCcw, Plus } from 'lucide-react'
-import { STAGES, stageIndex, stageOf, advance, slotById, pillarName, formatName, isLate, markPosted, THREADS_LIMIT, firstLine, nextTaskOf, dateConflicts, today } from '../lib/model'
+import { ArrowRight, Check, Copy, Trash2, RotateCcw, Plus, CalendarClock } from 'lucide-react'
+import { STAGES, stageIndex, stageOf, advance, slotById, pillarName, formatName, isLate, markPosted, THREADS_LIMIT, firstLine, nextTaskOf, dateConflicts, today, scheduleThread } from '../lib/model'
 import { patch, remove, put, tz } from '../lib/store'
 import { fmtDay, fmtShort, dateKey, WEEKDAYS_S } from '../lib/time'
 import { go } from '../lib/router'
 import type { Item, Slot, Stage } from '../lib/types'
-import { Button, IconBtn, AutoTextarea, toast, copyOrShow, cx } from './kit'
+import { Button, IconBtn, AutoTextarea, Sheet, toast, copyOrShow, cx } from './kit'
+import { DateField, TimeField } from './DateInput'
 import { openNew } from './QuickAdd'
 
 export function Stepper({ stage, label = true }: { stage?: Stage; label?: boolean }) {
@@ -92,9 +93,13 @@ export function SlotTile({ slot, week, date, it }: { slot: Slot; week: string; d
 }
 
 /** Threads draft (editable in place) or posted card. */
+export const whenLabel = (it: Item) => it.date ? `${fmtDay(it.date)}${it.time ? ' · ' + it.time.replace(':', '.') + ' WIB' : ''}` : ''
+
+/** Threads draft (editable in place, schedulable) or posted card. */
 export function DraftCard({ it, compact }: { it: Item; compact?: boolean }) {
   const z = tz()
   const [focus, setFocus] = useState(false)
+  const [sched, setSched] = useState(false)
   const text = it.text || ''
   if (it.postedAt) {
     return (
@@ -107,8 +112,14 @@ export function DraftCard({ it, compact }: { it: Item; compact?: boolean }) {
       </article>
     )
   }
+  const late = !!it.date && it.date < today()
   return (
     <article className="tcard">
+      {!compact && (
+        <button className={cx('when-chip', it.date && 'on', late && 'late')} onClick={() => setSched(true)}>
+          <CalendarClock size={15} />{it.date ? (late ? 'Late · ' : '') + whenLabel(it) : 'Schedule'}
+        </button>
+      )}
       {compact
         ? <button className="tcard-text pre clamp3 tap" style={{ border: 0, background: 'none', padding: 0 }} onClick={() => go('/threads')}>{text}</button>
         : <AutoTextarea aria-label="Draft" className="input-plain tcard-text" value={text} minRows={1} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} onChange={(v) => patch('items', it.id, { text: v })} />}
@@ -119,6 +130,28 @@ export function DraftCard({ it, compact }: { it: Item; compact?: boolean }) {
         <span className="grow" />
         {!compact && <IconBtn label="Delete draft" onClick={() => { const snap = { ...it }; remove('items', it.id); toast('Draft deleted', { label: 'Undo', run: () => put('items', snap, { touch: false }) }) }}><Trash2 size={17} /></IconBtn>}
       </div>
+      {sched && <ThreadSchedule it={it} onClose={() => setSched(false)} />}
     </article>
+  )
+}
+
+function ThreadSchedule({ it, onClose }: { it: Item; onClose: () => void }) {
+  const [date, setDate] = useState(it.date || '')
+  const [time, setTime] = useState(it.time || '')
+  return (
+    <Sheet open onClose={onClose} title="Schedule on Threads" footer={
+      <div className="row gap8">
+        {it.date && <Button variant="ghost" onClick={() => { scheduleThread(it.id, null, null); onClose(); toast('Unscheduled') }}>Unschedule</Button>}
+        <span className="grow" />
+        <Button variant="primary" disabled={!date} onClick={() => { scheduleThread(it.id, date, time || null); onClose(); toast(`Scheduled ${fmtDay(date)}${time ? ' ' + time.replace(':', '.') : ''}`) }}>Save</Button>
+      </div>
+    }>
+      <p className="small muted clamp3">{it.text}</p>
+      <div className="grid2">
+        <DateField label="Post on" value={date} onChange={setDate} />
+        <TimeField label="Time" value={time} disabled={!date} onChange={setTime} />
+      </div>
+      <p className="xs muted">It shows up on Today that day. With a time, you also get a reminder then.</p>
+    </Sheet>
   )
 }

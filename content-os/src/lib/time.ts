@@ -155,7 +155,7 @@ export function relDay(dk: string, tz: string): string {
 
 export function greeting(tz: string, now = new Date()) {
   const h = zparts(now, tz).h
-  return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return h < 4 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
 
 export function minutesBetween(a: string, b: string) {
