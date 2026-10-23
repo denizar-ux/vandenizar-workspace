@@ -7,7 +7,7 @@ import { toast, useMedia, DESKTOP_Q, openOverlay, SheetHead, SheetBody } from '.
 import { PageHeader, AddBtn, dateTimeShort } from '../ui/parts.jsx';
 import { navigate } from '../lib/router.js';
 import { get, useStore } from '../lib/db.js';
-import { today, addDays, startOfWeek, fmtMonth, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes, fmtShort, fmtDay } from '../lib/date.js';
+import { today, addDays, addMonths, startOfMonth, daysInMonth, startOfWeek, fmtMonth, fmtMonthShort, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes, fmtShort, fmtDay } from '../lib/date.js';
 import * as M from '../lib/model.js';
 import { openQuickAdd } from '../App.jsx';
 
@@ -15,7 +15,9 @@ const H = 56; // px per hour
 const SNAP = 15;
 export const toMin = (t) => { if (!t || !/^\d{1,2}:\d{2}/.test(t)) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 export const toHHMM = (min) => { const m = Math.max(0, Math.min(23 * 60 + 45, Math.round(min))); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
-const loadView = () => { try { const v = localStorage.getItem('vz:pm:cal-view'); return v === 'day' || v === 'week' ? v : null; } catch { return null; } };
+const VIEWS = ['day', 'week', 'month'];
+const VIEW_OPTS = [{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }];
+const loadView = () => { try { const v = localStorage.getItem('vz:pm:cal-view'); return VIEWS.includes(v) ? v : null; } catch { return null; } };
 const saveView = (v) => { try { localStorage.setItem('vz:pm:cal-view', v); } catch {} };
 const nowMinutes = () => { const n = nowParts(); return n.hour * 60 + n.minute; };
 export const toneOfTask = (t) => { const p = t.projectId && get('pmProjects', t.projectId); if (!p) return 'plain'; const c = M.projectCategory(p).color; return c === 'plain' ? 'lavender' : c; };
@@ -62,9 +64,9 @@ function openItem(it) {
 export function CalendarPage({ query }) {
   useStore();
   const desktop = useMedia(DESKTOP_Q);
-  const [view, setView] = useState(() => (query.v === 'day' || query.v === 'week' ? query.v : null) || loadView() || 'day');
+  const [view, setView] = useState(() => (VIEWS.includes(query.v) ? query.v : null) || loadView() || 'day');
   // a link like #/calendar?v=week should switch the view even when the page is already open
-  useEffect(() => { if (query.v === 'day' || query.v === 'week') { setView(query.v); saveView(query.v); } }, [query.v]);
+  useEffect(() => { if (VIEWS.includes(query.v)) { setView(query.v); saveView(query.v); } }, [query.v]);
   const t0 = today();
   const s = M.settings();
   const d = query.d && /^\d{4}-\d{2}-\d{2}$/.test(query.d) ? query.d : t0;
@@ -75,8 +77,10 @@ export function CalendarPage({ query }) {
   const pick = (v) => { setView(v); saveView(v); };
   const soon = M.nextDeadlineSoon(2);
   const uns = M.unscheduledTasks();
-  const step = (dir) => go(addDays(d, dir * (view === 'week' || !desktop ? 7 : 1)));
+  const step = (dir) => go(view === 'month' ? addMonths(d, dir) : addDays(d, dir * (view === 'week' || !desktop ? 7 : 1)));
   const swipe = useSwipe((dir) => go(addDays(d, dir * 7)));
+  const monthSwipe = useSwipe((dir) => go(addMonths(d, dir)));
+  const inRange = view === 'month' ? d.slice(0, 7) === t0.slice(0, 7) : week.includes(t0);
   const strip = (
     <div class="wstrip" role="tablist" aria-label="Days of this week" {...(desktop ? {} : swipe)}>
       {week.map((x) => {
@@ -100,21 +104,28 @@ export function CalendarPage({ query }) {
         {soon && <a class="banner-soft t-lavender" href={'#' + soon.path}><Icon name="bell" size={18} /><span class="grow ellipsis">Deadline {relDay(soon.date).toLowerCase()}: {soon.title}</span><Icon name="chevronRight" size={16} /></a>}
         <div class="cal-bar">
           <div class="cal-bar-row">
-            <div class="cal-month">{fmtMonth(d)}</div>
-            <Segmented class="compact" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
+            {view === 'month' ? (
+              <div class="row gap-2 cal-month-nav">
+                <button class="icon-btn xs" aria-label="Previous month" onClick={() => step(-1)}><Icon name="chevronLeft" size={18} /></button>
+                <div class="cal-month">{fmtMonthShort(d) + ' ' + d.slice(0, 4)}</div>
+                <button class="icon-btn xs" aria-label="Next month" onClick={() => step(1)}><Icon name="chevronRight" size={18} /></button>
+              </div>
+            ) : <div class="cal-month">{fmtMonth(d)}</div>}
+            <Segmented class="compact" options={VIEW_OPTS} value={view} onChange={pick} />
           </div>
-          <div class="cal-strip-row">
+          {view !== 'month' && <div class="cal-strip-row">
             <button class="icon-btn xs" aria-label="Previous week" onClick={() => step(-1)}><Icon name="chevronLeft" size={18} /></button>
             {strip}
             <button class="icon-btn xs" aria-label="Next week" onClick={() => step(1)}><Icon name="chevronRight" size={18} /></button>
-          </div>
+          </div>}
         </div>
+        {view === 'month' && <div {...monthSwipe}><MonthGrid d={d} compact onPick={(x) => go(x)} /></div>}
         <div class="cal-sub">
-          <span class="grow ellipsis">{view === 'day' ? [relDay(d), planned.length ? planned.length + ' block' + (planned.length === 1 ? '' : 's') + ' · ' + fmtMinutes(mins) : 'Nothing timed'].join(' · ') : fmtShort(week[0]) + ' – ' + fmtShort(week[6])}</span>
-          {!week.includes(t0) && <button class="chip-btn" onClick={() => go(t0)}>Today</button>}
+          <span class="grow ellipsis">{view === 'month' ? monthSummary(d) : view === 'day' ? [relDay(d), planned.length ? planned.length + ' block' + (planned.length === 1 ? '' : 's') + ' · ' + fmtMinutes(mins) : 'Nothing timed'].join(' · ') : fmtShort(week[0]) + ' – ' + fmtShort(week[6])}</span>
+          {(!inRange || (view === 'month' && d !== t0)) && <button class="chip-btn" onClick={() => go(t0)}>Today</button>}
           <button class={'chip-btn' + (uns.length ? ' on' : '')} onClick={() => openUnscheduled(d)}>Unscheduled <b class="tnum">{uns.length}</b></button>
         </div>
-        {view === 'week' ? <Agenda days={week} onPickDay={(x) => { go(x); pick('day'); }} /> : <Grid days={days} week={false} onPickDay={(x) => go(x)} />}
+        {view === 'month' ? <Agenda days={[d]} onPickDay={() => pick('day')} /> : view === 'week' ? <Agenda days={week} onPickDay={(x) => { go(x); pick('day'); }} /> : <Grid days={days} week={false} onPickDay={(x) => go(x)} />}
         {view === 'day' && <div class="cal-hint">Tap an empty slot to add. Hold a block to move it, drag its bottom edge to change the estimate. Deadlines never move.</div>}
       </div>
     );
@@ -126,14 +137,14 @@ export function CalendarPage({ query }) {
       <div class="cal-nav">
         <div class="cal-month">{fmtMonth(d)}</div>
         <div class="row gap-6">
-          <Segmented class="compact" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={view} onChange={pick} />
-          {!week.includes(t0) && <button class="btn sm outline" onClick={() => go(t0)}>Today</button>}
+          <Segmented class="compact" options={VIEW_OPTS} value={view} onChange={pick} />
+          {!inRange && <button class="btn sm outline" onClick={() => go(t0)}>Today</button>}
           <button class="icon-btn soft sm" aria-label="Previous" onClick={() => step(-1)}><Icon name="chevronLeft" size={18} /></button>
           <button class="icon-btn soft sm" aria-label="Next" onClick={() => step(1)}><Icon name="chevronRight" size={18} /></button>
         </div>
       </div>
       {view === 'day' && strip}
-      <Grid days={days} week={view === 'week'} onPickDay={(x) => { go(x); pick('day'); }} />
+      {view === 'month' ? <MonthGrid d={d} onPick={(x) => { go(x); pick('day'); }} /> : <Grid days={days} week={view === 'week'} onPickDay={(x) => { go(x); pick('day'); }} />}
       <button class="drawer-btn" onClick={() => openUnscheduled(d)}><Icon name="more2" size={18} /><span class="grow">Unscheduled · {uns.length} task{uns.length === 1 ? '' : 's'}</span><Icon name="chevronRight" size={16} /></button>
       <div class="cal-hint">All times WIB. Click an empty slot to add a task. Drag a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
     </div>
@@ -147,6 +158,55 @@ function useSwipe(on) {
     onTouchStart: (e) => { const t = e.touches[0]; st.current = { x: t.clientX, y: t.clientY }; },
     onTouchEnd: (e) => { const a = st.current; st.current = null; if (!a) return; const t = e.changedTouches[0]; const dx = t.clientX - a.x, dy = t.clientY - a.y; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) on(dx < 0 ? 1 : -1); },
   };
+}
+
+function monthSummary(d) {
+  let blocks = 0, dls = 0;
+  for (let i = 0, n = daysInMonth(d), f = startOfMonth(d); i < n; i++) { const it = dayItems(addDays(f, i)); blocks += it.timed.filter((x) => !x.done).length; dls += it.allDay.filter((x) => x.tone === 'deadline').length; }
+  return [blocks + ' block' + (blocks === 1 ? '' : 's'), dls + ' deadline' + (dls === 1 ? '' : 's')].join(' · ') + ' this month';
+}
+// Month grid. Phones show dots and pick a day for the list below; desktop shows the first few items per day.
+function MonthGrid({ d, compact, onPick }) {
+  const t0 = today();
+  const ws = M.settings().weekStart;
+  const first = startOfMonth(d);
+  const start = startOfWeek(first, ws);
+  const rows = Math.ceil((daysInMonth(d) + ((new Date(first + 'T00:00:00Z').getUTCDay() - ws + 7) % 7)) / 7);
+  const cells = Array.from({ length: rows * 7 }, (_, i) => addDays(start, i));
+  const mon = d.slice(0, 7);
+  return (
+    <div class={'month' + (compact ? ' compact' : '')}>
+      <div class="month-head">{cells.slice(0, 7).map((x) => <span>{fmtWeekdayShort(x)}</span>)}</div>
+      <div class="month-grid" style={{ '--rows': rows }}>
+        {cells.map((x) => {
+          const { timed, allDay } = dayItems(x);
+          const items = [...allDay, ...timed.filter((i) => !i.done)];
+          const cls = 'mcell' + (x.slice(0, 7) !== mon ? ' out' : '') + (x === t0 ? ' today' : '') + (compact && x === d ? ' on' : '') + (x < t0 ? ' past' : '');
+          const label = fmtDay(x) + (items.length ? ', ' + items.length + ' item' + (items.length === 1 ? '' : 's') : '');
+          if (compact) return (
+            <button class={cls} onClick={() => onPick(x)} aria-label={label} aria-pressed={x === d}>
+              <b class="mnum">{dayNum(x)}</b>
+              <span class="mdots">{items.slice(0, 3).map((it) => <i class={it.tone === 'deadline' ? 'dl' : 't-' + it.tone} />)}</span>
+            </button>
+          );
+          const cap = 3;
+          return (
+            <div class={cls} onClick={(e) => { if (!e.target.closest('.mchip')) onPick(x); }} role="button" tabIndex={0} aria-label={label} onKeyDown={(e) => { if (e.key === 'Enter') onPick(x); }}>
+              <b class="mnum">{dayNum(x)}</b>
+              <div class="mitems">
+                {items.slice(0, items.length > cap ? cap - 1 : cap).map((it) => (
+                  <button class={'mchip ' + (it.tone === 'deadline' ? 'dl' : 't-' + it.tone)} onClick={() => openItem(it)} title={it.title}>
+                    {it.start != null && <span class="tnum mtime">{toHHMM(it.start)}</span>}<span class="ellipsis">{it.tone === 'deadline' ? it.title.replace(/^Deadline: /, '') : it.title}</span>
+                  </button>
+                ))}
+                {items.length > cap && <span class="mmore">+{items.length - cap + 1} more</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // Phone week view: a list grouped by day instead of seven cramped columns.

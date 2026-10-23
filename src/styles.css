@@ -726,3 +726,43 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .ag-items .cal-chip { align-self: stretch; min-height: 34px; padding: 6px 12px; border-radius: 12px; font-size: 13.5px; }
 .is-m .cal-tz.solo { display: none; }
 .ag-empty.past { border-style: solid; border-color: transparent; padding-left: 0; }
+
+/* ---------- month ---------- */
+.month { background: var(--surface); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--line); overflow: clip; }
+.month-head { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+.month-head span { padding: 10px 10px 8px; font-size: 12px; font-weight: 550; color: var(--muted); }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: minmax(118px, auto); }
+.mcell { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 6px 6px 8px; min-width: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; cursor: pointer; }
+.mcell:nth-child(7n) { border-right: 0; }
+.month-grid .mcell:nth-last-child(-n+7) { border-bottom: 0; }
+@media (hover: hover) { .month:not(.compact) .mcell:hover { background: var(--surface-2); } }
+.mcell.out { background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.mcell.out .mnum { color: var(--faint); }
+.mnum { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13.5px; font-weight: 550; }
+.mcell.today .mnum { background: var(--btn); color: var(--btn-ink); }
+.mitems { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mchip { display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; border-radius: 7px; font-size: 12px; font-weight: 550; color: var(--ink); min-width: 0; text-align: left; }
+.mchip.t-plain { background: var(--surface-2); }
+.mchip.dl { background: transparent; box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
+.mtime { font-weight: 500; color: var(--ink-2); flex: none; font-size: 11px; }
+.mmore { font-size: 11.5px; color: var(--muted); padding-left: 7px; }
+.month.compact .month-head span { padding: 8px 0 6px; text-align: center; font-size: 11.5px; }
+.month.compact .month-grid { grid-auto-rows: 52px; }
+.month.compact .mcell { align-items: center; justify-content: flex-start; gap: 3px; padding: 5px 0 0; border: 0; }
+.month.compact .mnum { width: 32px; height: 32px; font-size: 15px; }
+.month.compact .mcell.past:not(.today):not(.on) .mnum { color: var(--muted); }
+.month.compact .mcell.on .mnum { background: var(--btn); color: var(--btn-ink); }
+.month.compact .mcell.today:not(.on) .mnum { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.4px var(--ink); }
+.mdots { display: flex; gap: 3px; height: 5px; }
+.mdots i { width: 5px; height: 5px; border-radius: 50%; }
+.mdots i.t-plain { background: var(--ink-2); }
+.mdots i.dl { background: var(--bad); }
+.mdots i.t-butter { background: #d9b84a; } .mdots i.t-sage { background: #6fa67a; } .mdots i.t-cyan { background: #5fa9ae; }
+.mdots i.t-lavender { background: #9a7fd0; } .mdots i.t-peach { background: #df915a; } .mdots i.t-rose { background: #d77a7c; }
+.cal-month-nav { display: flex; align-items: center; gap: 2px; margin-left: -8px; min-width: 0; }
+.cal-month-nav .icon-btn { width: 30px; height: 36px; color: var(--muted); }
+.is-m .cal-bar .seg.compact .seg-btn { padding: 0 12px; }
+.month.compact .mcell.out { background: transparent; }
+.month.compact .mcell.out .mnum { color: var(--faint); }
+.cal-month { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-month-nav .cal-month { font-size: 19px; }
