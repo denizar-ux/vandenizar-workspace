@@ -15,6 +15,7 @@ const subs = new Set<() => void>()
 /** The one way to create anything. */
 export function openNew(r: Req) { req = r; subs.forEach((f) => f()) }
 function close() { req = null; subs.forEach((f) => f()) }
+if (typeof window !== 'undefined') window.addEventListener('hashchange', () => { if (req) close() })
 
 export function QuickAddHost() {
   const r = useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f) } }, () => req)
