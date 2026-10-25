@@ -2,7 +2,8 @@ import { useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Check } from '../ui/kit.jsx';
 import { toast, openOverlay, SheetHead, SheetBody } from '../ui/overlay.jsx';
-import { dateTimeShort, whenLabel } from '../ui/parts.jsx';
+import { dateTimeShort, whenLabel, AddBtn } from '../ui/parts.jsx';
+import { openQuickAdd } from '../App.jsx';
 import { navigate } from '../lib/router.js';
 import { get, useStore } from '../lib/db.js';
 import { today, greeting, fmtMinutes, fmtLong } from '../lib/date.js';
@@ -23,10 +24,13 @@ export function TodayPage() {
 
   return (
     <div class="page">
-      <div class="hello">
-        <div class="hello-line">{greeting()}, {s.name}</div>
-        <div class="eyebrow">{fmtLong(t0)}</div>
-        <h1 class="ph-title">Start here.</h1>
+      <div class="hello-row">
+        <div class="hello">
+          <div class="hello-line">{greeting()}, {s.name}</div>
+          <div class="eyebrow">{fmtLong(t0)}</div>
+          <h1 class="ph-title">Start here.</h1>
+        </div>
+        <span class="home-add"><AddBtn label="Add" onClick={() => openQuickAdd()} /></span>
       </div>
       {hasSample() && <a class="note-bar" href="#/settings/data"><Icon name="info" size={16} /><span class="grow">You're looking at sample data. Remove it in Settings.</span><Icon name="chevronRight" size={15} /></a>}
       <Overview />
@@ -67,7 +71,7 @@ function Overview() {
   const projects = M.liveProjects().filter((p) => !p.archived && p.stage !== 'completed');
   const tiles = [
     { label: 'Tasks for today', value: M.todayTasks().length, tone: 'lavender', href: '#/tasks?view=today' },
-    { label: 'Deadlines', sub:'Next 7 days + overdue', value: M.deadlineItems().length, tone: 'peach', href: '#/?deadlines=1' },
+    { label: 'Deadlines', value: M.deadlineItems().length, tone: 'peach', href: '#/?deadlines=1' },
     { label: 'Active projects', value: projects.length, tone: 'cyan', href: '#/projects' },
     { label: 'Events today', value: M.eventsOn(today()).length, tone: 'sage', href: '#/calendar?v=day&d=' + today() },
   ];
@@ -75,7 +79,7 @@ function Overview() {
     <div class="block-head"><h2 class="block-title">At a glance</h2><span class="muted overview-note">Your workspace, right now</span></div>
     <div class="ovw-grid">{tiles.map((x) => <a key={x.label} class={'ovw-tile t-' + x.tone} href={x.href} onClick={x.label === 'Deadlines' ? (e)=>{e.preventDefault();openDeadlineList();} : undefined}>
       <span class="ovw-num tnum">{x.value}</span>
-      <span class="ovw-foot"><span>{x.label}{x.sub && <small style={{display:"block",fontSize:10}}>{x.sub}</small>}</span><Icon name="chevronRight" size={16} /></span>
+      <span class="ovw-foot"><span>{x.label}</span><Icon name="chevronRight" size={16} /></span>
     </a>)}</div>
   </section>;
 }
