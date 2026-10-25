@@ -88,13 +88,11 @@ export function loadSampleData() {
   M.markSent(get('invoices', inv.id));
   const pay = M.recordPayment(get('invoices', inv.id), { amount: 4500000, date: d(-8), method: 'Bank transfer', kind: 'DP / deposit', reference: 'BCA' });
   put('payments', { ...pay, ...S });
-  put('templates', { id: uid(), kind: 'project', name: 'Product film', archived: false, data: { categoryId: 'freelance', workflow: 'video', billing: true, deliverables: ['Hero film · 60s', 'Cutdown · 15s', 'Vertical teaser'], tasks: ['Send moodboard', 'Confirm shoot date', 'Send preview v1'] }, ...S });
-  put('templates', { id: uid(), kind: 'terms', name: '50% DP terms', archived: false, data: { terms: '50% down payment to book the date. Remaining 50% due within 7 days of delivery.', notes: 'Thank you for working with me.' }, ...S });
   put('pmProjects', { ...get('pmProjects', site.id), nextActionTaskId: draftHome.id });
   M.touchRecent('project', raya.id);
 }
 export function removeSampleData() {
-  for (const coll of ['pmTasks', 'pmProjects', 'feedback', 'clients', 'invoices', 'payments', 'templates']) all(coll).filter((r) => r.sample).forEach((r) => remove(coll, r.id));
+  for (const coll of ['pmTasks', 'pmProjects', 'feedback', 'clients', 'invoices', 'payments']) all(coll).filter((r) => r.sample).forEach((r) => remove(coll, r.id));
   all('payments').filter((p) => !get('invoices', p.invoiceId)).forEach((p) => remove('payments', p.id));
 }
 export const hasSample = () => ['pmTasks', 'pmProjects', 'clients'].some((c) => all(c).some((r) => r.sample));

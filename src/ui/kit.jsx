@@ -156,7 +156,7 @@ export function Check({ checked, onChange, label, size = 'md', tone }) {
   );
 }
 
-// Checklist editor: used for shotlist, production checklist, deliverables, templates
+// Checklist editor: used for shotlist, production checklist, deliverables
 export async function fileToImage(file, max = 1400) {
   const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });

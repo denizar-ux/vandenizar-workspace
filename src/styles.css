@@ -766,3 +766,34 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .month.compact .mcell.out .mnum { color: var(--faint); }
 .cal-month { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-month-nav .cal-month { font-size: 19px; }
+
+
+/* Quiet overview followed by a single actionable agenda. */
+.agenda-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; }
+.agenda-panel .capture { border: 1px solid var(--line); background: var(--bg); }
+.agenda-panel .link-strong { font-size: 13px; margin-top: 8px; }
+.agenda-empty { padding: 16px 0; color: var(--muted); font-size: 14px; }
+.agenda-group .group-label { padding: 8px 0; }
+.agenda-row { padding: 16px 0; }
+.agenda-row:last-child { border-bottom: 0; }
+.agenda-row.working { background: var(--lavender); border-radius: 16px; padding: 16px 12px; }
+.agenda-row .prow-title { overflow-wrap: anywhere; }
+.day-context { padding: 8px 0; }
+.compact-overview { margin: 0 0 8px; }
+.compact-overview .block-title { font-size: 16px; }
+.overview-note { font-size: 12px; }
+.compact-overview .ovw-tile { min-height: 84px; padding: 14px 16px; gap: 10px; border-radius: 18px; }
+.compact-overview .ovw-num { font-size: 28px; }
+.compact-overview .ovw-foot { font-size: 13px; }
+.task-tools { background: var(--surface-2); border-radius: 20px; padding: 16px; gap: 12px; }
+.filter-indicator { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.task-toolbar .btn { color: var(--ink-2); }
+@media (max-width: 600px) {
+  .agenda-panel { padding: 18px 14px; }
+  .focus-layout { gap: 22px; }
+  .overview-note { display: none; }
+  .agenda-row { gap: 9px; }
+  .agenda-row .prow-title { font-size: 15px; }
+}
+
+.event-row { width:100%; text-align:left; gap:12px; } .event-symbol { color:var(--ink-2); background:var(--cyan); border-radius:12px; padding:8px; }

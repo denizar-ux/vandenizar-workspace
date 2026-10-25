@@ -93,7 +93,6 @@ export const DEFAULT_SETTINGS = {
   weekStart: 1,
   defaultCategory: 'freelance',
   defaultWorkflow: 'general',
-  defaultProjectTemplate: '',
   defaultEstimate: 0,
   reminderTime: '09:00',
   pushLead: 0,
@@ -103,7 +102,6 @@ export const DEFAULT_SETTINGS = {
   defaultTermsDays: 14,
   defaultTermsText: 'Payment due within 14 days of the invoice date. Final files are delivered after full payment.',
   paymentInstructions: '',
-  defaultDeliverables: ['Hero film', 'Cutdown', 'Vertical teaser'],
 };
 
 export function settings() {
@@ -165,7 +163,7 @@ export function completeTask(id) {
   const t = get('pmTasks', id);
   if (!t) return;
   const now = Date.now();
-  const sessions = closeFocus(t, now);
+  const sessions = t.focusSessions || [];
   if (t.recurrence && t.recurrence.freq) {
     const from = t.workDate || today();
     let next = nextOccurrence(t.recurrence, from);
@@ -177,26 +175,6 @@ export function completeTask(id) {
   if (meta('focus', {}).taskId === id) put('meta', { id: 'focus', taskId: null });
 }
 export function reopenTask(id) { const t = get('pmTasks', id); if (!t) return; patch('pmTasks', id, { status: t.workDate || t.deadlineDate ? 'open' : 'inbox', completedAt: null }); }
-function closeFocus(t, now) {
-  const s = [...(t.focusSessions || [])];
-  if (t.focusStartedAt) s.push({ start: t.focusStartedAt, end: now });
-  return s;
-}
-export function startFocus(id) {
-  const cur = meta('focus', {}).taskId;
-  if (cur && cur !== id) stopFocus();
-  if (!get('pmTasks', id)) return;
-  patch('pmTasks', id, { status: 'in_progress', focusStartedAt: Date.now() });
-  put('meta', { id: 'focus', taskId: id });
-}
-export function stopFocus() {
-  const id = meta('focus', {}).taskId;
-  const t = get('pmTasks', id);
-  if (t) patch('pmTasks', id, { focusSessions: closeFocus(t, Date.now()), focusStartedAt: null });
-  put('meta', { id: 'focus', taskId: null });
-}
-export const focusTask = () => { const id = meta('focus', {}).taskId; const t = id && get('pmTasks', id); return t && t.focusStartedAt && !t.deletedAt ? t : null; };
-export const focusedMinutes = (t) => Math.round((t.focusSessions || []).reduce((a, x) => a + (x.end - x.start), 0) / 60000);
 export function trashTask(id) { patch('pmTasks', id, { deletedAt: Date.now() }); for (const p of all('pmProjects')) if (p.nextActionTaskId === id) patch('pmProjects', p.id, { nextActionTaskId: null }); }
 
 // Rescheduling only ever touches the work schedule. The deadline stays.
@@ -223,8 +201,6 @@ export function todayTasks() {
 export function recommendedTask() {
   const t0 = today();
   const open = liveTasks().filter(isOpen);
-  const focused = focusTask();
-  if (focused) return { task: focused, reason: 'focus' };
   const overdue = sortTasks(open.filter(isOverdue), 'deadline');
   if (overdue.length) return { task: overdue[0], reason: 'overdue' };
   const prog = open.filter((t) => t.status === 'in_progress' && (t.workDate === t0 || t.pinnedOn === t0));
@@ -416,13 +392,6 @@ export function invoiceSummary(currency = settings().defaultCurrency) {
   return { invoiced, received, outstanding, overdue };
 }
 
-// ---------- templates ----------
-export function applyProjectTemplate(tpl) {
-  const d = tpl.data || {};
-  const categoryId = d.categoryId || d.workspace || settings().defaultCategory;
-  return { categoryId, workflow: d.workflow || settings().defaultWorkflow || 'general', billing: typeof d.billing === 'boolean' ? d.billing : categoryId === 'freelance', deliverables: (d.deliverables || []).map((title) => ({ id: uid(), title, spec: '', status: 'not_started', feedback: '', updatedAt: Date.now() })), _tasks: d.tasks || [] };
-}
-
 // ---------- calendar ----------
 export function unscheduledTasks() { return sortTasks(liveTasks().filter((t) => isOpen(t) && !t.workDate), 'deadline'); }
 export function nextDeadlineSoon(days = 2) {
@@ -434,3 +403,19 @@ export function nextDeadlineSoon(days = 2) {
   return items.sort((a, b) => a.date.localeCompare(b.date))[0] || null;
 }
 export { monthKey, isoOf };
+
+// Events occupy time; they never enter task completion or focus tracking.
+export const liveEvents = () => all('pmEvents').filter(e => !e.deletedAt);
+export const eventsOn = (date) => liveEvents().filter(e => e.date === date).sort((a,b) => (a.allDay ? '' : a.startTime).localeCompare(b.allDay ? '' : b.startTime));
+export function saveEvent(input) {
+ const e = {...input, title: (input.title || '').trim()};
+ if (!e.title || !/^\d{4}-\d{2}-\d{2}$/.test(e.date || '')) throw new Error('Add an event name and date.');
+ if (!e.allDay && (!/^\d{2}:\d{2}$/.test(e.startTime || '') || !/^\d{2}:\d{2}$/.test(e.endTime || '') || e.endTime <= e.startTime)) throw new Error('End time must be after start time on the same day.');
+ return put('pmEvents', {...e, id:e.id || uid(), deletedAt:null});
+}
+export const trashEvent = (id) => patch('pmEvents',id,{deletedAt:Date.now()});
+export const restoreEvent = (id) => patch('pmEvents',id,{deletedAt:null});
+export function deadlineItems() {
+ const last = addDays(today(), 7);
+ return [...liveTasks().filter(t=>isOpen(t)&&t.deadlineDate&&t.deadlineDate<=last).map(t=>({id:t.id,title:t.title,date:t.deadlineDate,path:'/tasks/'+t.id})), ...liveProjects().filter(p=>!p.archived&&p.stage!=='completed'&&p.deadlineDate&&p.deadlineDate<=last).map(p=>({id:p.id,title:p.name,date:p.deadlineDate,path:'/projects/'+p.id}))].sort((a,b)=>a.date.localeCompare(b.date));
+}

@@ -6,16 +6,16 @@ import { pickProject, InvoicePill, StagePill, whenLabel } from './ui/parts.jsx';
 import { useRoute, navigate } from './lib/router.js';
 import { useStore, persist, flush, get } from './lib/db.js';
 import * as M from './lib/model.js';
-import { fmtDuration, today, addDays, relDay } from './lib/date.js';
+import { today, addDays, relDay } from './lib/date.js';
 import { fmtMoney } from './lib/money.js';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
+import { openEventSheet } from './pages/events.jsx';
 import { TodayPage } from './pages/today.jsx';
 import { TasksPage, TaskDetail } from './pages/tasks.jsx';
 import { CalendarPage } from './pages/calendar.jsx';
 import { ProjectsPage, ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
-import { TemplatesPage } from './pages/templates.jsx';
 import { SettingsPage, TrashPage, MorePage, useSync, syncLabel } from './pages/settings.jsx';
 
 export function App() {
@@ -54,7 +54,6 @@ export function App() {
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
   else if (p0 === 'clients') { nav = 'clients'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
   else if (p0 === 'invoices') { nav = 'invoices'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
-  else if (p0 === 'templates') { nav = 'templates'; page = <TemplatesPage />; }
   else if (p0 === 'settings') { nav = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { nav = 'trash'; page = <TrashPage />; }
   else if (p0 === 'more') { nav = 'more'; page = <MorePage />; }
@@ -67,7 +66,6 @@ export function App() {
       {desktop && <Sidebar nav={nav} />}
       <main class="main" id="main">
         <SaveBanner />
-        <FocusBar />
         {page}
       </main>
       {!desktop && <Dock nav={nav} />}
@@ -88,21 +86,6 @@ function SaveBanner() {
   );
 }
 
-function FocusBar() {
-  const t = M.focusTask();
-  const [, tick] = useState(0);
-  useEffect(() => { if (!t) return; const i = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(i); }, [t && t.id]);
-  if (!t) return null;
-  return (
-    <div class="focusbar" role="status">
-      <span class="pulse" />
-      <a class="grow fb-main" href={'#/tasks/' + t.id}><span class="fb-time tnum">{fmtDuration(Date.now() - t.focusStartedAt)}</span><span class="ellipsis">{t.title}</span></a>
-      <button class="fb-btn" onClick={() => { M.stopFocus(); toast('Paused'); }} aria-label="Pause"><Icon name="pause" size={14} /></button>
-      <button class="fb-btn on" onClick={() => { M.completeTask(t.id); toast('Done', { action: { label: 'Undo', run: () => M.reopenTask(t.id) } }); }} aria-label="Done"><Icon name="check" size={16} /></button>
-    </div>
-  );
-}
-
 const SIDE = [
   { id: 'today', label: 'Today', icon: 'home', path: '/' },
   { id: 'projects', label: 'Projects', icon: 'folder', path: '/projects' },
@@ -110,7 +93,6 @@ const SIDE = [
   { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
   { id: 'clients', label: 'Clients', icon: 'users', path: '/clients' },
   { id: 'invoices', label: 'Invoices', icon: 'file', path: '/invoices' },
-  { id: 'templates', label: 'Templates', icon: 'template', path: '/templates' },
 ];
 function Sidebar({ nav }) {
   const s = useSync();
@@ -147,7 +129,7 @@ function Dock({ nav }) {
     { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
     { id: 'more', label: 'More', icon: 'menu', path: '/more' },
   ];
-  const moreOn = ['more', 'clients', 'invoices', 'templates', 'settings', 'trash', 'search'].includes(nav);
+  const moreOn = ['more', 'clients', 'invoices', 'settings', 'trash', 'search'].includes(nav);
   return (
     <nav class="dock" aria-label="Main navigation">
       {tabs.map((t) => {
@@ -209,6 +191,7 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
   return (
     <>
       <SheetHead title="Add task" onClose={close} />
+      <div class="row gap-8" style={{padding:"0 24px 12px"}}><button class="chip on">Task</button><button class="chip" onClick={() => { close(); openEventSheet(null, {date:workDate,time:workTime,projectId:pid}); }}>Event</button></div>
       <SheetBody>
         <div class="form">
           <input class="qa-title" id="qa-title" value={title} placeholder="What needs doing?" aria-label="Task title" onInput={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} autoFocus enterKeyHint="done" />

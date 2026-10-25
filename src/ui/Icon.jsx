@@ -68,7 +68,6 @@ const P = {
   users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6',
   file: 'M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6',
   wallet: 'M4 7h15a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7zm0 0 11-3v3M16 13.5h.01',
-  template: 'M4 4h16v5H4zM4 13h7v7H4zM15 13h5v7h-5z',
   list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   kanban: 'M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',

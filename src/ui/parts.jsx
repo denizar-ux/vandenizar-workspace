@@ -141,7 +141,6 @@ export function taskMenu(e, t) {
   const open = M.isOpen(t);
   const t0 = today();
   openMenu(e, [
-    open && { label: 'Start work', icon: 'play', onSelect: () => M.startFocus(t.id) },
     open && { label: t.pinnedOn === t0 ? 'Unpin from today' : 'Pin to today', icon: 'pin', onSelect: () => M.patchTask(t.id, { pinnedOn: t.pinnedOn === t0 ? null : t0 }) },
     open && { label: 'Reschedule…', icon: 'calendar', onSelect: () => openReschedule(t) },
     open && { label: 'Schedule tomorrow', icon: 'chevronRight', onSelect: () => { M.rescheduleWork(t.id, addDays(t0, 1), t.workTime); toast('Work moved to tomorrow. Deadline unchanged.'); } },

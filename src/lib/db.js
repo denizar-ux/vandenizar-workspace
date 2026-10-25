@@ -5,11 +5,11 @@ import { useEffect, useReducer } from 'preact/hooks';
 
 // pm* stores hold the project manager. The older Workspace stores stay in the list so their data is kept
 // (on this device and in the cloud) even though the app no longer shows them.
-export const PM_COLLECTIONS = ['pmTasks', 'pmProjects', 'feedback', 'clients', 'invoices', 'payments', 'templates', 'meta'];
-export const LEGACY_COLLECTIONS = ['tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'projects', 'activity', 'threads', 'habits', 'mAccounts', 'mTx', 'mCats', 'mBills', 'mDebts'];
+export const PM_COLLECTIONS = ['pmEvents', 'pmTasks', 'pmProjects', 'feedback', 'clients', 'invoices', 'payments', 'meta'];
+export const LEGACY_COLLECTIONS = ['templates', 'tasks', 'goals', 'days', 'dailyReviews', 'weeklyReviews', 'contents', 'resources', 'projects', 'activity', 'threads', 'habits', 'mAccounts', 'mTx', 'mCats', 'mBills', 'mDebts'];
 export const COLLECTIONS = [...PM_COLLECTIONS, ...LEGACY_COLLECTIONS];
 const DB_NAME = 'vandenizar-workspace';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const data = Object.fromEntries(COLLECTIONS.map((c) => [c, new Map()]));
 let version = 0;
