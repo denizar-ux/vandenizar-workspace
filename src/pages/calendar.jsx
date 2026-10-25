@@ -9,6 +9,7 @@ import { navigate } from '../lib/router.js';
 import { get, useStore } from '../lib/db.js';
 import { today, addDays, addMonths, startOfMonth, daysInMonth, startOfWeek, fmtMonth, fmtMonthShort, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes, fmtShort, fmtDay } from '../lib/date.js';
 import * as M from '../lib/model.js';
+import { openEventSheet } from './events.jsx';
 import { openQuickAdd } from '../App.jsx';
 
 const H = 56; // px per hour
@@ -40,6 +41,11 @@ export function dayItems(d) {
     if (p.shootDate === d) allDay.push({ kind: 'shoot', id: 'sh:' + p.id, title: 'Shoot: ' + p.name, p, tone: 'sage' });
     if (p.followUpDate === d && p.stage === 'client_review') allDay.push({ kind: 'follow', id: 'fu:' + p.id, title: 'Follow up: ' + p.name, p, tone: 'lavender' });
   }
+  for (const event of M.eventsOn(d)) {
+    const it = {kind:'event', id:event.id, title:'Event: '+event.title, event, tone:'cyan', sub:event.location || M.projectName(event.projectId)};
+    if(event.allDay) allDay.push(it);
+    else timed.push({...it,start:toMin(event.startTime),dur:toMin(event.endTime)-toMin(event.startTime)});
+  }
   return { timed: layout(timed), allDay };
 }
 function layout(items) {
@@ -57,7 +63,8 @@ function layout(items) {
   return out;
 }
 function openItem(it) {
-  if (it.t) navigate('/tasks/' + it.t.id);
+  if (it.event) openEventSheet(it.event.id);
+  else if (it.t) navigate('/tasks/' + it.t.id);
   else if (it.p) navigate('/projects/' + it.p.id);
 }
 
@@ -100,7 +107,7 @@ export function CalendarPage({ query }) {
     const mins = planned.reduce((a, i) => a + i.dur, 0);
     return (
       <div class="page cal-page is-m">
-        <PageHeader title="Plan time." actions={<AddBtn label="Add task" onClick={() => openQuickAdd({ date: d })} />} />
+        <PageHeader title="Plan time." actions={<AddBtn label="Add" onClick={() => openQuickAdd({ date: d })} />} />
         {soon && <a class="banner-soft t-lavender" href={'#' + soon.path}><Icon name="bell" size={18} /><span class="grow ellipsis">Deadline {relDay(soon.date).toLowerCase()}: {soon.title}</span><Icon name="chevronRight" size={16} /></a>}
         <div class="cal-bar">
           <div class="cal-bar-row">
@@ -132,7 +139,7 @@ export function CalendarPage({ query }) {
   }
   return (
     <div class="page cal-page">
-      <PageHeader title="Plan time." actions={<AddBtn label="Add task" onClick={() => openQuickAdd({ date: d })} />} />
+      <PageHeader title="Plan time." actions={<AddBtn label="Add" onClick={() => openQuickAdd({ date: d })} />} />
       {soon && <a class="banner-soft t-lavender" href={'#' + soon.path}><Icon name="bell" size={18} /><span class="grow ellipsis">Deadline {relDay(soon.date).toLowerCase()}: {soon.title}</span><Icon name="chevronRight" size={16} /></a>}
       <div class="cal-nav">
         <div class="cal-month">{fmtMonth(d)}</div>
@@ -146,7 +153,7 @@ export function CalendarPage({ query }) {
       {view === 'day' && strip}
       {view === 'month' ? <MonthGrid d={d} onPick={(x) => { go(x); pick('day'); }} /> : <Grid days={days} week={view === 'week'} onPickDay={(x) => { go(x); pick('day'); }} />}
       <button class="drawer-btn" onClick={() => openUnscheduled(d)}><Icon name="more2" size={18} /><span class="grow">Unscheduled · {uns.length} task{uns.length === 1 ? '' : 's'}</span><Icon name="chevronRight" size={16} /></button>
-      <div class="cal-hint">All times WIB. Click an empty slot to add a task. Drag a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
+      <div class="cal-hint">All times WIB. Click an empty slot to add a task or event. Drag a block to move the work schedule, drag its bottom edge to change the estimate. Deadlines never move.</div>
     </div>
   );
 }
@@ -283,6 +290,7 @@ function Grid({ days, week, onPickDay }) {
     openQuickAdd({ date: d, time: toHHMM(min) });
   };
   const startDrag = (e, it, d, mode) => {
+    if (it.kind === 'event') { e.stopPropagation(); openEventSheet(it.event.id); return; }
     if (it.kind !== 'task' || e.button > 0) return;
     e.stopPropagation();
     const touch = e.pointerType === 'touch';
@@ -357,11 +365,11 @@ function Grid({ days, week, onPickDay }) {
                   const w = 100 / (g ? 1 : it.cols), l = g ? 0 : it.col * w;
                   return (
                     <div class={`cal-block t-${it.tone} ${it.done ? 'done' : ''} ${g ? 'dragging' : ''} ${du < 45 ? 'short' : ''}`} style={{ top: top(st) + 'px', height: Math.max(22, (du / 60) * H - 3) + 'px', left: `calc(${l}% + 2px)`, width: `calc(${w}% - 4px)` }}
-                      onPointerDown={(e) => startDrag(e, it, x.d, 'move')} onClick={(e) => e.stopPropagation()}>
+                      role="button" tabIndex={0} aria-label={it.title} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openItem(it);}}} onPointerDown={(e) => startDrag(e, it, x.d, 'move')} onClick={(e) => e.stopPropagation()}>
                       <div class="cal-block-time tnum">{toHHMM(st)} – {toHHMM(st + du)}</div>
                       <div class="cal-block-title">{it.title}</div>
                       {du >= 55 && it.sub && <div class="cal-block-sub">{it.sub}</div>}
-                      {!it.done && <div class="cal-resize" onPointerDown={(e) => startDrag(e, it, x.d, 'resize')} />}
+                      {it.kind === 'task' && !it.done && <div class="cal-resize" onPointerDown={(e) => startDrag(e, it, x.d, 'resize')} />}
                     </div>
                   );
                 })}

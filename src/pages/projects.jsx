@@ -1,3 +1,4 @@
+import { EventRow, openEventSheet } from './events.jsx';
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Field, TextInput, TextArea, Select, DateInput, TimeInput, Segmented, Empty, LinksEditor, Check, Toggle } from '../ui/kit.jsx';
@@ -74,26 +75,15 @@ export function openProjectSheet(preset = {}) { openOverlay((close) => <ProjectS
 function ProjectSheet({ preset, close }) {
   useStore();
   const s = M.settings();
-  const tpls = all('templates').filter((t) => t.kind === 'project' && !t.archived);
-  const defTpl = tpls.some((t) => t.id === s.defaultProjectTemplate) ? s.defaultProjectTemplate : '';
   const startCat = preset.categoryId || s.defaultCategory;
-  const [p, setP] = useState({ name: '', categoryId: startCat, deadlineDate: '', templateId: defTpl, clientId: preset.clientId || '', workflow: s.defaultWorkflow || 'general', shootDate: '', billing: startCat === 'freelance' || !!preset.clientId });
+  const [p, setP] = useState({ name: '', categoryId: startCat, deadlineDate: '', clientId: preset.clientId || '', workflow: s.defaultWorkflow || 'general', shootDate: '', billing: startCat === 'freelance' || !!preset.clientId });
   const [more, setMore] = useState(false);
   const [billTouched, setBillTouched] = useState(false);
   const set = (ch) => setP({ ...p, ...ch });
-  const pickTpl = (id) => {
-    const t = tpls.find((x) => x.id === id);
-    if (!t) return set({ templateId: '' });
-    const a = M.applyProjectTemplate(t);
-    set({ templateId: id, categoryId: a.categoryId, workflow: a.workflow, ...(billTouched ? {} : { billing: a.billing }) });
-  };
   const clients = M.liveClients().filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name));
   const save = () => {
     if (!p.name.trim()) return toast('Name the project first.', { tone: 'warn' });
-    const tpl = tpls.find((x) => x.id === p.templateId);
-    const applied = tpl ? M.applyProjectTemplate(tpl) : { deliverables: [], _tasks: [] };
-    const pr = M.newProject({ name: p.name.trim(), categoryId: p.categoryId, workflow: p.workflow, billing: p.billing, clientId: p.clientId || null, stage: 'planned', deadlineDate: p.deadlineDate || null, shootDate: p.shootDate || null, deliverables: applied.deliverables });
-    (applied._tasks || []).forEach((title, i) => M.newTask({ title, projectId: pr.id, order: Date.now() + i }));
+    const pr = M.newProject({ name: p.name.trim(), categoryId: p.categoryId, workflow: p.workflow, billing: p.billing, clientId: p.clientId || null, stage: 'planned', deadlineDate: p.deadlineDate || null, shootDate: p.shootDate || null, deliverables: [] });
     toast('Project created');
     close();
     navigate('/projects/' + pr.id);
@@ -105,8 +95,6 @@ function ProjectSheet({ preset, close }) {
         <Field label="Project name" htmlFor="np-name"><TextInput id="np-name" value={p.name} onInput={(v) => set({ name: v })} placeholder="e.g. Website portfolio" autoFocus onEnter={save} /></Field>
         <CategoryField id="np-cat" value={p.categoryId} onChange={(v) => set({ categoryId: v, ...(billTouched ? {} : { billing: v === 'freelance' || !!p.clientId }) })} />
         <Field label="Deadline (optional)" htmlFor="np-dl"><DateInput id="np-dl" value={p.deadlineDate} onChange={(v) => set({ deadlineDate: v })} /></Field>
-        <Field label="Start from template" htmlFor="np-tpl"><Select id="np-tpl" value={p.templateId} onChange={pickTpl} placeholder="Blank project" options={tpls.map((t) => ({ id: t.id, label: t.name }))} /></Field>
-        {!tpls.length && <div class="field-hint" style={{ marginTop: -6 }}>Save reusable starts in <a href="#/templates" onClick={close}>Templates</a>.</div>}
         <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
           <summary>More details<Icon name="chevronDown" size={16} /></summary>
           <div class="form" style={{ marginTop: 12 }}>
@@ -332,7 +320,7 @@ function WorkTab({ p }) {
         </div>
       </section>
       <section class="block">
-        <div class="block-head"><h2 class="block-title">Feedback</h2><button class="btn xs outline" onClick={() => openFeedbackSheet(p)}><Icon name="plus" size={14} />Record feedback</button></div>
+        <div class="block-head"><h2 class="block-title">Events</h2></div><button class="btn outline sm" onClick={()=>openEventSheet(null,{projectId:p.id})}>Add event</button>{M.liveEvents().filter(e=>e.projectId===p.id).map(e=><EventRow key={e.id} event={e}/>)}<div class="block-head"><h2 class="block-title">Feedback</h2><button class="btn xs outline" onClick={() => openFeedbackSheet(p)}><Icon name="plus" size={14} />Record feedback</button></div>
         {fb.length ? <div class="fblist">{fb.map((f) => <FeedbackRow f={f} p={p} />)}</div> : <div class="quiet-note">Client and internal notes land here. Each one can become a revision task.</div>}
       </section>
       <ProjectFlow p={p} />

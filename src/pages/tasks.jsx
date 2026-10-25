@@ -5,7 +5,7 @@ import { openMenu, toast, confirmDialog, useMedia, DESKTOP_Q } from '../ui/overl
 import { PageHeader, BackBar, TaskRow, AddBtn, openReschedule, pickProject, dateTimeShort, whenLabel, fmtAgo, workspaceLabel, categoryFilterMenu } from '../ui/parts.jsx';
 import { navigate, back } from '../lib/router.js';
 import { get, all, patch, remove, uid, useStore, persist } from '../lib/db.js';
-import { today, addDays, diffDays, relDay, fmtShort, fmtMinutes, fmtFull, isoOf, fmtDuration } from '../lib/date.js';
+import { today, addDays, diffDays, relDay, fmtShort, fmtMinutes, fmtFull, isoOf } from '../lib/date.js';
 import { dragHandlers, orderBetween, moveInArray } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
 import { openQuickAdd } from '../App.jsx';
@@ -41,6 +41,7 @@ export function TasksPage({ query }) {
   const [sort, setSort] = useState(loadPref('taskSort', 'schedule'));
   const [q, setQ] = useState('');
   const [filters, setFilters] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [draft, setDraft] = useState('');
   useEffect(() => { if (query.view) setView(query.view); }, [query.view]);
   useEffect(() => savePref('taskView', view), [view]);
@@ -73,11 +74,16 @@ export function TasksPage({ query }) {
   const projects = M.liveProjects().filter((p) => !p.archived);
 
   return (
-    <div class="page narrow">
+    <div class="page tasks-page">
       <PageHeader title="Tasks." actions={<button class="btn primary sm" onClick={() => openQuickAdd({ when: view === 'inbox' ? 'none' : view === 'upcoming' ? 'tomorrow' : 'today' })}><Icon name="plus" size={16} />Task</button>} />
       <div class="chips scroll">
         {MAIN_VIEWS.map((v) => <button class={'chip ' + (view === v.id ? 'on' : '')} aria-pressed={view === v.id} onClick={() => setView(v.id)}>{v.label}{counts[v.id] > 0 && <span class="chip-count">{counts[v.id]}</span>}</button>)}
       </div>
+      <div class="row between gap-8 task-toolbar">
+        <button class={'btn outline sm' + (toolsOpen ? ' tools-active' : '')} aria-expanded={toolsOpen} aria-controls="task-tools" onClick={() => setToolsOpen(!toolsOpen)}><Icon name="filter" size={16} />Search & filters{(filtersOn || q) && <span class="filter-indicator" aria-label="Filters active" />}</button>
+        <button class={'dropdown-pill sm' + (MORE_VIEWS.some((v) => v.id === view) ? ' on' : '')} aria-haspopup="menu" onClick={(e) => openMenu(e, MORE_VIEWS.map((v) => ({ label: v.label, icon: v.icon, active: view === v.id, onSelect: () => setView(v.id) })), { title: 'More views' })}>{MORE_VIEWS.find((v) => v.id === view)?.label || 'More'}<Icon name="chevronDown" size={14} /></button>
+      </div>
+      {(toolsOpen || filtersOn || q) && <div id="task-tools" class="stack task-tools">
       <div class="row gap-8">
         <div class="search-box grow"><Icon name="search" size={17} /><input id="task-q" value={q} placeholder="Search tasks" onInput={(e) => setQ(e.currentTarget.value)} />{q && <button class="icon-btn ghost xs" aria-label="Clear search" onClick={() => setQ('')}><Icon name="x" size={14} /></button>}</div>
         <button class={'icon-btn ' + (filtersOn ? 'dark' : 'soft')} aria-label="Filters" aria-expanded={filters} onClick={() => setFilters(!filters)}><Icon name="filter" size={18} /></button>
@@ -87,7 +93,7 @@ export function TasksPage({ query }) {
         <button class="dropdown-pill sm" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, ws || 'all', (v) => setWs(v === 'all' ? '' : v))}>{ws && <span class={'cat-dot t-' + M.categoryOf(ws).color} aria-hidden="true" />}{ws ? M.categoryOf(ws).name : 'All categories'}<Icon name="chevronDown" size={14} /></button>
         {ws && <button class="chip on sm" aria-label={'Clear ' + M.categoryOf(ws).name + ' filter'} onClick={() => setWs('')}>{M.categoryOf(ws).name}<Icon name="x" size={13} /></button>}
         <span class="grow" />
-        <button class={'dropdown-pill sm' + (MORE_VIEWS.some((v) => v.id === view) ? ' on' : '')} aria-haspopup="menu" onClick={(e) => openMenu(e, MORE_VIEWS.map((v) => ({ label: v.label, icon: v.icon, active: view === v.id, onSelect: () => setView(v.id) })), { title: 'More views' })}>{MORE_VIEWS.find((v) => v.id === view)?.label || 'More'}<Icon name="chevronDown" size={14} /></button>
+
       </div>
       {filters && (
         <div class="panel">
@@ -101,6 +107,7 @@ export function TasksPage({ query }) {
           </div>
         </div>
       )}
+      </div>}
       <section class="sheet-surface">
         {!['done', 'other', 'archived', 'overdue'].includes(view) && (
           <div class="inline-add">
@@ -111,7 +118,7 @@ export function TasksPage({ query }) {
         )}
         {list.length === 0 ? (
           <Empty icon={view === 'inbox' ? 'inbox' : 'check'} title={filtersOn || q ? 'No tasks match' : { today: 'Nothing planned for today', inbox: 'Inbox is empty', overdue: 'Nothing overdue', upcoming: 'Nothing coming up' }[view] || 'No tasks here'}>
-            {view === 'inbox' && !filtersOn ? 'Tasks without a schedule or deadline land here until you plan them.' : null}
+            {filtersOn || q ? <button class="btn outline sm" onClick={() => { setProject(''); setWs(''); setPrio(''); setQ(''); }}>Clear filters</button> : view === 'inbox' ? 'Tasks without a schedule or deadline land here until you plan them.' : view === 'today' ? 'Add one task above. Keep today manageable.' : null}
           </Empty>
         ) : groups.map((g) => (
           <div>
@@ -136,9 +143,6 @@ export function TaskDetail({ id }) {
   const desktop = useMedia(DESKTOP_Q);
   const [more, setMore] = useState(false);
   const [stepDraft, setStepDraft] = useState('');
-  const [, tick] = useState(0);
-  const focusing = M.focusTask()?.id === id;
-  useEffect(() => { if (!focusing) return; const i = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(i); }, [focusing]);
   if (!t || t.deletedAt) return <div class="page narrow"><BackBar onBack={() => back('/tasks')} /><Empty icon="tasks" title="This task is gone" action={<a class="btn primary sm" href="#/tasks">All tasks</a>}>It may be in Trash.</Empty></div>;
   const set = (ch) => M.patchTask(id, ch);
   const project = t.projectId && get('pmProjects', t.projectId);
@@ -196,7 +200,7 @@ export function TaskDetail({ id }) {
             <Field label="Invoice" htmlFor="td-inv"><Select id="td-inv" value={t.invoiceId || ''} onChange={(v) => set({ invoiceId: v || null })} placeholder="None" options={invoices.map((i) => ({ id: i.id, label: i.number + ' · ' + M.clientName(i.clientId) }))} /></Field>
           </div>
           {rec?.freq && <div class="field-hint">Completing moves the work schedule to the next date. No copies are made.</div>}
-          <div class="muted" style={{ fontSize: 13 }}>Created {fmtFull(isoOf(t.createdAt))} · changed {fmtAgo(t.updatedAt)}{M.focusedMinutes(t) ? ' · worked ' + fmtMinutes(M.focusedMinutes(t)) : ''}</div>
+          <div class="muted" style={{ fontSize: 13 }}>Created {fmtFull(isoOf(t.createdAt))} · changed {fmtAgo(t.updatedAt)}</div>
           <div class="row gap-8 wrap">
             <button class="btn outline sm" onClick={() => { patch('pmTasks', id, { archived: !t.archived }); toast(t.archived ? 'Restored' : 'Archived'); }}><Icon name="archive" size={15} />{t.archived ? 'Unarchive' : 'Archive'}</button>
             <button class="btn danger-soft sm" onClick={del}><Icon name="trash" size={15} />Move to Trash</button>
@@ -222,9 +226,6 @@ export function TaskDetail({ id }) {
       <div class="form">{Main}</div>
       <div class={'action-bar' + (desktop ? ' inline' : '')}>
         {t.status === 'done' ? <button class="btn outline grow lg" onClick={() => M.reopenTask(id)}><Icon name="restore" size={16} />Reopen</button> : <>
-          {focusing
-            ? <button class="btn primary grow lg" onClick={() => { M.stopFocus(); toast('Paused'); }}><Icon name="pause" size={14} />Pause · <span class="tnum">{fmtDuration(Date.now() - t.focusStartedAt)}</span></button>
-            : <button class="btn primary grow lg" onClick={() => M.startFocus(id)}><Icon name="play" size={15} />Start work</button>}
           <button class="btn outline grow lg" onClick={() => { M.completeTask(id); toast('Task done', { action: { label: 'Undo', run: () => M.reopenTask(id) } }); }}><Icon name="check" size={16} />Done</button>
         </>}
       </div>

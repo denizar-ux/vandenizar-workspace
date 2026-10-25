@@ -58,7 +58,7 @@ function summary(id, s) {
     case 'notifications': return pushFlag() ? 'On for this device' : 'Off on this device';
     case 'general': return s.name + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
     case 'tasks': return (s.defaultEstimate ? 'Estimate ' + s.defaultEstimate + 'm' : 'No default estimate') + ' · week starts ' + ({ 1: 'Monday', 6: 'Saturday', 0: 'Sunday' }[s.weekStart] || 'Monday');
-    case 'projects': return 'Categories, workflow, template';
+    case 'projects': return 'Categories, workflow';
     case 'categories': return M.categories().map((c) => c.name).join(', ');
     case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
     case 'shortcuts': return 'Home Screen, Siri, Back Tap';
@@ -86,7 +86,6 @@ export function SettingsPage({ section }) {
                 <Icon name="chevronRight" size={16} class="set-chev" />
               </a>
             ))}
-            <a href="#/templates" class="set-nav-item"><span class="set-ico t-sage"><Icon name="template" size={18} /></span><span class="grow"><span class="set-nav-label">Templates</span><span class="set-nav-sub">Projects, line items, terms</span></span><Icon name="chevronRight" size={16} class="set-chev" /></a>
             <a href="#/trash" class="set-nav-item"><span class="set-ico t-plain"><Icon name="trash" size={18} /></span><span class="grow"><span class="set-nav-label">Trash</span><span class="set-nav-sub">Deleted tasks and projects</span></span><Icon name="chevronRight" size={16} class="set-chev" /></a>
           </nav>
           <div class="quiet-note">Vandenizar · times in WIB (Asia/Jakarta)</div>
@@ -137,18 +136,15 @@ function TasksSection({ s }) {
 }
 function ProjectsSection({ s }) {
   useStore();
-  const tpls = all('templates').filter((t) => t.kind === 'project' && !t.archived);
   return (
     <>
       <Group title="Defaults" hint="Used when you start a new project">
         <CategoryField id="set-cat" label="Default category" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} />
         <div class="field-hint">Built in: In-house, Freelance, Personal, Learning. Billing is switched on per project.</div>
         <Field label="Default workflow"><WorkflowPicker value={s.defaultWorkflow || 'general'} onChange={(v) => set({ defaultWorkflow: v })} /></Field>
-        <Field label="Default template" htmlFor="set-tpl"><Select id="set-tpl" value={tpls.some((t) => t.id === s.defaultProjectTemplate) ? s.defaultProjectTemplate : ''} onChange={(v) => set({ defaultProjectTemplate: v })} placeholder="Blank project" options={tpls.map((t) => ({ id: t.id, label: t.name }))} /></Field>
       </Group>
       <Group>
         <a class="set-link" href="#/settings/categories"><Icon name="tag" size={18} /><span class="grow">Manage categories</span><span class="muted ellipsis" style={{ maxWidth: '45%' }}>{M.categories().map((c) => c.name).join(', ')}</span><Icon name="chevronRight" size={16} /></a>
-        <a class="set-link" href="#/templates"><Icon name="template" size={18} /><span class="grow">Project templates</span><span class="muted">{tpls.length}</span><Icon name="chevronRight" size={16} /></a>
       </Group>
     </>
   );
@@ -211,7 +207,6 @@ function FreelanceSection({ s }) {
         <Field label="Terms text" htmlFor="i-terms"><TextArea id="i-terms" value={s.defaultTermsText} onInput={(v) => set({ defaultTermsText: v })} /></Field>
         <Field label="Payment instructions" htmlFor="i-pay" hint="Printed on new invoices."><TextArea id="i-pay" value={s.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder={'Bank BCA\nAccount name\nAccount number'} /></Field>
       </Group>
-      <Group title="Default deliverables" hint="Suggested when you make a project template"><ListEditor items={s.defaultDeliverables} onChange={(v) => set({ defaultDeliverables: v })} placeholder="Add deliverable" idPrefix="set-dv" /></Group>
     </>
   );
 }
@@ -330,7 +325,7 @@ function DataSection() {
         </div>
       </Group>
       <Group title="Reset">
-        <div><button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase project manager data?', body: 'All tasks, projects, clients, invoices, payments and templates are deleted on this device and, if signed in, in your account. Older Workspace records are kept. Export a backup first.', confirmLabel: 'Erase', danger: true })) { await wipeAll(); toast('Data erased'); navigate('/'); } }}>Erase all data</button></div>
+        <div><button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase project manager data?', body: 'All tasks, projects, clients, invoices, payments are deleted on this device and, if signed in, in your account. Older Workspace records are kept. Export a backup first.', confirmLabel: 'Erase', danger: true })) { await wipeAll(); toast('Data erased'); navigate('/'); } }}>Erase all data</button></div>
       </Group>
     </>
   );
@@ -425,7 +420,6 @@ export function MorePage() {
   const rows = [
     ['Clients', 'Freelance client list', 'users', '/clients'],
     ['Invoices', 'Create and track invoices', 'file', '/invoices'],
-    ['Templates', 'Projects, line items, terms', 'template', '/templates'],
     ['Settings', 'Account, notifications, defaults', 'settings', '/settings'],
     ['Trash', 'Deleted tasks and projects', 'trash', '/trash'],
   ];

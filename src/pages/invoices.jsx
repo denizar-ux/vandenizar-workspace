@@ -182,8 +182,6 @@ export function InvoiceEditor({ id }) {
   const project = get('pmProjects', inv.projectId);
   const clients = M.liveClients().filter((x) => !x.archived || x.id === inv.clientId);
   const projects = M.liveProjects().filter((p) => (!p.archived || p.id === inv.projectId) && (!inv.clientId || p.clientId === inv.clientId || p.id === inv.projectId));
-  const itemTpls = all('templates').filter((t) => t.kind === 'items' && !t.archived);
-  const termTpls = all('templates').filter((t) => t.kind === 'terms' && !t.archived);
   const payments = all('payments').filter((p) => p.invoiceId === id).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const commitNumber = () => {
     const n = numDraft.trim();
@@ -255,7 +253,7 @@ export function InvoiceEditor({ id }) {
             </div>
           </section>
           <section class="block">
-            <div class="block-head"><h2 class="block-title">Line items</h2>{itemTpls.length > 0 && <button class="btn xs outline" onClick={(e) => openMenu(e, itemTpls.map((t) => ({ label: t.name, onSelect: () => { set({ items: [...inv.items.filter((it) => it.desc || it.rate), ...(t.data?.items || []).map((x) => ({ ...x, id: uid() }))] }); toast('Items added'); } })))}>Add preset</button>}</div>
+            <div class="block-head"><h2 class="block-title">Line items</h2></div>
             <div class="inv-items">
               {inv.items.map((it, n) => (
                 <div class="inv-item">
@@ -287,7 +285,7 @@ export function InvoiceEditor({ id }) {
             </div>
           </section>
           <section class="block">
-            <div class="block-head"><h2 class="block-title">Terms & payment details</h2>{termTpls.length > 0 && <button class="btn xs outline" onClick={(e) => openMenu(e, termTpls.map((t) => ({ label: t.name, onSelect: () => set({ terms: t.data?.terms ?? inv.terms, notes: t.data?.notes ?? inv.notes }) })))}>Use template</button>}</div>
+            <div class="block-head"><h2 class="block-title">Terms & payment details</h2></div>
             <div class="form">
               <Field label="Payment instructions" htmlFor="inv-pay" hint={!inv.paymentInstructions && !s.paymentInstructions ? 'Save your bank details once in Settings → Freelance & invoices.' : null}><TextArea id="inv-pay" value={inv.paymentInstructions} onInput={(v) => set({ paymentInstructions: v })} placeholder="Bank, account name and number" /></Field>
               <Field label="Terms" htmlFor="inv-termtext"><TextArea id="inv-termtext" value={inv.terms} onInput={(v) => set({ terms: v })} /></Field>
