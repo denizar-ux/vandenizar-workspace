@@ -4,6 +4,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 const BUILD = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
 const versionFile = () => ({ name: 'version-file', generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD }) }); } });
 export default defineConfig({
+  server: { allowedHosts: ["terminal.local"] },
   define: { __BUILD__: JSON.stringify(BUILD) },
   plugins: [preact(), viteSingleFile(), versionFile()],
   esbuild: { legalComments: 'none' },
