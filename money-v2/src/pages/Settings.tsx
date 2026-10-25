@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react'
 import { ArrowLeft, Plus, Download, Upload, Copy, EyeOff, Trash2 } from 'lucide-react'
 import * as M from '../lib/money'
 import { go } from '../lib/router'
-import { store, saveFile } from '../lib/store'
+import { store, saveFile, signOut } from '../lib/store'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { today } from '../lib/date'
 import { PageHead, SaveBadge } from '../ui/Shell'
@@ -40,8 +40,15 @@ export default function Settings() {
 
         <Accordion title="Import and export"><DataTools /></Accordion>
 
+        {store.mode === 'web' && (
+          <Accordion title="Account">
+            <p className="small muted">Signed in as {store.email}.</p>
+            <Button onClick={async () => { if (await ask({ title: 'Sign out?', body: 'This clears the copy on this device. Your data stays in your account.', confirm: 'Sign out' }) === 'confirm') signOut() }}>Sign out</Button>
+          </Accordion>
+        )}
+
         <Accordion title="Reset">
-          <p className="small muted tnum">{c.accounts} accounts · {c.tx} transactions · {c.budgets} budgets · {c.recur} recurring · {c.debts} debts. {store.mode === 'cloud' ? 'Synced across your devices.' : 'Saved in this browser only (open it inside Claude to sync).'}</p>
+          <p className="small muted tnum">{c.accounts} accounts · {c.tx} transactions · {c.budgets} budgets · {c.recur} recurring · {c.debts} debts. {store.mode === 'cloud' || store.mode === 'web' ? 'Synced across your devices.' : 'Saved in this browser only.'}</p>
           <Button variant="danger" icon={<Trash2 size={16} />} onClick={async () => {
             if (await ask({ title: 'Delete all money data?', body: 'Accounts, transactions, budgets, recurring items and debts. This can\'t be undone. Export a CSV first if you want a copy.', confirm: 'Delete everything', danger: true, typeToConfirm: 'DELETE' }) !== 'confirm') return
             M.resetAll(); toast('Everything deleted'); go('home')

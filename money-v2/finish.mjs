@@ -5,5 +5,8 @@ let s = readFileSync(f, 'utf8')
 const head = []
 s = s.replace(/<title>[^<]*<\/title>\s*/, (m) => { head.push(m.trim()); return '' })
 s = s.replace(/<meta name="claude:viewport-fit-sides"[^>]*>\s*/, (m) => { head.push(m.trim()); return '' })
+s = s.replace(/<meta name="(viewport|theme-color|apple-mobile-web-app-[a-z-]+)"[^>]*>\s*/g, '')
+s = s.replace(/<link rel="icon"[^>]*>\s*/g, '')
+s = s.replace(/<meta charset[^>]*>\s*/gi, '')
 s = s.replace(/<!doctype html>|<\/?html[^>]*>|<\/?head>|<\/?body>/gi, '')
 writeFileSync(f, head.join('\n') + '\n' + s)

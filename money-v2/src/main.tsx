@@ -15,6 +15,7 @@ import Budget from './pages/Budget'
 import Stats from './pages/Stats'
 import Accounts from './pages/Accounts'
 import Settings from './pages/Settings'
+import Login from './pages/Login'
 
 applyTheme()
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme()) } catch { /* */ }
@@ -22,6 +23,7 @@ try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =
 function App() {
   useStore()
   const r = useRoute()
+  if (store.auth === 'out') return <div className="app app-login"><Login /><Hosts /></div>
   const empty = !store.ready && !M.allAccounts().length
   const page = empty ? <main className="main"><Skeleton /></main>
     : r.view === 'history' ? <History /> : r.view === 'budget' ? <Budget /> : r.view === 'stats' ? <Stats /> : r.view === 'accounts' ? <Accounts /> : r.view === 'settings' ? <Settings /> : <Home />
