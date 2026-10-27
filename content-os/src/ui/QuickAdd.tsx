@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react'
-import { addThread, createPost, addLink, slotById, normalizeUrl, THREADS_LIMIT } from '../lib/model'
-import { fmtDay } from '../lib/time'
+import { addThread, createPost, addLink, slotById, slots, isSlotFree, normalizeUrl, THREADS_LIMIT } from '../lib/model'
+import { fmtDay, weekStart, weekdayIndex } from '../lib/time'
 import { go } from '../lib/router'
 import { Sheet, Segmented, Button, AutoTextarea, toast, cx } from './kit'
 import { SlotPicker, firstFreeSlot } from './SlotPicker'
 import { DateField, TimeField } from './DateInput'
 
 export type NewKind = 'ig' | 'thread' | 'link'
-interface Req { kind: NewKind; week?: string | null; slot?: string | null }
+interface Req { kind: NewKind; week?: string | null; slot?: string | null; date?: string | null }
 
 let req: Req | null = null
 const subs = new Set<() => void>()
@@ -25,11 +25,14 @@ function QuickAdd({ req }: { req: Req }) {
   const [kind, setKind] = useState<NewKind>(req.kind)
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
-  const [date, setDate] = useState('')
+  const [date, setDate] = useState(req.date || '')
   const [time, setTime] = useState('')
   const [url, setUrl] = useState('')
-  const def = req.slot ? { week: req.week || null, slot: req.slot } : firstFreeSlot()
+  // A day from the Calendar: use that weekday's slot when it is free, else plan the post on that day without a slot.
+  const daySlot = req.date ? slots().find((s) => s.day === weekdayIndex(req.date!) && isSlotFree(weekStart(req.date!), s.id)) : undefined
+  const def = req.slot ? { week: req.week || null, slot: req.slot } : req.date ? (daySlot ? { week: weekStart(req.date), slot: daySlot.id } : null) : firstFreeSlot()
   const [pick, setPick] = useState<{ week: string | null; slot: string | null }>({ week: def?.week || null, slot: def?.slot || null })
+  const [onDay, setOnDay] = useState<string | null>(req.date && !daySlot ? req.date : null)
 
   useEffect(() => { setTimeout(() => document.querySelector<HTMLElement>('.qa [data-main]')?.focus(), 60) }, [kind])
 
@@ -42,7 +45,7 @@ function QuickAdd({ req }: { req: Req }) {
       toast('Added to Resources', { label: 'View', run: () => go('/resources') })
     } else {
       if (!title.trim()) return
-      const p = createPost({ title, week: pick.week, slot: pick.slot })
+      const p = onDay ? createPost({ title, date: onDay }) : createPost({ title, week: pick.week, slot: pick.slot })
       const s = slotById(p.slot)
       toast(s && p.date ? `Added to ${s.name}, ${fmtDay(p.date)}` : 'Added to Instagram', { label: 'Open', run: () => go('/post/' + p.id) })
     }
@@ -62,7 +65,9 @@ function QuickAdd({ req }: { req: Req }) {
             <input data-main className="input qa-title" aria-label="Post title" placeholder="What's the post? An idea is fine." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }} />
             <div className="field">
               <span className="field-label">When</span>
-              <SlotPicker week={pick.week} slot={pick.slot} onPick={(w, s) => setPick({ week: w, slot: s })} />
+              {onDay
+                ? <div className="picker"><div className="picker-list"><div className="pick on"><span className="pick-dot pick-dot-none" /><span className="grow"><span className="pick-name">Post on {fmtDay(onDay)}</span><span className="pick-sub">No slot that day. Script, film and edit days fill in by themselves.</span></span></div></div><button type="button" className="linkbtn small" style={{ alignSelf: 'flex-start' }} onClick={() => setOnDay(null)}>Pick a slot instead</button></div>
+                : <SlotPicker week={pick.week} slot={pick.slot} startWeek={req.date ? weekStart(req.date) : undefined} onPick={(w, s) => setPick({ week: w, slot: s })} />}
             </div>
           </>
         )}

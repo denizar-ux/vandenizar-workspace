@@ -111,8 +111,15 @@ export function weekProgress(week: string) {
 
 const byDate = (a: Item, b: Item) => (a.date || '9999') < (b.date || '9999') ? -1 : (a.date || '9999') > (b.date || '9999') ? 1 : (a.createdAt < b.createdAt ? -1 : 1)
 
-export interface NewPost { title: string; week?: string | null; slot?: string | null; notes?: string }
-export function createPost({ title, week = null, slot = null, notes = '' }: NewPost): Item {
+export interface NewPost { title: string; week?: string | null; slot?: string | null; notes?: string; date?: string | null }
+export function createPost({ title, week = null, slot = null, notes = '', date = null }: NewPost): Item {
+  if (date && !slot) {
+    const p = createPost({ title, notes })
+    setStageDate(p.id, 'date', date)
+    const s = slotById(get('items', p.id)?.slot)
+    if (s) patch('items', p.id, { pillar: s.pillar ?? null, format: s.format ?? p.format ?? null })
+    return get('items', p.id)!
+  }
   const s = slotById(slot)
   const it = put('items', {
     id: uid(), kind: 'ig', title: title.trim(), stage: 'idea', refs: [], finalUrl: '',
@@ -219,9 +226,49 @@ export function setStageDate(id: string, field: DateField, value: string | null)
     for (const e of TASKS.slice(0, i)) { const d = it[e.field]; if (d && d > value) return { ok: false, error: `${t.label} can't be before ${e.label} (${fmtDay(d)}).` } }
     for (const l of TASKS.slice(i + 1)) { const d = it[l.field]; if (d && d < value) return { ok: false, error: `${t.label} can't be after ${l.label} (${fmtDay(d)}).` } }
   }
-  if (field === 'date') applyPostDate(id, value)
+  if (field === 'date') { applyPostDate(id, value); if (value) autoPlan(id) }
   else patch('items', id, { [field]: value } as any)
   return { ok: true }
+}
+
+// ---------- catching up ----------
+const daysFrom = (a: string, b: string) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000)
+type Snap = Pick<Item, 'id' | 'week' | 'slot' | 'date' | 'scriptDate' | 'filmDate' | 'editDate' | 'time'>
+const snapOf = (it: Item): Snap => ({ id: it.id, week: it.week ?? null, slot: it.slot ?? null, date: it.date ?? null, scriptDate: it.scriptDate ?? null, filmDate: it.filmDate ?? null, editDate: it.editDate ?? null, time: it.time ?? null })
+/** Put items back exactly as they were before a replan. */
+export function restoreSnaps(snaps: Snap[]) { for (const { id, ...p } of snaps) patch('items', id, p) }
+
+/** A post that fell behind: shift every unfinished, dated step by the same number of days so the
+ *  earliest late one lands on today. Spacing and order stay the same; the slot follows the new post day. */
+export function replanPost(id: string, t = today()): Snap | null {
+  const it = get('items', id); if (!it || it.kind !== 'ig' || it.stage === 'done') return null
+  const open = TASKS.filter((k) => !isTaskDone(it, k) && it[k.field])
+  const late = open.map((k) => it[k.field] as string).filter((d) => d < t).sort()
+  if (!late.length) return null
+  const snap = snapOf(it)
+  const delta = daysFrom(late[0], t)
+  const p: Partial<Item> = {}
+  for (const k of open) if (k.field !== 'date') (p as any)[k.field] = addDays(it[k.field] as string, delta)
+  if (Object.keys(p).length) patch('items', id, p)
+  if (open.some((k) => k.field === 'date')) applyPostDate(id, addDays(it.date as string, delta))
+  return snap
+}
+
+/** A Threads draft that missed its day moves to today (time kept). */
+export function replanThread(id: string, t = today()): Snap | null {
+  const it = get('items', id); if (!it || it.kind !== 'thread' || it.postedAt || !it.date || it.date >= t) return null
+  const snap = snapOf(it)
+  patch('items', id, { date: t })
+  return snap
+}
+
+/** Replan everything that is late. Returns snapshots for undo. */
+export function replanAll(t = today()): Snap[] {
+  const out: Snap[] = []
+  const ids = new Set(overdueTasks(t).map((x) => x.it.id))
+  for (const id of ids) { const s = replanPost(id, t); if (s) out.push(s) }
+  for (const th of overdueThreads(t)) { const s = replanThread(th.id, t); if (s) out.push(s) }
+  return out
 }
 
 /** Dates that are out of order (can happen when a post is moved to an earlier slot). */

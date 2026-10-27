@@ -9,7 +9,7 @@ export function DateField({ label, value, onChange, min, max, done, placeholder 
     <label className={cx('field', done && 'field-done')}>
       <span className="field-label row gap4">{label}{done && <Check size={14} strokeWidth={2.6} />}</span>
       <span className="datewrap">
-        <span className={cx('input datebtn', !value && 'unset')} aria-hidden>{value ? fmtDay(value) : placeholder}</span>
+        <span className={cx('input datebtn', !value && 'unset')} aria-hidden>{value ? fmtDay(value) : done ? 'Done' : placeholder}</span>
         <input type="date" className="date-native" aria-label={`${label} date`} value={value} min={min} max={max} onChange={(e) => onChange(e.target.value)} onClick={(e) => { try { (e.currentTarget as any).showPicker?.() } catch { /* not supported */ } }} />
         {value && <button type="button" className="date-clear" aria-label={`Clear ${label.toLowerCase()}`} onClick={(e) => { e.preventDefault(); onChange('') }}><X size={15} /></button>}
       </span>

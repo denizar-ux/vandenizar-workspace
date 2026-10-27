@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { Check, Copy, Play, ChevronDown, ArrowRight, Plus } from 'lucide-react'
+import { Check, Copy, Play, ChevronDown, ArrowRight, Plus, CalendarArrowUp } from 'lucide-react'
 import { settings, tz } from '../lib/store'
-import { tasksOn, overdueTasks, nextTaskAfter, completeTask, setStage, slotById, today, normalizeUrl, firstLine, STAGES, stageIndex, threadsOn, overdueThreads, markPosted, type DayTask } from '../lib/model'
-import { fmtDay, greeting, relDay, timeKey } from '../lib/time'
+import { tasksOn, overdueTasks, nextTaskAfter, completeTask, setStage, slotById, today, normalizeUrl, firstLine, STAGES, stageIndex, threadsOn, overdueThreads, markPosted, replanAll, replanPost, replanThread, restoreSnaps, type DayTask } from '../lib/model'
+import { fmtDay, greeting, relDay, timeKey, addDays } from '../lib/time'
 import { go } from '../lib/router'
 import { PhoneTop } from '../ui/Shell'
 import { Button, toast, copyOrShow, cx } from '../ui/kit'
 import { openNew } from '../ui/QuickAdd'
+import { firstFreeSlot } from '../ui/SlotPicker'
 
 export default function Today() {
   const z = tz(), t = today()
@@ -20,9 +21,18 @@ export default function Today() {
   const overN = over.length + overTh.length
   const next = nextTaskAfter(t)
   const [showOver, setShowOver] = useState(false)
+  const [allOver, setAllOver] = useState(false)
+  const free = firstFreeSlot()
+  const freeSlot = free ? slotById(free.slot) : undefined
   const [, tick] = useState(0)
   useEffect(() => { const i = setInterval(() => tick((n) => n + 1), 30000); return () => clearInterval(i) }, [])
   const openN = open.length + thOpen.length, doneN = done.length + thDone.length
+  const replanEverything = () => {
+    const snaps = replanAll(t)
+    if (!snaps.length) return
+    setShowOver(false); setAllOver(false)
+    toast(`Replanned ${snaps.length} item${snaps.length > 1 ? 's' : ''} from today`, { label: 'Undo', run: () => restoreSnaps(snaps) })
+  }
   const summary = openN ? `${openN} thing${openN > 1 ? 's' : ''} today${doneN ? ` · ${doneN} done` : ''}` : (list.length + th.length) ? 'All done for today.' : 'Nothing scheduled today.'
 
   return (
@@ -39,10 +49,19 @@ export default function Today() {
 
         {overN > 0 && (
           <div className="overdue">
-            <button className="overdue-head" aria-expanded={showOver} onClick={() => setShowOver(!showOver)}>
-              <span className="grow">{overN} overdue from earlier days</span><ChevronDown size={18} className={cx('acc-chev', showOver && 'up')} />
-            </button>
-            {showOver && <div className="stack" style={{ gap: 8 }}>{over.map((x) => <TaskRow key={x.it.id + x.task.key} x={x} showDate />)}{overTh.map((x) => <ThreadRow key={x.id} it={x} showDate />)}</div>}
+            <div className="overdue-top">
+              <button className="overdue-head grow" aria-expanded={showOver} onClick={() => setShowOver(!showOver)}>
+                <span className="grow">{overN} late from earlier days</span><ChevronDown size={18} className={cx('acc-chev', showOver && 'up')} />
+              </button>
+              <Button size="sm" variant="primary" icon={<CalendarArrowUp size={15} />} onClick={replanEverything}>Replan</Button>
+            </div>
+            {showOver && (
+              <div className="stack" style={{ gap: 8 }}>
+                <p className="xs overdue-help">Replan moves each late post forward so its next step is today. The gaps between steps stay the same.</p>
+                {[...over.map((x) => <TaskRow key={x.it.id + x.task.key} x={x} showDate />), ...overTh.map((x) => <ThreadRow key={x.id} it={x} showDate />)].slice(0, allOver ? undefined : 3)}
+                {!allOver && overN > 3 && <Button size="sm" variant="ghost" onClick={() => setAllOver(true)}>Show {overN - 3} more</Button>}
+              </div>
+            )}
           </div>
         )}
 
@@ -53,7 +72,14 @@ export default function Today() {
           <div className="today-empty">
             {next
               ? <><span className="eyebrow">Next up · {relDay(next.date, z)}</span><button className="today-next" onClick={() => go('/post/' + next.it.id)}><b>{next.task.label}</b> {firstLine(next.it.title) || 'Untitled'}<ArrowRight size={17} /></button></>
-              : <><p className="muted">No dates planned yet. Give a post its script, film, edit and post days and they show up here on the day.</p><Button variant="primary" icon={<Plus size={16} />} style={{ alignSelf: 'flex-start' }} onClick={() => openNew({ kind: 'ig' })}>Plan a post</Button></>}
+              : <p className="muted">{overN ? 'Nothing new for today. Tap Replan above and the late steps show up here.' : 'Nothing planned yet. Fill a slot and its script, film, edit and post days show up here on the day.'}</p>}
+            {freeSlot && free && (
+              <button className={cx('slot-next', 'tint-' + freeSlot.tint)} onClick={() => openNew({ kind: 'ig', week: free.week, slot: free.slot })}>
+                <span className="grow"><span className="eyebrow">Next free slot · {relDay(addDays(free.week, freeSlot.day), z)}</span><span className="slot-next-title">{freeSlot.name}</span></span>
+                <span className="row gap4 small" style={{ fontWeight: 650 }}><Plus size={16} />Plan</span>
+              </button>
+            )}
+            {!next && !freeSlot && <Button variant="primary" icon={<Plus size={16} />} style={{ alignSelf: 'flex-start' }} onClick={() => openNew({ kind: 'ig' })}>Plan a post</Button>}
           </div>
         )}
 
@@ -91,7 +117,8 @@ function TaskRow({ x, showDate }: { x: DayTask; showDate?: boolean }) {
           <span className="task-title">{it.title || 'Untitled'}</span>
         </button>
       </div>
-      {!done && task.key === 'post' && (video || it.caption?.trim()) && (
+      {showDate && !done && <div className="task-actions"><Button size="sm" icon={<CalendarArrowUp size={15} />} onClick={() => { const snap = replanPost(it.id); if (snap) toast(`${firstLine(it.title) || 'Post'} moved up to today`, { label: 'Undo', run: () => restoreSnaps([snap]) }) }}>Move to today</Button></div>}
+      {!done && !showDate && task.key === 'post' && (video || it.caption?.trim()) && (
         <div className="task-actions">
           {video && <a className="btn btn-sm" href={video} target="_blank" rel="noopener noreferrer"><Play size={15} /><span>Open video</span></a>}
           {it.caption?.trim() && <Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy caption</Button>}
@@ -119,7 +146,7 @@ function ThreadRow({ it, showDate }: { it: import('../lib/types').Item; showDate
           <span className="task-text clamp3 pre">{it.text}</span>
         </button>
       </div>
-      {!done && <div className="task-actions"><Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(it.text || '', 'Copy draft')}>Copy</Button></div>}
+      {!done && <div className="task-actions"><Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(it.text || '', 'Copy draft')}>Copy</Button>{showDate && <Button size="sm" icon={<CalendarArrowUp size={15} />} onClick={() => { const snap = replanThread(it.id); if (snap) toast('Threads moved to today', { label: 'Undo', run: () => restoreSnaps([snap]) }) }}>Move to today</Button>}</div>}
     </article>
   )
 }

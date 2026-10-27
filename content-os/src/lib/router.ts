@@ -24,17 +24,22 @@ export function useRoute(): Route {
 }
 
 const scrollMem = new Map<string, number>()
+// The app restores scroll itself: forward navigation opens at the top, Back returns to where you were.
+try { history.scrollRestoration = 'manual' } catch { /* old browser */ }
+let forward = false
 export function rememberScroll() { scrollMem.set(location.hash, window.scrollY) }
 export function restoreScroll() {
-  const y = scrollMem.get(location.hash)
-  requestAnimationFrame(() => window.scrollTo(0, y || 0))
+  const y = forward ? 0 : scrollMem.get(location.hash) || 0
+  forward = false
+  window.scrollTo(0, y)
+  requestAnimationFrame(() => window.scrollTo(0, y))
 }
 
 export function go(to: string, opts: { replace?: boolean } = {}) {
   rememberScroll()
   const h = '#' + to
   if (opts.replace) history.replaceState(null, '', h)
-  else if (location.hash !== h) location.hash = h
+  else if (location.hash !== h) { forward = true; location.hash = h }
   if (opts.replace) { current = parse(); key = location.hash; subs.forEach((f) => f()) }
 }
 

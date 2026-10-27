@@ -192,3 +192,38 @@ describe('references and links', () => {
     expect(settings().notify!.morning).toBe(true)
   })
 })
+
+describe('catching up', () => {
+  it('replans a late post from today, keeping the gaps, and undo restores it', () => {
+    const p = M.createPost({ title: 'Carou' })
+    M.setStageDate(p.id, 'filmDate', '2026-10-23')
+    M.setStageDate(p.id, 'date', '2026-10-24')
+    const t = '2026-10-27'
+    expect(M.overdueTasks(t).length).toBeGreaterThan(0)
+    const snap = M.replanPost(p.id, t)!
+    const it = get('items', p.id)!
+    expect(it.filmDate).toBe('2026-10-27')
+    expect(it.date).toBe('2026-10-28')
+    expect(it.week).toBe('2026-10-26')
+    expect(M.overdueTasks(t).length).toBe(0)
+    M.restoreSnaps([snap])
+    expect(get('items', p.id)!.date).toBe('2026-10-24')
+    expect(get('items', p.id)!.filmDate).toBe('2026-10-23')
+  })
+
+  it('replans everything late, threads included', () => {
+    const a = M.createPost({ title: 'A' }); M.setStageDate(a.id, 'date', '2026-10-20')
+    const th = M.addThread('tes', '2026-10-25', '02:33')!
+    const snaps = M.replanAll('2026-10-27')
+    expect(snaps.length).toBe(2)
+    expect(get('items', th.id)!.date).toBe('2026-10-27')
+    expect(get('items', th.id)!.time).toBe('02:33')
+    expect(get('items', a.id)!.date).toBe('2026-10-27')
+  })
+
+  it('a post planned on a calendar day without a slot keeps that day', () => {
+    const p = M.createPost({ title: 'Tuesday post', date: '2026-11-03' })
+    expect(p.date).toBe('2026-11-03')
+    expect(p.slot).toBeNull()
+  })
+})

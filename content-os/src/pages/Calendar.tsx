@@ -108,6 +108,12 @@ export default function Calendar() {
               ))}
             </div>
           ) : <p className="muted">Nothing on this day.</p>}
+          {sel >= t && (
+            <div className="row gap8 wrap">
+              <Button size="sm" icon={<Plus size={15} />} onClick={() => openNew({ kind: 'ig', date: sel })}>Post on {relDay(sel, z)}</Button>
+              <Button size="sm" variant="ghost" icon={<AtSign size={15} />} onClick={() => openNew({ kind: 'thread', date: sel })}>Threads</Button>
+            </div>
+          )}
         </section>
       </div>
     </main>
