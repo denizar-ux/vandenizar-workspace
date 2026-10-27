@@ -51,7 +51,7 @@ export default function Today() {
           <div className="overdue">
             <div className="overdue-top">
               <button className="overdue-head grow" aria-expanded={showOver} onClick={() => setShowOver(!showOver)}>
-                <span className="grow">{overN} late from earlier days</span><ChevronDown size={18} className={cx('acc-chev', showOver && 'up')} />
+                <span className="grow">{overN} late step{overN > 1 ? 's' : ''}</span><ChevronDown size={18} className={cx('acc-chev', showOver && 'up')} />
               </button>
               <Button size="sm" variant="primary" icon={<CalendarArrowUp size={15} />} onClick={replanEverything}>Replan</Button>
             </div>
