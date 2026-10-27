@@ -569,7 +569,8 @@ textarea.input-plain { resize: none; display: block; width: 100%; }
 .date-clear { width: 40px; height: 40px; right: 2px; background: transparent; }
 .date-clear::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--surface-2); z-index: -1; }
 /* Calendar dots: shape and color both say what it is */
-.mcell .dot { width: 7px; height: 7px; flex: none; }
+.mcell .dot { width: 6px; height: 6px; flex: none; }
+.mcell .dots { gap: 2.5px; }
 .dot-thread { background: #7f9fb3; box-shadow: none; }
 .dot-thread.dot-done { opacity: .5; }
 .dot-empty { box-shadow: inset 0 0 0 1px var(--muted); opacity: .6; }
