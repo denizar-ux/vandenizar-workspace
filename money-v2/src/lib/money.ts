@@ -44,7 +44,7 @@ export function rpc(n: number) {
   if (HIDE) return '•••'
   const a = Math.abs(Math.round(n))
   const f = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',')
-  const s = a >= 1e9 ? f(a / 1e9) + 'M' : a >= 1e6 ? f(a / 1e6) + 'jt' : a >= 1e3 ? Math.round(a / 1e3) + 'rb' : String(a)
+  const s = a >= 1e9 ? f(a / 1e9) + 'M' : a >= 1e6 ? f(a / 1e6) + 'jt' : a >= 1e5 ? Math.round(a / 1e3) + 'rb' : a >= 1e3 ? f(a / 1e3) + 'rb' : String(a)
   return (n < 0 ? '−' : '') + s
 }
 /** "1,5jt" "250rb" "25.000" "2.5m" → whole rupiah */

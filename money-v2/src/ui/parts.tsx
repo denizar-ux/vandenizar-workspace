@@ -33,7 +33,7 @@ export function TxRow({ x, showDate }: { x: M.Tx; showDate?: boolean }) {
       </span>
       <span className="tx-amt">
         <span className={cx('tnum', sign > 0 && 'pos', sign === 0 && 'muted')}>{sign > 0 ? '+' : sign < 0 ? '−' : ''}{M.rp(Math.abs(x.amount))}</span>
-        {x.type === 'transfer' && !!x.fee && <span className="xs muted tnum">fee {M.rpc(x.fee)}</span>}
+        {x.type === 'transfer' && !!x.fee && <span className="xs muted tnum">fee {M.rp(x.fee)}</span>}
       </span>
     </button>
   )
