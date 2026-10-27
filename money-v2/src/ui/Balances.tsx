@@ -45,7 +45,7 @@ function BalancesSheet() {
           <div key={a.id} className="bal-row">
             <div className="row gap8">
               <AccIc a={a} size={15} />
-              <span className="grow"><b>{a.name}</b>{a.bank ? <span className="small muted"> · {a.bank}</span> : null}</span>
+              <span className="grow"><b>{a.name}</b></span>
               <span className="small muted tnum">now {M.rp(bal[a.id] || 0, { show: true })}</span>
             </div>
             <AmountInput id={'bal-' + a.id} value={vals[a.id] || ''} onChange={(v) => setVals((s) => ({ ...s, [a.id]: v }))} autoFocus={i === 0} />

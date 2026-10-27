@@ -89,7 +89,7 @@ function AccountSheet({ id, onClose, onEdit }: { id: string; onClose: () => void
   }
   return (
     <Sheet open onClose={onClose} title={a.name} wide>
-      <div className="row gap12"><AccIc a={a} /><div className="grow"><div className="eyebrow">{[a.bank, M.ACC_TYPES.find((t) => t.id === a.type)?.label].filter(Boolean).join(' · ')}</div><div className="content-title tnum">{a.type === 'credit' ? M.rp(Math.max(0, -b)) : M.rp(b)}</div>{a.type === 'credit' && <div className="small muted">owed on the card{ci?.available != null ? ` · ${M.rp(ci.available)} available` : ''}</div>}</div></div>
+      <div className="row gap12"><AccIc a={a} /><div className="grow"><div className="eyebrow">{M.ACC_TYPES.find((t) => t.id === a.type)?.label}</div><div className="content-title tnum">{a.type === 'credit' ? M.rp(Math.max(0, -b)) : M.rp(b)}</div>{a.type === 'credit' && <div className="small muted">owed on the card{ci?.available != null ? ` · ${M.rp(ci.available)} available` : ''}</div>}</div></div>
       {ci && (
         <div className={cx('card stack', ci.billLeft > 0 && ci.daysToDue <= 3 ? 'tint-rose' : 'tint-lavender')} style={{ gap: 8 }}>
           <div className="row between small"><span>This cycle · {fmtShort(ci.start)} – {fmtShort(ci.end)}</span><b className="tnum">{M.rp(Math.max(0, ci.cur))}</b></div>
@@ -124,7 +124,6 @@ function AccountSheet({ id, onClose, onEdit }: { id: string; onClose: () => void
 
 function AccountEdit({ a, onClose }: { a: Partial<M.Account>; onClose: () => void }) {
   const [name, setName] = useState(a.name || '')
-  const [bank, setBank] = useState(a.bank || '')
   const [type, setType] = useState<M.AccType>(a.type || 'bank')
   const [tn, setTn] = useState(M.tone(a.tone))
   const [init, setInit] = useState(a.id ? '' : '')
@@ -133,7 +132,7 @@ function AccountEdit({ a, onClose }: { a: Partial<M.Account>; onClose: () => voi
   const [limit, setLimit] = useState(a.creditLimit ? String(a.creditLimit) : '')
   const save = () => {
     if (!name.trim()) return toast('Give it a name', undefined, 'error')
-    const rec = M.saveAccount({ ...a, name: name.trim(), bank: bank.trim(), type, tone: tn, cycleDay: type === 'credit' ? cycle : null, dueDay: type === 'credit' ? due : null, creditLimit: type === 'credit' ? M.parseAmount(limit) : undefined })
+    const rec = M.saveAccount({ ...a, name: name.trim(), type, tone: tn, cycleDay: type === 'credit' ? cycle : null, dueDay: type === 'credit' ? due : null, creditLimit: type === 'credit' ? M.parseAmount(limit) : undefined })
     if (!a.id && init) { const n = M.parseAmount(init); if (n) M.saveTx({ type: 'adjust', amount: type === 'credit' ? -n : n, accountId: rec.id, date: today(), note: 'Starting balance' }) }
     toast(a.id ? 'Saved' : 'Account added'); onClose()
   }
@@ -146,10 +145,7 @@ function AccountEdit({ a, onClose }: { a: Partial<M.Account>; onClose: () => voi
   return (
     <Sheet open onClose={onClose} title={a.id ? 'Edit account' : 'New account'} footer={<div className="row gap8">{a.id && <Button variant="ghost" icon={<Trash2 size={18} />} aria-label="Delete account" onClick={del} />}<Button variant="primary" size="lg" block onClick={save}>Save</Button></div>}>
       <Field label="Type"><Chips label="Type" value={type} onChange={setType} options={M.ACC_TYPES.map((t) => ({ value: t.id, label: t.label }))} /></Field>
-      <div className="grid2">
-        <Field label="Name" htmlFor="a-name"><input id="a-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'invest' ? 'Bibit RDPU' : 'Daily Life'} data-autofocus={!a.id || undefined} /></Field>
-        <Field label={type === 'invest' ? 'Platform' : 'Bank or app'} htmlFor="a-bank"><input id="a-bank" className="input" value={bank} onChange={(e) => setBank(e.target.value)} placeholder={type === 'invest' ? 'Bibit' : 'Jago'} /></Field>
-      </div>
+      <Field label="Name" htmlFor="a-name"><input id="a-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'invest' ? 'Bibit RDPU' : 'Daily Life'} data-autofocus={!a.id || undefined} /></Field>
       <Field label="Color">
         <div className="row gap8 wrap">{M.TONES.map((t) => <button key={t} type="button" className={cx('swatch', 'bg-' + t, tn === t && 'on')} aria-label={t} aria-pressed={tn === t} onClick={() => setTn(t)} />)}</div>
       </Field>

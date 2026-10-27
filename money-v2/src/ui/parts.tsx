@@ -109,7 +109,7 @@ export function AccRow({ a, onClick, right }: { a: M.Account; onClick?: () => vo
   return (
     <button className="li" onClick={onClick}>
       <AccIc a={a} />
-      <span className="li-main"><span className="li-title">{a.name}</span><span className="li-sub">{[a.bank, M.ACC_TYPES.find((t) => t.id === a.type)?.label].filter(Boolean).join(' · ')}</span></span>
+      <span className="li-main"><span className="li-title">{a.name}</span><span className="li-sub">{M.ACC_TYPES.find((t) => t.id === a.type)?.label}</span></span>
       {right ?? <span className={cx('tx-amt tnum', b < 0 && 'neg')}>{a.type === 'credit' && b < 0 ? M.rp(-b) + ' owed' : M.rp(b)}</span>}
     </button>
   )
