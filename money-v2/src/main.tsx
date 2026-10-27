@@ -9,6 +9,7 @@ import * as M from './lib/money'
 import { Hosts, Skeleton } from './ui/kit'
 import { Dock, Sidebar } from './ui/Shell'
 import { TxHost, openTx } from './ui/TxSheet'
+import { BalancesHost } from './ui/Balances'
 import Home from './pages/Home'
 import History from './pages/History'
 import Budget from './pages/Budget'
@@ -33,6 +34,7 @@ function App() {
       {page}
       <Dock />
       <TxHost />
+      <BalancesHost />
       <Hosts />
     </div>
   )

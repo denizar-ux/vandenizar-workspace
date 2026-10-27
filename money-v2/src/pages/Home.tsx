@@ -8,6 +8,8 @@ import { Button, toast, cx, Menu } from '../ui/kit'
 import { openTx } from '../ui/TxSheet'
 import { TxRow } from '../ui/parts'
 import { CatIc } from '../ui/icons'
+import { openBalances, needsBalances } from '../ui/Balances'
+import { Wallet } from 'lucide-react'
 
 export default function Home() {
   const [, tick] = useState(0)
@@ -52,6 +54,12 @@ export default function Home() {
               <span className="tile-plan">Set a monthly budget <ArrowRight size={15} /></span>
             </>}
           </button>
+
+          {needsBalances() && (
+            <button className="banner tap tint-butter" onClick={openBalances}>
+              <Wallet size={18} /><span className="grow"><b>Set your starting balances</b> so net worth and the daily allowance show real numbers.</span><ArrowRight size={16} />
+            </button>
+          )}
 
           {alerts.length > 0 && (
             <div className="stack" style={{ gap: 8 }}>

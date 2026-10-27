@@ -56,7 +56,7 @@ function ListView({ ym }: { ym: string }) {
   const out = list.reduce((s, x) => s + M.spendOf(x), 0), inc = list.reduce((s, x) => s + (x.type === 'income' ? x.amount : 0), 0)
   return (
     <>
-      <div className="search"><Search size={18} /><input id="hist-search" className="input" placeholder="Search notes, categories, tags, amounts" value={q} onChange={(e) => setQs(e.target.value)} aria-label="Search all transactions" /></div>
+      <div className="search"><Search size={18} /><input id="hist-search" className="input" placeholder="Search transactions" value={q} onChange={(e) => setQs(e.target.value)} aria-label="Search all transactions" /></div>
       <Chips label="Type" value={type} onChange={setType} scroll options={[{ value: 'all', label: 'All' }, { value: 'expense', label: 'Spending' }, { value: 'income', label: 'Income' }, { value: 'transfer', label: 'Transfers' }]} />
       {(fCat || fTag || fAcc) && (
         <div className="chips">

@@ -23,13 +23,18 @@ export function TxHost() {
   return <TxSheet key={key} o={o} />
 }
 
+const dots = new Intl.NumberFormat('id-ID')
+/** Digits only get thousands dots as you type (25000 → 25.000). Shorthand like 25rb or 1,5jt is left as typed. */
+export const fmtAmt = (v: string) => (/^[\d.]+$/.test(v) ? dots.format(+v.replace(/\D/g, '') || 0) : v)
+const onAmt = (v: string, set: (v: string) => void) => set(/^[\d.\s]*$/.test(v) ? v.replace(/\D/g, '').replace(/^0+(?=\d)/, '') : v)
+
 export const AmountInput = ({ value, onChange, id = 'amount', autoFocus }: { value: string; onChange: (v: string) => void; id?: string; autoFocus?: boolean }) => {
   const n = M.parseAmount(value)
   const shorthand = /[a-z]/i.test(value)
   return (
     <div className="amt">
       <span className="amt-rp" aria-hidden>Rp</span>
-      <input id={id} className="amt-input tnum" inputMode="decimal" autoComplete="off" placeholder="0" value={value} onChange={(e) => onChange(e.target.value)} data-autofocus={autoFocus || undefined} aria-label="Amount in rupiah" />
+      <input id={id} className="amt-input tnum" inputMode="numeric" enterKeyHint="done" autoComplete="off" placeholder="0" value={fmtAmt(value)} onChange={(e) => onAmt(e.target.value, onChange)} data-autofocus={autoFocus || undefined} aria-label="Amount in rupiah" />
       {shorthand && n > 0 && <span className="amt-hint tnum">{M.rp(n, { show: true })}</span>}
     </div>
   )
@@ -92,10 +97,15 @@ export function TagEdit({ tags, onChange }: { tags: string[]; onChange: (t: stri
 function TxSheet({ o }: { o: Opts }) {
   const e = o.tx
   const editKind = e && (e.type === 'adjust' || e.type === 'debt') ? e.type : null
-  const lastAcc = pref<string>('lastAcc', '')
-  const firstAcc = M.accounts().find((a) => a.id === lastAcc)?.id || M.accounts()[0]?.id || ''
   const r = o.due?.r
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>((e && e.type !== 'adjust' && e.type !== 'debt' ? e.type : r?.type) || o.type || 'expense')
+  // Expenses start on the daily-spending account (Daily Life); other types start on the last one used.
+  const live = M.accounts()
+  const has = (id?: string) => (id && live.some((a) => a.id === id) ? id : '')
+  const dailyAcc = M.allowance()?.acc.id
+  const firstAcc = (type === 'expense' && has(dailyAcc)) || has(pref<string>('lastAcc', '')) || live[0]?.id || ''
+  const byCat = pref<Record<string, string>>('accByCat', {})
+  const [accTouched, setAccTouched] = useState(!!(e || r || o.accountId))
   const [amt, setAmt] = useState(e ? String(Math.abs(e.amount)) : r ? String(r.amount) : o.amount ? String(o.amount) : '')
   const [catId, setCat] = useState(e?.catId || r?.catId || o.catId || '')
   const [acc, setAcc] = useState(e?.accountId || r?.accountId || o.accountId || firstAcc)
@@ -111,6 +121,13 @@ function TxSheet({ o }: { o: Opts }) {
   const [sign, setSign] = useState(e && e.type === 'adjust' && e.amount < 0 ? -1 : 1)
 
   useEffect(() => { if (!e && !r) setCat((c) => (c && M.cat(c)?.kind === type ? c : '')) }, [type])
+  // Picking a category moves "Paid from" to the account last used for it, until you pick one yourself.
+  const pickCat = (c: string) => {
+    setCat(c)
+    const remembered = has(byCat[M.topCatId(c)])
+    if (!accTouched && remembered) setAcc(remembered)
+  }
+  const pickAcc = (v: string) => { setAcc(v); setAccTouched(true) }
   const n = M.parseAmount(amt)
   const feeV = feeOther ? M.parseAmount(feeOther) : fee
   const noAcc = !M.accounts().length
@@ -132,6 +149,7 @@ function TxSheet({ o }: { o: Opts }) {
     }
     const x = M.saveTx(base)
     setPref('lastAcc', acc); if (type === 'transfer') setPref('lastFee', feeV)
+    if (type !== 'transfer' && catId) setPref('accByCat', { ...byCat, [M.topCatId(catId)]: acc })
     if (repeat && !e) {
       M.saveRecur({ name: note.trim() || (type === 'transfer' ? 'Transfer' : M.catShort(catId)), type, amount: n, fee: type === 'transfer' ? feeV : undefined, catId: type === 'transfer' ? undefined : catId, accountId: acc, toAccountId: type === 'transfer' ? to : undefined, freq: repeat, every: 1, start: date, done: date, auto: true, sub: M.topCatId(catId) === 'subscriptions' })
     }
@@ -158,14 +176,14 @@ function TxSheet({ o }: { o: Opts }) {
         {!editKind && !r && <Segmented label="Type" value={type} onChange={setType} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }, { value: 'transfer', label: 'Transfer' }]} />}
         {editKind === 'adjust' && <Segmented label="Direction" value={sign} onChange={setSign} options={[{ value: 1, label: 'Added' }, { value: -1, label: 'Removed' }]} />}
         <AmountInput value={amt} onChange={setAmt} autoFocus={!e} />
-        {!editKind && type !== 'transfer' && <CatPick kind={type} value={catId} onChange={setCat} />}
-        <AccountPick value={acc} onChange={setAcc} label={type === 'transfer' && !editKind ? 'From' : type === 'income' ? 'Into' : 'Paid from'} exclude={type === 'transfer' ? to : undefined} />
+        {!editKind && type !== 'transfer' && <CatPick kind={type} value={catId} onChange={pickCat} />}
+        <AccountPick value={acc} onChange={pickAcc} label={type === 'transfer' && !editKind ? 'From' : type === 'income' ? 'Into' : 'Paid from'} exclude={type === 'transfer' ? to : undefined} />
         {type === 'transfer' && !editKind && <>
           <AccountPick value={to} onChange={setTo} label="To" exclude={acc} />
           <Field label="Admin fee" hint="Counts as spending under Admin fees">
             <div className="chips">
               {M.FEE_PRESETS.map((f) => <button key={f.v} type="button" className={cx('chip', !feeOther && fee === f.v && 'on')} onClick={() => { setFee(f.v); setFeeOther('') }}>{f.label}</button>)}
-              <input className="input tag-in tnum" inputMode="decimal" placeholder="Other" value={feeOther} onChange={(ev) => setFeeOther(ev.target.value)} aria-label="Other fee" />
+              <input className="input tag-in tnum" inputMode="numeric" placeholder="Other" value={fmtAmt(feeOther)} onChange={(ev) => onAmt(ev.target.value, setFeeOther)} aria-label="Other fee" />
             </div>
           </Field>
         </>}

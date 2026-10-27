@@ -10,6 +10,7 @@ import { DateField } from '../ui/DateInput'
 import { AmountInput, AccountPick, openTx } from '../ui/TxSheet'
 import { AccRow, TxRow } from '../ui/parts'
 import { AccIc } from '../ui/icons'
+import { openBalances } from '../ui/Balances'
 import { SwitchRow } from './Budget'
 
 export default function Accounts() {
@@ -49,7 +50,7 @@ function AccountList() {
           {t.iOwe > 0 && <span><span className="xs ink2">You owe</span><b className="tnum neg">−{M.rp(t.iOwe)}</b></span>}
         </div>
       </div>
-      <div className="row end"><Button variant="primary" icon={<Plus size={17} />} onClick={() => setEdit({ type: 'bank', tone: 'cyan' })}>New account</Button></div>
+      <div className="row end gap8"><Button icon={<Scale size={17} />} onClick={openBalances}>Set balances</Button><Button variant="primary" icon={<Plus size={17} />} onClick={() => setEdit({ type: 'bank', tone: 'cyan' })}>New account</Button></div>
       {groups.length ? (
         <div className="groups">
           {groups.map(({ ty, list }) => (

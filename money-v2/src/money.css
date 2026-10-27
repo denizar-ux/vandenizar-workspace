@@ -133,3 +133,15 @@ body::before { height: env(safe-area-inset-top, 0px); }
 @media (min-width: 520px) { .calsum b { font-size: 16px; } }
 .cat-tile { font-size: 11.5px; }
 .cat-tile span:last-child { overflow-wrap: normal; word-break: normal; hyphens: auto; }
+
+/* set-balances sheet: smaller amount fields so several fit on a phone */
+.bal-row { display: flex; flex-direction: column; gap: 4px; }
+.bal-row .amt { padding: 2px 2px 6px; }
+.bal-row .amt-rp { font-size: 16px; }
+.bal-row .amt-input { font-size: 28px; }
+
+/* phones: compact page headers so content starts higher */
+@media (max-width: 959px) {
+  .pagehead { margin: 2px 0 14px; }
+  .pagehead .page-title { font-size: 36px; }
+}
