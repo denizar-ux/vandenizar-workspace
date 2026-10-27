@@ -39,10 +39,26 @@ export function ProjectsPage() {
       <PageHeader title="Projects." actions={<div class="row gap-8"><button class="icon-btn ghost" aria-label="Search" onClick={() => openSearch()}><Icon name="search" size={22} /></button><AddBtn label="New project" onClick={() => openProjectSheet()} /></div>} />
       <div><button class="dropdown-pill" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, cat, setCat)}>{cat !== 'all' && <span class={'cat-dot t-' + M.categoryOf(cat).color} aria-hidden="true" />}{catName}<Icon name="chevronDown" size={15} /></button></div>
       <Segmented class="full" options={[{ id: 'active', label: 'Active', count: groups.active.length }, { id: 'completed', label: 'Completed', count: groups.completed.length || undefined }, { id: 'archived', label: 'Archived', count: groups.archived.length || undefined }]} value={tab} onChange={setTab} />
+      {tab === 'completed' && list.length > 0 && <div class="muted" style={{ fontSize: 13 }}>Completed projects move to Archived after {M.AUTO_ARCHIVE_DAYS} days.</div>}
+      {tab === 'archived' && list.length > 0 && <button class="btn danger-soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => deleteAllArchived(list)}><Icon name="trash" size={15} />Delete all{cat !== 'all' ? ' in ' + catName : ''}</button>}
       {list.length ? <div class="pgrid">{list.map((p) => <ProjectCard p={p} />)}</div>
         : <Empty icon="folder" title={tab === 'active' ? 'No active projects' : tab === 'completed' ? 'Nothing completed yet' : 'No archived projects'} action={tab === 'active' && <button class="btn primary sm" onClick={() => openProjectSheet(cat !== 'all' ? { categoryId: cat } : {})}><Icon name="plus" size={15} />New project</button>}>{tab === 'active' ? 'One project per job, campaign or personal goal.' : null}</Empty>}
     </div>
   );
+}
+
+async function deleteAllArchived(list) {
+  const withInv = list.filter((p) => M.projectMoney(p.id).invoices.length).length;
+  const n = list.length - withInv;
+  if (!n) return toast('These projects have invoices, so they stay archived.');
+  const ok = await confirmDialog({
+    title: 'Delete ' + n + ' archived project' + (n === 1 ? '' : 's') + '?',
+    body: 'They move to Trash, where you can restore them or empty it for good.' + (withInv ? ' ' + withInv + ' with invoices stay archived.' : ''),
+    confirmLabel: 'Delete all', danger: true,
+  });
+  if (!ok) return;
+  const { done } = M.trashArchivedProjects(list.map((p) => p.id));
+  toast(done.length + ' moved to Trash', { action: { label: 'Undo', run: () => M.untrashProjects(done) } });
 }
 
 function ProjectCard({ p }) {
@@ -201,7 +217,7 @@ export function ProjectDetail({ id }) {
     { label: 'Record feedback', icon: 'chat', onSelect: () => openFeedbackSheet(p) },
     M.projectBilling(p) && { label: 'Create invoice', icon: 'file', onSelect: () => createInvoiceAndOpen({ projectId: id, clientId: p.clientId || '' }) },
     { divider: true },
-    p.archived ? { label: 'Restore from archive', icon: 'restore', onSelect: () => set({ archived: false }) } : { label: 'Archive', icon: 'archive', onSelect: () => { set({ archived: true }); toast('Archived', { action: { label: 'Undo', run: () => set({ archived: false }) } }); } },
+    p.archived ? { label: 'Restore from archive', icon: 'restore', onSelect: () => M.restoreProject(id) } : { label: 'Archive', icon: 'archive', onSelect: () => { set({ archived: true }); toast('Archived', { action: { label: 'Undo', run: () => M.restoreProject(id) } }); } },
     { label: 'Delete', icon: 'trash', danger: true, onSelect: del },
   ], { title: p.name });
   const freelance = M.projectBilling(p);

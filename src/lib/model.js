@@ -255,8 +255,47 @@ export function setStage(id, stage) {
   const p = get('pmProjects', id);
   if (!p || p.stage === stage) return;
   const ch = { stage };
+  if (stage === 'completed') ch.completedAt = Date.now();
+  else if (p.stage === 'completed') ch.completedAt = null;
   if (stage === 'client_review') { ch.previewSentAt = Date.now(); if (!p.followUpDate) ch.followUpDate = addDays(today(), 2); }
   patch('pmProjects', id, ch);
+}
+// Completed projects move to Archived on their own after this many days.
+export const AUTO_ARCHIVE_DAYS = 14;
+const DAY_MS = 86400000;
+export function autoArchiveProjects() {
+  const now = Date.now();
+  let n = 0;
+  for (const p of liveProjects()) {
+    if (p.archived || p.stage !== 'completed') continue;
+    // Projects completed before this rule existed: count from their last change.
+    if (!p.completedAt) { patch('pmProjects', p.id, { completedAt: p.updatedAt || now }); continue; }
+    if (now - p.completedAt >= AUTO_ARCHIVE_DAYS * DAY_MS) { patch('pmProjects', p.id, { archived: true, autoArchivedAt: now }); n++; }
+  }
+  return n;
+}
+// Restoring a completed project gives it a fresh 14 days so it does not bounce straight back.
+export function restoreProject(id) {
+  const p = get('pmProjects', id);
+  if (!p) return;
+  patch('pmProjects', id, p.stage === 'completed' ? { archived: false, autoArchivedAt: null, completedAt: Date.now() } : { archived: false, autoArchivedAt: null });
+}
+// Move archived projects to Trash. Projects with invoices stay so billing history keeps its link.
+export function trashArchivedProjects(ids) {
+  const done = [], kept = [];
+  for (const id of ids) {
+    if (projectMoney(id).invoices.length) { kept.push(id); continue; }
+    projectTasks(id).forEach((t) => patch('pmTasks', t.id, { projectId: null, _fromProject: id }));
+    patch('pmProjects', id, { deletedAt: Date.now() });
+    done.push(id);
+  }
+  return { done, kept };
+}
+export function untrashProjects(ids) {
+  for (const id of ids) {
+    patch('pmProjects', id, { deletedAt: null });
+    all('pmTasks').filter((t) => t._fromProject === id).forEach((t) => patch('pmTasks', t.id, { projectId: id, _fromProject: null }));
+  }
 }
 export const projectFeedback = (pid) => all('feedback').filter((f) => f.projectId === pid && !f.deletedAt).sort((a, b) => b.createdAt - a.createdAt);
 // Feedback arrived: log each note, move the project to Revision, optionally create revision tasks.
@@ -268,7 +307,7 @@ export function recordFeedback(pid, notes, { deliverableId = null, source = 'cli
     if (makeTasks) { const t = createRevisionTask(f); made.push(t); }
   }
   if (p && source === 'client') {
-    patch('pmProjects', pid, { stage: 'revision', followUpDate: null, feedbackAt: Date.now() });
+    patch('pmProjects', pid, { stage: 'revision', followUpDate: null, feedbackAt: Date.now(), completedAt: null });
     if (deliverableId) patch('pmProjects', pid, { deliverables: (get('pmProjects', pid).deliverables || []).map((d) => (d.id === deliverableId ? { ...d, status: 'revision', updatedAt: Date.now() } : d)) });
   }
   return made;
