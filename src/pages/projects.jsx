@@ -1,3 +1,5 @@
+import { GcalButton } from '../ui/GcalButton.jsx';
+import { appLink } from '../lib/gcal.js';
 import { EventRow, openEventSheet } from './events.jsx';
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
@@ -398,6 +400,10 @@ function BriefTab({ p, compact }) {
             {M.projectWorkflow(p) === 'video' && <Field label="Shoot" htmlFor="pd-shoot"><DateInput id="pd-shoot" value={p.shootDate} onChange={(v) => set({ shootDate: v || null })} /></Field>}
           </div>
           <Field label="Deadline"><div class="dt-pair"><DateInput id="pd-dl" value={p.deadlineDate} onChange={(v) => set({ deadlineDate: v || null, ...(v ? {} : { deadlineTime: null }) })} /><TimeInput id="pd-dlt" value={p.deadlineTime} onChange={(v) => set({ deadlineTime: v || null })} /></div></Field>
+          {(p.deadlineDate || (M.projectWorkflow(p) === 'video' && p.shootDate)) && <div class="row gap-8 wrap">
+            {M.projectWorkflow(p) === 'video' && <GcalButton size="xs" label="Shoot to Google Calendar" event={p.shootDate && { title: 'Shoot: ' + (p.name || 'Untitled project'), date: p.shootDate, details: [p.brief, appLink('/projects/' + p.id)].filter(Boolean).join('\n\n') }} />}
+            <GcalButton size="xs" label="Deadline to Google Calendar" event={p.deadlineDate && { title: 'Deadline: ' + (p.name || 'Untitled project'), date: p.deadlineDate, time: p.deadlineTime, minutes: 30, details: appLink('/projects/' + p.id) }} />
+          </div>}
           <Field label="Brief" htmlFor="pd-brief"><TextArea id="pd-brief" value={p.brief} onInput={(v) => set({ brief: v })} placeholder="What the client wants, mood, must-have shots, specs" minRows={4} /></Field>
           <Field label="Notes" htmlFor="pd-notes"><TextArea id="pd-notes" value={p.notes} onInput={(v) => set({ notes: v })} placeholder="Anything else worth remembering" minRows={2} /></Field>
         </div>

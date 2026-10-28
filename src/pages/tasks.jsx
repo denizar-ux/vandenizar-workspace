@@ -1,3 +1,5 @@
+import { GcalButton } from '../ui/GcalButton.jsx';
+import { appLink } from '../lib/gcal.js';
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Field, TextInput, TextArea, Select, DateInput, TimeInput, NumberInput, Check, Empty, Segmented } from '../ui/kit.jsx';
@@ -137,6 +139,13 @@ export function TasksPage({ query }) {
 // =====================================================================
 // TASK DETAIL
 // =====================================================================
+// Work schedule goes in as a time block (estimate, default 1 hour); with no schedule, the deadline does.
+function taskGcal(t, project) {
+  const details = [project && 'Project: ' + project.name, t.notes, appLink('/tasks/' + t.id)].filter(Boolean).join('\n\n');
+  if (t.workDate) return { title: t.title || 'Untitled task', date: t.workDate, time: t.workTime, minutes: t.estimateMinutes || 60, details };
+  if (t.deadlineDate) return { title: 'Deadline: ' + (t.title || 'Untitled task'), date: t.deadlineDate, time: t.deadlineTime, minutes: 30, details };
+  return null;
+}
 export function TaskDetail({ id }) {
   useStore();
   const t = get('pmTasks', id);
@@ -186,6 +195,7 @@ export function TaskDetail({ id }) {
       <Field label="Notes" htmlFor="td-notes"><TextArea id="td-notes" value={t.notes} onInput={(v) => set({ notes: v })} placeholder="Context, references, what done looks like" minRows={3} /></Field>
       <div class="row gap-10 wrap" style={{ alignItems: 'center' }}>
         <button class="btn outline" onClick={() => openReschedule(t)}><Icon name="calendar" size={16} />Reschedule</button>
+        <GcalButton size="" label="Google Calendar" event={taskGcal(t, project)} />
         {t.deadlineDate && <span class="muted" style={{ fontSize: 14 }}>Deadline stays {dateTimeShort(t.deadlineDate, t.deadlineTime)}.</span>}
       </div>
       <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>

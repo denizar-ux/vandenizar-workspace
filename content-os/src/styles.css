@@ -585,3 +585,4 @@ textarea.input-plain { resize: none; display: block; width: 100%; }
   .dock-item { font-size: 10px; letter-spacing: -.1px; }
   .dock-ic { width: 40px; }
 }
+.gcal-row { align-items: center; }

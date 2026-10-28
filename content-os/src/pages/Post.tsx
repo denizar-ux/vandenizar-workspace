@@ -12,6 +12,7 @@ import { NotFound } from '../ui/NotFound'
 import { References } from '../ui/Refs'
 import { DateField } from '../ui/DateInput'
 import type { Item } from '../lib/types'
+import { gcalAllDay, appLink } from '../lib/gcal'
 
 export default function Post({ id }: { id: string }) {
   const it = get('items', id)
@@ -76,6 +77,17 @@ export default function Post({ id }: { id: string }) {
               return <DateField key={t.key} label={t.label} done={isTaskDone(it, t)} value={(it[t.field] as string) || ''} min={b.min} max={b.max} onChange={(v) => setDate(t.field, v)} />
             })}
           </div>
+          {TASKS.some((t) => it[t.field] && !isTaskDone(it, t)) && (
+            <div className="row gap8 wrap gcal-row">
+              <span className="small muted">Google Calendar</span>
+              {TASKS.filter((t) => it[t.field] && !isTaskDone(it, t)).map((t) => (
+                <a key={t.key} className="btn btn-sm" target="_blank" rel="noopener noreferrer"
+                  href={gcalAllDay(`${t.label}: ${firstLine(it.title) || 'Untitled post'}`, it[t.field] as string, appLink('/post/' + id))}>
+                  <CalendarClock size={15} /><span>{t.label}</span>
+                </a>
+              ))}
+            </div>
+          )}
           <button className="rowcard slotrow" onClick={() => setSched(true)}>
             {s ? <span className={cx('pick-dot', 'bg-' + s.tint)} /> : <span className="pick-dot pick-dot-none" />}
             <span className="grow">{s && it.week ? `${s.name} slot · week of ${fmtShort(it.week, z)}` : it.date ? 'No slot on this day' : 'Not in a slot'}</span>
