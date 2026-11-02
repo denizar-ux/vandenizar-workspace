@@ -4,15 +4,15 @@
 @font-face { font-family: 'Manrope Variable'; font-style: normal; font-weight: 200 800; font-display: swap; src: url('./fonts/manrope-latin-wght-normal.woff2') format('woff2-variations'), url('./fonts/manrope-latin-wght-normal.woff2') format('woff2'); }
 
 :root {
-  --bg: #f7f6f2;
-  --surface: #fffefa;
-  --surface-2: #f1efe9;
-  --ink: #11110f;
-  --ink-2: #4f504c;
-  --muted: #6f706a;
-  --faint: #9a9b94;
-  --line: rgba(17, 17, 15, .11);
-  --line-strong: rgba(17, 17, 15, .22);
+  --bg: #f3f0ea;
+  --surface: #fbf9f5;
+  --surface-2: #ebe7df;
+  --ink: #24318a;
+  --ink-2: #3f4b97;
+  --muted: #6b739f;
+  --faint: #9aa0bf;
+  --line: rgba(36, 49, 138, .12);
+  --line-strong: rgba(36, 49, 138, .26);
   --border: var(--line-strong);
   --butter: #f9e7bd;
   --cyan: #dceff0;
@@ -22,16 +22,16 @@
   --peach: #f8dfcc;
   --danger-bg: var(--rose);
   --danger-ink: #c43e39;
-  --btn: #11110f; --btn-ink: #fffefa;
+  --btn: #24318a; --btn-ink: #fbf9f5;
   --good: #2c8a57; --warn: #9a5a0e; --bad: #c43e39;
   --wash: rgba(255, 255, 255, .55);
-  --glass: rgba(255, 254, 250, .72); --glass-strong: rgba(255, 254, 250, .92); --glass-rim: rgba(255, 255, 255, .9);
+  --glass: rgba(251, 249, 245, .74); --glass-strong: rgba(251, 249, 245, .94); --glass-rim: rgba(255, 255, 255, .9);
   --glass-filter: blur(22px) saturate(1.5);
-  --scrim: rgba(17, 17, 15, .28);
+  --scrim: rgba(20, 26, 72, .28);
   --radius-xl: 30px; --radius-lg: 24px; --radius-md: 16px;
   --radius-card: var(--radius-lg); --radius-input: var(--radius-md); --radius-sheet: 30px;
-  --shadow-soft: 0 8px 30px rgba(20, 20, 16, .055);
-  --shadow-pop: 0 18px 50px rgba(20, 20, 16, .16), 0 2px 6px rgba(20, 20, 16, .06);
+  --shadow-soft: 0 8px 30px rgba(24, 32, 96, .06);
+  --shadow-pop: 0 18px 50px rgba(24, 32, 96, .16), 0 2px 6px rgba(24, 32, 96, .06);
   --font: 'Manrope Variable', 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --sidebar: 240px;
   --gutter: 18px;
@@ -41,23 +41,23 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141412; --surface: #1d1d1a; --surface-2: #262622; --ink: #f3f2ec; --ink-2: #cfcec6; --muted: #a3a39b; --faint: #7a7a73;
-    --line: rgba(243, 242, 236, .1); --line-strong: rgba(243, 242, 236, .2);
+    --bg: #11142a; --surface: #181c38; --surface-2: #212647; --ink: #eef0fb; --ink-2: #c7cbea; --muted: #9ba1c9; --faint: #6f76a3;
+    --line: rgba(199, 203, 234, .12); --line-strong: rgba(199, 203, 234, .24);
     --butter: #3a3320; --cyan: #1f3335; --sage: #213025; --lavender: #2e2739; --rose: #3b2526; --peach: #3a2b20;
-    --danger-ink: #ff8a84; --btn: #f3f2ec; --btn-ink: #141412; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84;
+    --danger-ink: #ff8a84; --btn: #aeb8ff; --btn-ink: #11142a; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84;
     --wash: rgba(255, 255, 255, .08);
-    --glass: rgba(34, 34, 31, .72); --glass-strong: rgba(30, 30, 27, .94); --glass-rim: rgba(255, 255, 255, .08); --scrim: rgba(0, 0, 0, .55);
+    --glass: rgba(28, 33, 64, .74); --glass-strong: rgba(24, 28, 56, .95); --glass-rim: rgba(255, 255, 255, .08); --scrim: rgba(0, 0, 0, .55);
     --shadow-soft: 0 8px 30px rgba(0, 0, 0, .3); --shadow-pop: 0 18px 50px rgba(0, 0, 0, .5);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #141412; --surface: #1d1d1a; --surface-2: #262622; --ink: #f3f2ec; --ink-2: #cfcec6; --muted: #a3a39b; --faint: #7a7a73;
-  --line: rgba(243, 242, 236, .1); --line-strong: rgba(243, 242, 236, .2);
+  --bg: #11142a; --surface: #181c38; --surface-2: #212647; --ink: #eef0fb; --ink-2: #c7cbea; --muted: #9ba1c9; --faint: #6f76a3;
+  --line: rgba(199, 203, 234, .12); --line-strong: rgba(199, 203, 234, .24);
   --butter: #3a3320; --cyan: #1f3335; --sage: #213025; --lavender: #2e2739; --rose: #3b2526; --peach: #3a2b20;
-  --danger-ink: #ff8a84; --btn: #f3f2ec; --btn-ink: #141412; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84;
+  --danger-ink: #ff8a84; --btn: #aeb8ff; --btn-ink: #11142a; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84;
   --wash: rgba(255, 255, 255, .08);
-  --glass: rgba(34, 34, 31, .72); --glass-strong: rgba(30, 30, 27, .94); --glass-rim: rgba(255, 255, 255, .08); --scrim: rgba(0, 0, 0, .55);
+  --glass: rgba(28, 33, 64, .74); --glass-strong: rgba(24, 28, 56, .95); --glass-rim: rgba(255, 255, 255, .08); --scrim: rgba(0, 0, 0, .55);
   --shadow-soft: 0 8px 30px rgba(0, 0, 0, .3); --shadow-pop: 0 18px 50px rgba(0, 0, 0, .5);
   color-scheme: dark;
 }
@@ -86,7 +86,7 @@ svg.lucide { stroke-width: 1.8; flex: none; }
 
 /* floating glass dock (phone) */
 .dock { position: fixed; z-index: 40; left: 12px; right: 12px; bottom: calc(var(--sab) + 10px); margin: 0 auto; max-width: 440px; padding: 8px 6px 6px; border-radius: 30px;
-  background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 0 0 1px var(--glass-rim), 0 10px 34px rgba(20, 20, 16, .12); }
+  background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 0 0 1px var(--glass-rim), 0 10px 34px rgba(24, 32, 96, .12); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .dock { background: var(--surface); } }
 .dock-inner { display: grid; grid-template-columns: repeat(5, 1fr); }
 .dock-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; border: 0; background: none; color: var(--ink-2); font-size: 11px; font-weight: 550; padding: 0; }
