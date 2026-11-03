@@ -803,3 +803,10 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .hello-row .hello { min-width: 0; }
 .home-add { flex: none; padding-top: 2px; }
 @media (min-width: 960px) { .home-add { display: none; } }
+
+/* ---------- sign-in gate ---------- */
+.app.app-login { display: block; padding-left: 0 !important; }
+.main.login { max-width: 420px; margin: 0 auto; padding-top: calc(var(--sat) + 12vh); display: flex; flex-direction: column; gap: 14px; }
+.main.login .brand { padding: 0; margin-bottom: 18px; }
+.login-title { font-size: 34px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; margin: 0; }
+.main.login .form { margin-top: 10px; }

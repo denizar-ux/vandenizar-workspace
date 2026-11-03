@@ -377,6 +377,30 @@ function AccountCard() {
     </Group>
   );
 }
+// ---------- Sign-in gate (shown before the app when signed out) ----------
+export function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [ok, setOk] = useState(false);
+  const run = async (fn) => { setBusy(true); setMsg(''); setOk(false); try { await fn(); } catch (e) { setMsg(navigator.onLine === false ? "You're offline. Connect to sign in the first time." : friendly(e)); } finally { setBusy(false); } };
+  return (
+    <main class="main login" id="main">
+      <div class="brand"><span class="brand-word">vandenizar</span><span class="brand-sub">projects</span></div>
+      <h1 class="login-title">Sign in.</h1>
+      <p class="muted" style={{ fontSize: 15 }}>Use your Vandenizar account. Your projects sync between your iPhone and Mac.</p>
+      <form class="form" onSubmit={(e) => { e.preventDefault(); if (!email.trim() || !pw) { setMsg('Enter your email and password.'); return; } run(async () => { await signIn(email, pw); }); }} noValidate>
+        <Field label="Email" htmlFor="l-email"><TextInput id="l-email" type="email" inputMode="email" value={email} onInput={setEmail} placeholder="you@email.com" autoComplete="email" /></Field>
+        <Field label="Password" htmlFor="l-pw"><TextInput id="l-pw" type="password" value={pw} onInput={setPw} autoComplete="current-password" /></Field>
+        {msg && <div class={'field-hint' + (ok ? '' : ' bad')}>{msg}</div>}
+        <button class="btn primary lg block" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <button class="btn ghost" type="button" disabled={busy} onClick={() => { if (!email.trim()) { setMsg('Type your email first.'); return; } run(async () => { await resetPassword(email); setOk(true); setMsg('If that email has an account, a reset link is on its way.'); }); }}>Forgot password</button>
+      </form>
+    </main>
+  );
+}
+
 function friendly(e) {
   const m = (e && e.message) || String(e);
   if (/Invalid login/i.test(m)) return 'Email or password is wrong.';

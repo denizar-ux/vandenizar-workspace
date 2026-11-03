@@ -25,10 +25,10 @@ export function Field({ label, hint, children, class: c, htmlFor }) {
 }
 
 // Text input that commits on every keystroke but keeps the caret stable
-export function TextInput({ value, onInput, placeholder, class: c, id, type = 'text', autoFocus, onEnter, inputMode, onBlur, maxLength }) {
+export function TextInput({ value, onInput, placeholder, class: c, id, type = 'text', autoFocus, onEnter, inputMode, onBlur, maxLength, autoComplete }) {
   const ref = useRef();
   useEffect(() => { if (autoFocus && ref.current) setTimeout(() => ref.current && ref.current.focus(), 60); }, []);
-  return <input ref={ref} id={id} class={'input ' + (c || '')} type={type} value={value ?? ''} placeholder={placeholder} inputMode={inputMode} maxLength={maxLength}
+  return <input ref={ref} id={id} class={'input ' + (c || '')} type={type} value={value ?? ''} placeholder={placeholder} inputMode={inputMode} maxLength={maxLength} autoComplete={autoComplete}
     onInput={(e) => onInput && onInput(e.currentTarget.value)} onBlur={onBlur}
     onKeyDown={(e) => { if (e.key === 'Enter' && onEnter && !e.isComposing) { e.preventDefault(); onEnter(e.currentTarget.value); } }} />;
 }

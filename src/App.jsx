@@ -16,10 +16,17 @@ import { CalendarPage } from './pages/calendar.jsx';
 import { ProjectsPage, ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
-import { SettingsPage, TrashPage, MorePage, useSync, syncLabel } from './pages/settings.jsx';
+import { SettingsPage, TrashPage, MorePage, LoginPage, useSync, syncLabel } from './pages/settings.jsx';
 
 export function App() {
   useStore();
+  const auth = useSync();
+  if (!auth.ready) return <div class="app app-login" />;
+  if (!auth.user) return <div class="app app-login"><LoginPage /><Toasts /></div>;
+  return <Shell />;
+}
+
+function Shell() {
   const r = useRoute();
   const desktop = useMedia(DESKTOP_Q);
   const [p0, p1] = r.parts;
