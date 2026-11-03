@@ -5,7 +5,7 @@ import { today, fmtDay, fmtShort, relDay, addDays, diffDays } from '../lib/date'
 import { go, useRoute, setQ } from '../lib/router'
 import { get, remove } from '../lib/store'
 import { safeUrl } from '../lib/prefs'
-import { PhoneTop, PageHead, Bar } from '../ui/Shell'
+import { PageHead, Bar } from '../ui/Shell'
 import { Segmented, Chips, Sheet, Button, Field, Empty, toast, ask, cx } from '../ui/kit'
 import { DateField } from '../ui/DateInput'
 import { AmountInput, AccountPick, CatPick } from '../ui/TxSheet'
@@ -16,7 +16,6 @@ export default function Budget() {
   const tab = (r.q.tab as 'budgets' | 'recurring') || 'budgets'
   return (
     <main className="main wide">
-      <PhoneTop />
       <PageHead eyebrow="Plan ahead" title={tab === 'budgets' ? 'Budget' : 'Recurring'} />
       <div className="stack" style={{ gap: 16 }}>
         <Segmented label="Section" className="seg-fit" value={tab} onChange={(v) => setQ({ tab: v })} options={[{ value: 'budgets', label: 'Budgets', count: M.budgets().length || undefined }, { value: 'recurring', label: 'Recurring & subscriptions' }]} />
@@ -55,7 +54,7 @@ function Budgets() {
                   <span className="tnum budget-big">{s.left >= 0 ? <>{M.rp(s.left)} <span className="muted">left</span></> : <><span className="neg">{M.rp(-s.left)}</span> <span className="muted">over</span></>}</span>
                 </button>
                 <Bar pct={s.pct} status={s.status} />
-                <div className="row between small ink2 tnum">
+                <div className="row between wrap small ink2 tnum" style={{ gap: "4px 12px" }}>
                   <span>{M.rp(s.spent)} of {M.rp(b.amount)}</span>
                   <span>{!s.active ? (s.r.start > today() ? `Starts ${relDay(s.r.start).toLowerCase()}` : 'Ended') : s.perDay ? `${M.rpc(s.perDay)}/day · ${s.daysLeft}d left` : `${s.daysLeft}d left`}</span>
                 </div>
@@ -155,7 +154,7 @@ function Recurring() {
               <CatIc id={r.type === 'transfer' ? 'fee' : r.catId} />
               <span className="li-main">
                 <span className="li-title">{r.name || M.catShort(r.catId)}</span>
-                <span className={cx('li-sub', next && next < t0 && !r.auto && 'late-t')}>{r.paused ? 'Paused' : `${M.freqText(r)} · ${next ? (next < t0 ? `${diffDays(t0, next)}d late` : relDay(next)) : 'Ended'}`} · {r.auto ? 'Auto' : 'Remind me'}{r.sub ? ' · Subscription' : ''}</span>
+                <span className={cx('li-sub multi', next && next < t0 && !r.auto && 'late-t')}>{r.paused ? 'Paused' : `${M.freqText(r)} · ${next ? (next < t0 ? `${diffDays(t0, next)}d late` : relDay(next)) : 'Ended'}`} · {r.auto ? 'Auto' : 'Remind me'}{r.sub ? ' · Subscription' : ''}</span>
               </span>
               <span className="tx-amt"><span className={cx('tnum', r.type === 'income' && 'pos')}>{r.type === 'income' ? '+' : ''}{M.rp(r.amount)}</span>{r.freq !== 'month' && <span className="xs muted tnum">{M.rpc(M.monthlyCost(r))}/mo</span>}</span>
             </button>

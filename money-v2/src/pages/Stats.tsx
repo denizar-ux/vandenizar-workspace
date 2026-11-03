@@ -4,7 +4,7 @@ import * as M from '../lib/money'
 import { today, addDays, startOfWeek, shiftYm, monthLabel, monthEnd, fmtShort, monthShort, daysInMonth, WEEKDAYS, diffDays, fmtDay } from '../lib/date'
 import { useRoute, go, setQ } from '../lib/router'
 import { pref, setPref } from '../lib/prefs'
-import { PhoneTop, PageHead, Stepper, Bar } from '../ui/Shell'
+import { PageHead, Stepper, Bar } from '../ui/Shell'
 import { Segmented, Sheet, Button, Empty, toast, cx } from '../ui/kit'
 import { Donut, Columns, TxRow, toneVar } from '../ui/parts'
 import { CatIc } from '../ui/icons'
@@ -44,7 +44,6 @@ export default function Stats() {
 
   return (
     <main className="main wide">
-      <PhoneTop />
       <PageHead eyebrow="Where it went" title="Stats" />
       <div className="stack" style={{ gap: 16 }}>
         <div className="row gap8 wrap between">

@@ -4,7 +4,7 @@ import * as M from '../lib/money'
 import { today, fmtDay, relDay, fmtShort } from '../lib/date'
 import { go, useRoute, setQ } from '../lib/router'
 import { get, put, remove, uid } from '../lib/store'
-import { PhoneTop, PageHead, Bar } from '../ui/Shell'
+import { PageHead, Bar } from '../ui/Shell'
 import { Segmented, Chips, Sheet, Button, Field, Empty, toast, ask, cx } from '../ui/kit'
 import { DateField } from '../ui/DateInput'
 import { AmountInput, AccountPick, openTx } from '../ui/TxSheet'
@@ -18,7 +18,6 @@ export default function Accounts() {
   const tab = (r.q.tab as 'accounts' | 'debts') || 'accounts'
   return (
     <main className="main wide">
-      <PhoneTop />
       <PageHead eyebrow="What you have" title={tab === 'accounts' ? 'Accounts' : 'Debts'} />
       <div className="stack" style={{ gap: 16 }}>
         <Segmented label="Section" className="seg-fit" value={tab} onChange={(v) => setQ({ tab: v })} options={[{ value: 'accounts', label: 'Accounts', count: M.accounts().length || undefined }, { value: 'debts', label: 'Debts', count: M.debts().filter((d) => !M.debtState(d).closed).length || undefined }]} />

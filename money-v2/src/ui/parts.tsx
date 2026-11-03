@@ -88,14 +88,15 @@ export function Donut({ parts, center, sub }: { parts: { id: string; value: numb
 /** Simple column chart; `hi` marks the current column. */
 export function Columns({ cols, onPick, sel }: { cols: { key: string; label: string; out: number; inc?: number; hi?: boolean }[]; onPick?: (k: string) => void; sel?: string }) {
   const max = Math.max(1, ...cols.map((c) => Math.max(c.out, c.inc || 0)))
+  const h = (v: number) => (M.hidden() ? (v ? 30 : 0) : (v / max) * 100) + '%'
   const showInc = cols.some((c) => c.inc)
   return (
     <div className="cols" style={{ gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))` }}>
       {cols.map((c) => (
         <button key={c.key} type="button" className={cx('col-b', c.hi && 'hi', sel === c.key && 'sel')} onClick={() => onPick?.(c.key)} aria-label={`${c.label}: spent ${M.rp(c.out)}${showInc ? `, income ${M.rp(c.inc || 0)}` : ''}`} disabled={!onPick}>
           <span className="col-bars">
-            {showInc && <span className="col-in" style={{ height: ((c.inc || 0) / max) * 100 + '%' }} />}
-            <span className="col-out" style={{ height: (c.out / max) * 100 + '%' }} />
+            {showInc && <span className="col-in" style={{ height: h(c.inc || 0) }} />}
+            <span className="col-out" style={{ height: h(c.out) }} />
           </span>
           <span className="col-l">{c.label}</span>
         </button>

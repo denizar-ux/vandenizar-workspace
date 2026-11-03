@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Trash2, X, Repeat, Plus } from 'lucide-react'
+import { Trash2, X, Repeat, Plus, ArrowRight } from 'lucide-react'
 import * as M from '../lib/money'
 import { today, addDays, nowTime, fmtDay } from '../lib/date'
 import { pref, setPref } from '../lib/prefs'
@@ -169,7 +169,7 @@ function TxSheet({ o }: { o: Opts }) {
     <Sheet open onClose={close} title={title} footer={
       <div className="row gap8">
         {e && <Button variant="ghost" icon={<Trash2 size={18} />} onClick={del} aria-label="Delete" />}
-        <Button variant="primary" size="lg" block onClick={save} disabled={noAcc}>{e ? 'Save' : r ? 'Log payment' : 'Save'}</Button>
+        <Button variant="primary" size="lg" block className="btn-pay" icon={<ArrowRight size={20} />} onClick={save} disabled={noAcc}>{e ? 'Save' : r ? 'Log payment' : 'Save'}</Button>
       </div>
     }>
       {noAcc ? <p className="muted">Add an account first in Accounts.</p> : <>

@@ -4,7 +4,7 @@ import * as M from '../lib/money'
 import { today, shiftYm, monthLabel, daysInMonth, dow, fmtDay, WEEKDAYS, monthEnd, diffDays } from '../lib/date'
 import { useRoute, setQ } from '../lib/router'
 import { pref, setPref } from '../lib/prefs'
-import { PhoneTop, PageHead, Stepper } from '../ui/Shell'
+import { PageHead, Stepper } from '../ui/Shell'
 import { Segmented, Chips, Empty, Button, cx } from '../ui/kit'
 import { DayGroups, TxRow } from '../ui/parts'
 import { openTx } from '../ui/TxSheet'
@@ -18,7 +18,6 @@ export default function History() {
   const sv = (v: 'list' | 'cal') => { setView(v); setPref('histView', v) }
   return (
     <main className="main wide">
-      <PhoneTop />
       <PageHead eyebrow="Every rupiah" title="History" />
       <div className="stack" style={{ gap: 16 }}>
         <div className="row gap8 wrap between">
@@ -99,9 +98,9 @@ function CalView({ ym }: { ym: string }) {
             if (!d) return <div key={'e' + i} className="mcell out" aria-hidden />
             const day = s.byDay[d]
             const out = day?.out || 0
-            const heat = out ? 0.18 + 0.82 * (out / max) : 0
+            const heat = out && !M.hidden() ? 0.18 + 0.82 * (out / max) : 0
             return (
-              <button key={d} className={cx('mcell', d === t0 && 'today', d === selDay && 'sel')} onClick={() => setSel(d)} style={heat ? { background: `color-mix(in srgb, var(--peach-s) ${Math.round(heat * 70)}%, var(--surface))` } : undefined} aria-label={`${fmtDay(d)}: spent ${M.rp(out)}`}>
+              <button key={d} className={cx('mcell', d === t0 && 'today', d === selDay && 'sel', heat > 0.6 && 'hot')} onClick={() => setSel(d)} style={heat ? { background: `color-mix(in srgb, var(--navy) ${Math.round(heat * 55)}%, var(--surface))` } : undefined} aria-label={`${fmtDay(d)}: spent ${M.rp(out)}`}>
                 <span className="mnum">{+d.slice(8)}</span>
                 {out > 0 && <span className="mamt tnum">{M.rpc(out)}</span>}
                 <span className="dots row gap4">{day?.in ? <span className="dot dot-in" /> : null}{planned[d] ? <span className="dot dot-plan" /> : null}</span>

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { House, List, Target, ChartPie, Wallet, Settings as Gear, Check, Loader, AlertCircle, CloudOff, Plus, Eye, EyeOff } from 'lucide-react'
 import { go, useRoute, type View } from '../lib/router'
 import { store, retry, notifyAll } from '../lib/store'
@@ -37,7 +37,7 @@ export function Sidebar() {
   const r = useRoute()
   return (
     <aside className="side" aria-label="Main">
-      <div className="side-brand"><b>vandenizar</b><span>/ money</span></div>
+      <div className="side-brand"><b>vandenizar</b><span>/ <em className="serif">money</em></span></div>
       <button className="btn btn-primary side-new" onClick={() => openTx({ type: 'expense' })}><Plus size={18} /><span>New transaction</span></button>
       {TABS.map((t) => {
         const I = t.icon
@@ -55,10 +55,8 @@ export function Sidebar() {
 export function PhoneTop() {
   return (
     <div className="phonetop only-phone">
-      <div className="brand-mini grow">vandenizar <span>/ money</span></div>
-      <IconBtn label={hidden() ? 'Show amounts' : 'Hide amounts'} onClick={() => { setHidden(!hidden()); notifyAll() }}>{hidden() ? <EyeOff size={21} /> : <Eye size={21} />}</IconBtn>
-      <IconBtn label="Settings" onClick={() => go('settings')}><Gear size={21} /></IconBtn>
-      <button className="plus" aria-label="New transaction" onClick={() => openTx({ type: 'expense' })}><Plus size={24} /></button>
+      <div className="brand-mini grow">vandenizar <span>/ <em className="serif">money</em></span></div>
+      <PhoneActions />
     </div>
   )
 }
@@ -71,15 +69,38 @@ export function SaveBadge() {
   return <span className="save" aria-live="polite"><Check size={15} />Synced</span>
 }
 
-export function PageHead({ eyebrow, title, right }: { eyebrow?: React.ReactNode; title: string; right?: React.ReactNode }) {
+/** The three phone actions: hide amounts, settings, new transaction. */
+export function PhoneActions({ compact }: { compact?: boolean }) {
+  return <>
+    <IconBtn label={hidden() ? 'Show amounts' : 'Hide amounts'} onClick={() => { setHidden(!hidden()); notifyAll() }}>{hidden() ? <EyeOff size={21} /> : <Eye size={21} />}</IconBtn>
+    <IconBtn label="Settings" onClick={() => go('settings')}><Gear size={21} /></IconBtn>
+    <button className="plus" aria-label="New transaction" onClick={() => openTx({ type: 'expense' })}><Plus size={compact ? 20 : 24} /></button>
+  </>
+}
+
+/** Page title. On phones the actions sit on the title row and a slim bar with the title slides in once it scrolls away. */
+export function PageHead({ eyebrow, title, right, actions = true }: { eyebrow?: React.ReactNode; title: string; right?: React.ReactNode; actions?: boolean }) {
+  const ref = useRef<HTMLElement>(null)
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting && e.boundingClientRect.top < 0), { threshold: 0 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   return (
-    <header className="pagehead">
-      <div className="grow">
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1 className="page-title">{title}</h1>
-      </div>
-      {right && <div className="row gap4" style={{ flex: 'none' }}>{right}</div>}
-    </header>
+    <>
+      <header className="pagehead" ref={ref}>
+        <div className="grow">
+          {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+          <h1 className="page-title">{title}</h1>
+        </div>
+        {right && <div className="row gap4" style={{ flex: 'none' }}>{right}</div>}
+        {actions && <div className="pagehead-acts only-phone"><PhoneActions /></div>}
+      </header>
+      {actions && <div className={cx('minibar only-phone', stuck && 'show')} aria-hidden={!stuck}><b>{title}</b><PhoneActions compact /></div>}
+    </>
   )
 }
 

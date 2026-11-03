@@ -20,7 +20,7 @@ export default function Settings() {
   return (
     <main className="main">
       <div className="phonetop"><IconBtn label="Back" onClick={() => go('home')}><ArrowLeft size={22} /></IconBtn><div className="grow" /><SaveBadge /></div>
-      <PageHead eyebrow="Money" title="Settings" />
+      <PageHead eyebrow="Money" title="Settings" actions={false} />
       <div className="stack">
         <Accordion title="You and the look" defaultOpen>
           <Field label="Your name" htmlFor="s-name"><input id="s-name" className="input" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() !== st.name && M.setSettings({ name: name.trim() })} /></Field>
