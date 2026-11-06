@@ -25,7 +25,13 @@ export function applyTheme(t) {
 export function setTheme(t) { try { localStorage.setItem('vz:theme', t); } catch {} applyTheme(t); }
 
 // ---------- sync ----------
-export function useSync() { const [, force] = useState(0); useEffect(() => onSync(() => force((x) => x + 1)), []); return sync; }
+// Subscribe, then re-render once: auth can finish before this effect runs (instant when signed out),
+// and that update would otherwise be missed, leaving a blank screen.
+export function useSync() {
+  const [, force] = useState(0);
+  useEffect(() => { const off = onSync(() => force((x) => x + 1)); force((x) => x + 1); return off; }, []);
+  return sync;
+}
 export function syncLabel(s = sync) {
   if (!s.ready) return 'Starting…';
   if (!s.user) return 'Saved on this device';

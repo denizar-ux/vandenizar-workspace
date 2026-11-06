@@ -116,8 +116,9 @@ function startPolling() {
 
 export async function initSync() {
   setSyncHook(schedulePush);
-  const { data } = await supabase.auth.getSession();
-  sync.user = data.session?.user || null;
+  let session = null;
+  try { ({ data: { session } } = await supabase.auth.getSession()); } catch (e) { console.error('auth', e); }
+  sync.user = session?.user || null;
   sync.status = sync.user ? 'syncing' : 'signed_out';
   sync.lastSyncAt = loadState().lastSyncAt || 0;
   sync.ready = true;
