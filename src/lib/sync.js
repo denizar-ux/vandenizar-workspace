@@ -160,6 +160,6 @@ export async function signOut() {
 }
 export function useSyncState(useEffect, useReducer) {
   const [, force] = useReducer((x) => x + 1, 0);
-  useEffect(() => onSync(force), []);
+  useEffect(() => { const off = onSync(force); force(); return off; }, []);
   return sync;
 }

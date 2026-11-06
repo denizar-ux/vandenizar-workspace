@@ -25,7 +25,17 @@ export function applyTheme(t) {
 export function setTheme(t) { try { localStorage.setItem('vz:theme', t); } catch {} applyTheme(t); }
 
 // ---------- sync ----------
-export function useSync() { const [, force] = useState(0); useEffect(() => onSync(() => force((x) => x + 1)), []); return sync; }
+export function useSync() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const off = onSync(() => force((x) => x + 1));
+    // Sync may have become ready before this effect subscribed (fast getSession when signed out).
+    // Re-render once so the login screen never gets stuck blank.
+    force((x) => x + 1);
+    return off;
+  }, []);
+  return sync;
+}
 export function syncLabel(s = sync) {
   if (!s.ready) return 'Starting…';
   if (!s.user) return 'Saved on this device';
