@@ -12,7 +12,6 @@ import { fmtMoney } from './lib/money.js';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
 import { openEventSheet } from './pages/events.jsx';
 import { TodayPage } from './pages/today.jsx';
-import { DevUiPage } from './pages/devui.jsx';
 import { TaskDetail } from './pages/tasks.jsx';
 import { WorkPage } from './pages/work.jsx';
 import { CalendarPage } from './pages/calendar.jsx';
@@ -77,7 +76,6 @@ function Shell() {
   else if (p0 === 'more' && p1 === 'resources') { nav = 'more'; page = <ResourcesPage />; }
   else if (p0 === 'more') { nav = 'more'; page = <MorePage />; }
   else if (p0 === 'search') { nav = 'search'; page = <SearchPage />; }
-  else if (p0 === 'dev' && p1 === 'ui') { nav = 'more'; page = <DevUiPage />; }
   if (!page) page = <div class="page narrow"><div class="empty"><div class="empty-title">This page moved or no longer exists.</div><a class="btn primary" href="#/">Go to Today</a></div></div>;
   const detail = (p0 === 'tasks' || p0 === 'post' || p0 === 'projects' || p0 === 'invoices' || p0 === 'clients') && p1;
 
