@@ -8,9 +8,9 @@ import { tasksOn, overdueTasks, threadsOn, overdueThreads, igItems, cSettings, s
 import { areas, areaOfTask, CONTENT_AREA } from './areas.js';
 
 // isOverdue / isBehind read the real clock, so the agenda judges against its own date.
-const isLateOn = (t, date) => isOpen(t) && !!t.deadlineDate
+export const isLateOn = (t, date) => isOpen(t) && !!t.deadlineDate
   && (t.deadlineDate < date || (t.deadlineDate === date && date === today() && isPast(t.deadlineDate, t.deadlineTime)));
-const isBehindOn = (t, date) => isOpen(t) && !!t.workDate && t.workDate < date && !isLateOn(t, date);
+export const isBehindOn = (t, date) => isOpen(t) && !!t.workDate && t.workDate < date && !isLateOn(t, date);
 
 const TASK_LABEL = { script: 'Script', film: 'Film', edit: 'Edit', post: 'Post' };
 const byTime = (a, b) => (a.time || '').localeCompare(b.time || '');
@@ -69,6 +69,8 @@ function followItem(p, clientName) {
   };
 }
 
+export const inFilter = (area, filter) => filter === 'all' || (filter === 'work' ? area.id !== CONTENT_AREA.id : area.id === filter);
+
 export function buildAgenda({ date, filter = 'all' }) {
   const allDay = [], scheduled = [], anytime = [], late = [];
   const anyWork = [], anyContent = [], anyFollow = [], lateWork = [], lateContent = [];
@@ -116,6 +118,6 @@ export function buildAgenda({ date, filter = 'all' }) {
   const counts = Object.fromEntries(areas().map((a) => [a.id, 0]));
   for (const i of [...allDay, ...scheduled, ...anytime, ...late]) counts[i.area.id] = (counts[i.area.id] || 0) + 1;
 
-  const keep = (i) => filter === 'all' || (filter === 'work' ? i.area.id !== CONTENT_AREA.id : i.area.id === filter);
+  const keep = (i) => inFilter(i.area, filter);
   return { allDay: allDay.filter(keep), scheduled: scheduled.filter(keep), anytime: anytime.filter(keep), late: late.filter(keep), counts };
 }
