@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Icon } from './ui/Icon.jsx';
-import { Overlays, Toasts, openOverlay, SheetHead, SheetBody, useMedia, DESKTOP_Q, toast, closeAll } from './ui/overlay.jsx';
+import { Overlays, Toasts, openOverlay, openMenu, SheetHead, SheetBody, useMedia, DESKTOP_Q, toast, closeAll } from './ui/overlay.jsx';
 import { Field, DateInput, TimeInput, NumberInput, TextArea, Segmented } from './ui/kit.jsx';
-import { pickProject, InvoicePill, StagePill, whenLabel } from './ui/parts.jsx';
+import { pickProject, InvoicePill, StagePill, whenLabel, PageHeader } from './ui/parts.jsx';
 import { useRoute, navigate } from './lib/router.js';
 import { useStore, persist, flush, get } from './lib/db.js';
 import * as M from './lib/model.js';
@@ -12,9 +12,10 @@ import { useUpdateAvailable, applyUpdate } from './lib/update.js';
 import { openEventSheet } from './pages/events.jsx';
 import { TodayPage } from './pages/today.jsx';
 import { DevUiPage } from './pages/devui.jsx';
-import { TasksPage, TaskDetail } from './pages/tasks.jsx';
+import { TaskDetail } from './pages/tasks.jsx';
+import { WorkPage } from './pages/work.jsx';
 import { CalendarPage } from './pages/calendar.jsx';
-import { ProjectsPage, ProjectDetail, openProjectSheet } from './pages/projects.jsx';
+import { ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
 import { LOCAL } from './lib/sync.js';
@@ -40,7 +41,7 @@ function Shell() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
       else if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key === '/') { e.preventDefault(); openSearch(); }
-        else if (e.key === 'n') { e.preventDefault(); openQuickAdd(); }
+        else if (e.key === 'n') { e.preventDefault(); openAddMenu(); }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -54,21 +55,22 @@ function Shell() {
     const q = { ...r.query }; delete q.add;
     const rest = new URLSearchParams(q).toString();
     navigate(r.path + (rest ? '?' + rest : ''), { replace: true });
-    setTimeout(() => { if (add === 'task') openQuickAdd(); else if (add === 'search') openSearch(); }, 120);
+    setTimeout(() => { if (add === 'task') openQuickAdd(); else if (add === 'search') openSearch(); else if (add === 'post' || add === 'thread') toast('Coming in the next update'); }, 120);
   }, [r.full]);
 
   let page, nav = 'today';
   if (!p0) page = <TodayPage />;
-  else if (p0 === 'tasks') { nav = 'tasks'; page = p1 ? <TaskDetail id={p1} key={p1} /> : <TasksPage query={r.query} />; }
-  else if (p0 === 'projects') { nav = 'projects'; page = p1 ? <ProjectDetail id={p1} key={p1} /> : <ProjectsPage />; }
-  // Temporary until the Work area replaces these pages: aliased links (#/projects, #/tasks) land here.
-  else if (p0 === 'work' && p1 === 'tasks') { nav = 'tasks'; page = <TasksPage query={r.query} />; }
-  else if (p0 === 'work' && p1 === 'projects') { nav = 'projects'; page = <ProjectsPage />; }
+  else if (p0 === 'tasks' && p1) { nav = 'work'; page = <TaskDetail id={p1} key={p1} />; }
+  else if (p0 === 'projects' && p1) { nav = 'work'; page = <ProjectDetail id={p1} key={p1} />; }
+  else if (p0 === 'work') { nav = 'work'; page = <WorkPage tab={p1} query={r.query} />; }
+  else if (p0 === 'content') { nav = 'content'; page = <Placeholder title="Content." line="Coming next." />; }
+  else if (p0 === 'post') { nav = 'content'; page = <Placeholder title="Content." line="Coming next." />; }
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
-  else if (p0 === 'clients') { nav = 'clients'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
-  else if (p0 === 'invoices') { nav = 'invoices'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
+  else if (p0 === 'clients') { nav = 'more'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
+  else if (p0 === 'invoices') { nav = 'more'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
   else if (p0 === 'settings') { nav = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { nav = 'trash'; page = <TrashPage />; }
+  else if (p0 === 'more' && p1 === 'resources') { nav = 'more'; page = <Placeholder title="Resources." line="Coming next." />; }
   else if (p0 === 'more') { nav = 'more'; page = <MorePage />; }
   else if (p0 === 'search') { nav = 'search'; page = <SearchPage />; }
   else if (p0 === 'dev' && p1 === 'ui') { nav = 'more'; page = <DevUiPage />; }
@@ -90,6 +92,10 @@ function Shell() {
   );
 }
 
+function Placeholder({ title, line }) {
+  return <div class="page narrow"><PageHeader title={title} /><div class="coming">{line}</div></div>;
+}
+
 function SaveBanner() {
   if (persist.status !== 'error') return null;
   return (
@@ -102,11 +108,10 @@ function SaveBanner() {
 
 const SIDE = [
   { id: 'today', label: 'Today', icon: 'home', path: '/' },
-  { id: 'projects', label: 'Projects', icon: 'folder', path: '/projects' },
-  { id: 'tasks', label: 'Tasks', icon: 'square', path: '/tasks' },
+  { id: 'work', label: 'Work', icon: 'folder', path: '/work/projects' },
+  { id: 'content', label: 'Content', icon: 'image', path: '/content/ig' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
-  { id: 'clients', label: 'Clients', icon: 'users', path: '/clients' },
-  { id: 'invoices', label: 'Invoices', icon: 'file', path: '/invoices' },
+  { id: 'more', label: 'More', icon: 'menu', path: '/more' },
 ];
 function Sidebar({ nav }) {
   const s = useSync();
@@ -115,13 +120,13 @@ function Sidebar({ nav }) {
   return (
     <aside class="sidebar" aria-label="Main navigation">
       <div class="brand"><span class="brand-word">vandenizar</span><span class="brand-sub">focus on the work</span></div>
-      <button class="btn primary block" onClick={() => openQuickAdd()}><Icon name="plus" size={18} />Add</button>
+      <button class="btn primary block" onClick={(e) => openAddMenu(e)}><Icon name="plus" size={18} />Add<span class="kbd on-dark">n</span></button>
       <nav class="side-nav">
         {SIDE.map((it) => (
           <a href={'#' + it.path} class={'side-link' + (nav === it.id ? ' on' : '')} aria-current={nav === it.id ? 'page' : undefined}>
             <Icon name={it.icon} size={19} />{it.label}
-            {it.id === 'tasks' && overdue > 0 && <span class="side-count">{overdue}</span>}
-            {it.id === 'invoices' && invOver > 0 && <span class="side-count">{invOver}</span>}
+            {it.id === 'work' && overdue > 0 && <span class="side-count">{overdue}</span>}
+            {it.id === 'more' && invOver > 0 && <span class="side-count">{invOver}</span>}
           </a>
         ))}
       </nav>
@@ -136,14 +141,8 @@ function Sidebar({ nav }) {
 }
 
 function Dock({ nav }) {
-  const tabs = [
-    { id: 'today', label: 'Today', icon: 'home', path: '/' },
-    { id: 'projects', label: 'Projects', icon: 'folder', path: '/projects' },
-    { id: 'tasks', label: 'Tasks', icon: 'square', path: '/tasks' },
-    { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
-    { id: 'more', label: 'More', icon: 'menu', path: '/more' },
-  ];
-  const moreOn = ['more', 'clients', 'invoices', 'settings', 'trash', 'search'].includes(nav);
+  const tabs = SIDE;
+  const moreOn = ['more', 'settings', 'trash', 'search'].includes(nav);
   return (
     <nav class="dock" aria-label="Main navigation">
       {tabs.map((t) => {
@@ -163,6 +162,27 @@ function UpdatePill() {
   const [busy, setBusy] = useState(false);
   if (!v) return null;
   return <div class="update-pill" role="status"><span>New version ready</span><button class="btn xs primary" disabled={busy} onClick={() => { setBusy(true); applyUpdate(); }}>{busy ? 'Updating…' : 'Update'}</button></div>;
+}
+
+// =====================================================================
+// ADD MENU
+// =====================================================================
+const ADD_ITEMS = [
+  { id: 'task', label: 'Task', icon: 'square', run: () => openQuickAdd() },
+  { id: 'event', label: 'Event', icon: 'calendar', run: () => openEventSheet(null, {}) },
+  { id: 'project', label: 'Project', icon: 'folder', run: () => openProjectSheet() },
+  { id: 'post', label: 'IG post', icon: 'image', run: () => toast('Coming in the next update') },
+  { id: 'thread', label: 'Thread', icon: 'chat', run: () => toast('Coming in the next update') },
+];
+const LAST_ADD = 'vzw:lastAdd';
+const lastAdd = () => { try { return localStorage.getItem(LAST_ADD) || ''; } catch { return ''; } };
+export function openAddMenu(e) {
+  const last = lastAdd();
+  const items = [...ADD_ITEMS].sort((a, b) => (b.id === last) - (a.id === last));
+  openMenu(e && e.currentTarget ? e : null, items.map((it) => ({
+    label: it.label, icon: it.icon,
+    onSelect: () => { try { localStorage.setItem(LAST_ADD, it.id); } catch {} it.run(); },
+  })), { title: 'Add' });
 }
 
 // =====================================================================

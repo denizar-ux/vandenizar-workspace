@@ -840,3 +840,5 @@ a.bento:active { transform: scale(.985); }
 .replan-bar { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 999px; background: var(--rose); color: var(--ink); font-weight: 550; }
 .replan-bar .grow { min-width: 0; }
 .coming { padding: 8px 0; color: var(--muted); }
+.btn .kbd.on-dark { margin-left: auto; color: inherit; opacity: .7; border-color: currentColor; }
+.work-page > .page { width: 100%; max-width: none; margin: 0; }

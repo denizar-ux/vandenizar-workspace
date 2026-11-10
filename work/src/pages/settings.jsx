@@ -453,6 +453,7 @@ export function MorePage() {
   const rows = [
     ['Clients', 'Freelance client list', 'users', '/clients'],
     ['Invoices', 'Create and track invoices', 'file', '/invoices'],
+    ['Resources', 'Links, references and saved things', 'link', '/more/resources'],
     ['Settings', 'Account, notifications, defaults', 'settings', '/settings'],
     ['Trash', 'Deleted tasks and projects', 'trash', '/trash'],
   ];

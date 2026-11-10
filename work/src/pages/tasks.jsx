@@ -11,6 +11,10 @@ import { today, addDays, diffDays, relDay, fmtShort, fmtMinutes, fmtFull, isoOf 
 import { dragHandlers, orderBetween, moveInArray } from '../lib/dnd.js';
 import * as M from '../lib/model.js';
 import { openQuickAdd } from '../App.jsx';
+import { ChipCount } from '../ui/polish.jsx';
+import { areaOfTask } from '../combined/areas.js';
+import { buildAgenda } from '../combined/agenda.js';
+import { replanLate, undoReplan } from '../combined/replan.js';
 
 const MAIN_VIEWS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'inbox', label: 'Inbox' }, { id: 'overdue', label: 'Overdue' }];
 const MORE_VIEWS = [{ id: 'all', label: 'All open', icon: 'list' }, { id: 'done', label: 'Done', icon: 'check' }, { id: 'other', label: 'Deferred', icon: 'clock' }, { id: 'archived', label: 'Archived', icon: 'archive' }];
@@ -34,7 +38,7 @@ function viewFilter(view) {
   };
 }
 
-export function TasksPage({ query }) {
+export function TasksPage({ query, embedded }) {
   useStore();
   const [view, setView] = useState(query.view || loadPref('taskView', 'today'));
   const [project, setProject] = useState(loadPref('taskProject', ''));
@@ -53,9 +57,17 @@ export function TasksPage({ query }) {
   const t0 = today();
   const base = all('pmTasks');
   const counts = Object.fromEntries(['today', 'upcoming', 'inbox', 'overdue'].map((v) => [v, base.filter(viewFilter(v)).length]));
-  let list = base.filter(viewFilter(view));
+  const viewList = base.filter(viewFilter(view));
+  const catCounts = {};
+  viewList.forEach((t) => { const id = areaOfTask(t).id; catCounts[id] = (catCounts[id] || 0) + 1; });
+  const lateCount = view === 'overdue' ? buildAgenda({ date: t0, filter: 'work' }).late.length : 0;
+  const replan = () => {
+    const { snaps, count } = replanLate(today(), 'work');
+    toast('Moved ' + count + ' item' + (count === 1 ? '' : 's'), { action: { label: 'Undo', run: () => undoReplan(snaps) } });
+  };
+  let list = viewList;
   if (project) list = list.filter((t) => (project === 'none' ? !t.projectId : t.projectId === project));
-  if (ws) list = list.filter((t) => { const p = t.projectId && get('pmProjects', t.projectId); return p ? M.projectCategoryId(p) === ws : false; });
+  if (ws) list = list.filter((t) => areaOfTask(t).id === ws);
   if (prio) list = list.filter((t) => t.priority === prio);
   if (q.trim()) { const term = q.toLowerCase(); list = list.filter((t) => (t.title + ' ' + (t.notes || '') + ' ' + (t.subtasks || []).map((s) => s.title).join(' ')).toLowerCase().includes(term)); }
   list = view === 'done' ? [...list].sort((a, b) => (b.completedAt || b.lastCompletedAt || 0) - (a.completedAt || a.lastCompletedAt || 0)) : M.sortTasks(list, sort);
@@ -77,10 +89,20 @@ export function TasksPage({ query }) {
 
   return (
     <div class="page tasks-page">
-      <PageHeader title="Tasks." actions={<button class="btn primary sm" onClick={() => openQuickAdd({ when: view === 'inbox' ? 'none' : view === 'upcoming' ? 'tomorrow' : 'today' })}><Icon name="plus" size={16} />Task</button>} />
+      {!embedded && <PageHeader title="Tasks." actions={<button class="btn primary sm" onClick={() => openQuickAdd({ when: view === 'inbox' ? 'none' : view === 'upcoming' ? 'tomorrow' : 'today' })}><Icon name="plus" size={16} />Task</button>} />}
       <div class="chips scroll">
-        {MAIN_VIEWS.map((v) => <button class={'chip ' + (view === v.id ? 'on' : '')} aria-pressed={view === v.id} onClick={() => setView(v.id)}>{v.label}{counts[v.id] > 0 && <span class="chip-count">{counts[v.id]}</span>}</button>)}
+        {MAIN_VIEWS.map((v) => <ChipCount label={v.label} count={counts[v.id]} on={view === v.id} onClick={() => setView(v.id)} />)}
       </div>
+      <div class="chips scroll" role="group" aria-label="Category">
+        <ChipCount label="All" count={viewList.length} on={!ws} onClick={() => setWs('')} />
+        {M.categories().map((c) => <ChipCount label={c.name} count={catCounts[c.id] || 0} on={ws === c.id} onClick={() => setWs(ws === c.id ? '' : c.id)} />)}
+      </div>
+      {view === 'overdue' && lateCount > 0 && (
+        <div class="replan-bar" role="status">
+          <Icon name="alert" size={18} /><span class="grow">{lateCount} late</span>
+          <button class="btn sm primary" onClick={replan}>Replan</button>
+        </div>
+      )}
       <div class="row between gap-8 task-toolbar">
         <button class={'btn outline sm' + (toolsOpen ? ' tools-active' : '')} aria-expanded={toolsOpen} aria-controls="task-tools" onClick={() => setToolsOpen(!toolsOpen)}><Icon name="filter" size={16} />Search & filters{(filtersOn || q) && <span class="filter-indicator" aria-label="Filters active" />}</button>
         <button class={'dropdown-pill sm' + (MORE_VIEWS.some((v) => v.id === view) ? ' on' : '')} aria-haspopup="menu" onClick={(e) => openMenu(e, MORE_VIEWS.map((v) => ({ label: v.label, icon: v.icon, active: view === v.id, onSelect: () => setView(v.id) })), { title: 'More views' })}>{MORE_VIEWS.find((v) => v.id === view)?.label || 'More'}<Icon name="chevronDown" size={14} /></button>
@@ -92,8 +114,6 @@ export function TasksPage({ query }) {
         <button class="icon-btn soft" aria-label="Sort" onClick={(e) => openMenu(e, [{ heading: 'Sort by' }, ...[['schedule', 'Work schedule'], ['deadline', 'Deadline'], ['project', 'Project'], ['manual', 'Manual (drag)']].map(([id, label]) => ({ label, active: sort === id, onSelect: () => setSort(id) }))])}><Icon name="sort" size={18} /></button>
       </div>
       <div class="row gap-8 wrap">
-        <button class="dropdown-pill sm" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, ws || 'all', (v) => setWs(v === 'all' ? '' : v))}>{ws && <span class={'cat-dot t-' + M.categoryOf(ws).color} aria-hidden="true" />}{ws ? M.categoryOf(ws).name : 'All categories'}<Icon name="chevronDown" size={14} /></button>
-        {ws && <button class="chip on sm" aria-label={'Clear ' + M.categoryOf(ws).name + ' filter'} onClick={() => setWs('')}>{M.categoryOf(ws).name}<Icon name="x" size={13} /></button>}
         <span class="grow" />
 
       </div>
@@ -152,7 +172,7 @@ export function TaskDetail({ id }) {
   const desktop = useMedia(DESKTOP_Q);
   const [more, setMore] = useState(false);
   const [stepDraft, setStepDraft] = useState('');
-  if (!t || t.deletedAt) return <div class="page narrow"><BackBar onBack={() => back('/tasks')} /><Empty icon="tasks" title="This task is gone" action={<a class="btn primary sm" href="#/tasks">All tasks</a>}>It may be in Trash.</Empty></div>;
+  if (!t || t.deletedAt) return <div class="page narrow"><BackBar onBack={() => back('/work/tasks')} /><Empty icon="tasks" title="This task is gone" action={<a class="btn primary sm" href="#/work/tasks">All tasks</a>}>It may be in Trash.</Empty></div>;
   const set = (ch) => M.patchTask(id, ch);
   const project = t.projectId && get('pmProjects', t.projectId);
   const sc = M.subtaskCount(t);
@@ -160,7 +180,7 @@ export function TaskDetail({ id }) {
   const subs = [...(t.subtasks || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
   const setSub = (sid, ch) => set({ subtasks: subs.map((s) => (s.id === sid ? { ...s, ...ch } : s)) });
   const addStep = () => { const v = stepDraft.trim(); if (!v) return; set({ subtasks: [...subs, { id: uid(), title: v, done: false, order: subs.length }] }); setStepDraft(''); };
-  const del = async () => { M.trashTask(id); toast('Moved to Trash', { action: { label: 'Undo', run: () => patch('pmTasks', id, { deletedAt: null }) } }); back('/tasks'); };
+  const del = async () => { M.trashTask(id); toast('Moved to Trash', { action: { label: 'Undo', run: () => patch('pmTasks', id, { deletedAt: null }) } }); back('/work/tasks'); };
   const invoices = M.liveInvoices().filter((i) => !i.archived || i.id === t.invoiceId);
   const rec = t.recurrence || null;
   const listKey = 'steps-' + id;
@@ -222,7 +242,7 @@ export function TaskDetail({ id }) {
 
   return (
     <div class="page narrow task-detail">
-      <BackBar onBack={() => back('/tasks')} right={<span class={'save-chip ' + persist.status}><Icon name={persist.status === 'error' ? 'alert' : 'check'} size={14} />{saveState}</span>} />
+      <BackBar onBack={() => back('/work/tasks')} right={<span class={'save-chip ' + persist.status}><Icon name={persist.status === 'error' ? 'alert' : 'check'} size={14} />{saveState}</span>} />
       <textarea class="title-input" rows={1} value={t.title} aria-label="Task title" placeholder="Task title"
         ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
         onInput={(e) => set({ title: e.currentTarget.value.replace(/\n/g, ' ') })} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} />

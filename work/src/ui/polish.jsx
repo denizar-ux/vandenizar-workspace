@@ -1,5 +1,6 @@
 // Visual polish pieces from spec section 10: bento card, project progress row, segmented bar, chip with count.
 import { Icon } from './Icon.jsx';
+import { relDay } from '../lib/date.js';
 import * as M from '../lib/model.js';
 import { projectProgress, segments } from '../combined/areas.js';
 import { StagePill } from './parts.jsx';
@@ -33,7 +34,7 @@ export function ProgressRow({ project }) {
   const c = M.projectCategory(project);
   const { done, total } = projectProgress(project);
   const next = M.nextActionTask(project);
-  const nextText = project.stage === 'client_review' ? 'Waiting for feedback' : next ? next.title : '';
+  const nextText = project.stage === 'client_review' ? (project.followUpDate ? 'Follow up ' + relDay(project.followUpDate).toLowerCase() : '') : next ? next.title : '';
   const mark = project.emoji || (project.name || '?').trim().charAt(0).toUpperCase() || '?';
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (

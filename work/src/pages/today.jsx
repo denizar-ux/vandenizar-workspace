@@ -43,7 +43,7 @@ export function TodayPage() {
             <div class={'group-label ' + (g.tone || '')}>{g.title}<span class="count">{g.tasks.length}</span></div>
             {g.tasks.map((t) => <>{t.event ? <EventRow key={t.id} event={t.event}/> : <AgendaRow key={t.id} t={t}/>}</>)}
           </div>) : <div class="agenda-empty">{M.eventsOn(t0).length ? '' : doneToday ? doneToday + ' done today. Nothing else is planned.' : 'A clear day. Add a task above to get started.'}</div>}
-          <a class="link-strong" href="#/tasks?view=today">See today's tasks<Icon name="arrowRight" size={16} /></a>
+          <a class="link-strong" href="#/work/tasks?view=today">See today's tasks<Icon name="arrowRight" size={16} /></a>
         </section>
         <div class="stack day-context"><UpcomingDeadlines /></div>
       </div>
@@ -70,9 +70,9 @@ function Overview() {
   const open = M.liveTasks().filter(M.isOpen);
   const projects = M.liveProjects().filter((p) => !p.archived && p.stage !== 'completed');
   const tiles = [
-    { label: 'Tasks for today', value: M.todayTasks().length, tone: 'lavender', href: '#/tasks?view=today' },
+    { label: 'Tasks for today', value: M.todayTasks().length, tone: 'lavender', href: '#/work/tasks?view=today' },
     { label: 'Deadlines', value: M.deadlineItems().length, tone: 'peach', href: '#/?deadlines=1' },
-    { label: 'Active projects', value: projects.length, tone: 'cyan', href: '#/projects' },
+    { label: 'Active projects', value: projects.length, tone: 'cyan', href: '#/work/projects' },
     { label: 'Events today', value: M.eventsOn(today()).length, tone: 'sage', href: '#/calendar?v=day&d=' + today() },
   ];
   return <section class="block compact-overview" aria-label="Workspace overview">
