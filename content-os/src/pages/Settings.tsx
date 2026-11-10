@@ -57,7 +57,7 @@ export default function Settings() {
         <TagSection kind="pillars" title="Pillars" sub="What your content is about. Used to filter Instagram." list={pillars()} onEdit={(t, isNew) => setTag({ kind: 'pillars', t, isNew })} />
         <TagSection kind="formats" title="Formats" list={formats()} onEdit={(t, isNew) => setTag({ kind: 'formats', t, isNew })} />
 
-        <Notifications />
+        {P.mode !== 'local' && <Notifications />}
 
         <section className="stack">
           <h2 className="h2">You</h2>
@@ -71,7 +71,7 @@ export default function Settings() {
         <section className="stack">
           <h2 className="h2">Account & data</h2>
           <div className="card stack">
-            {P.email ? <p className="small">Signed in as <b>{P.email}</b>. Everything syncs between your iPhone and Mac.</p> : <p className="small muted">Not signed in. Data is only on this device.</p>}
+            {P.mode === 'local' ? <p className="small muted">Saved on this device. Cloud sync is off.</p> : P.email ? <p className="small">Signed in as <b>{P.email}</b>. Everything syncs between your iPhone and Mac.</p> : <p className="small muted">Not signed in. Data is only on this device.</p>}
             <div className="row gap8 wrap">
               <Button size="sm" icon={<Download size={16} />} onClick={doExport}>Download backup</Button>
               {P.email && <Button size="sm" variant="ghost" icon={<LogOut size={16} />} onClick={signOut}>Sign out</Button>}

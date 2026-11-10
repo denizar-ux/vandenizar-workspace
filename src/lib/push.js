@@ -57,6 +57,18 @@ export async function enablePush() {
   setFlag(true);
 }
 
+// Local-only builds: drop any browser push subscription left from a cloud-synced install. Browser only, no Supabase.
+export async function dropPushSubscription() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) await sub.unsubscribe();
+    }
+  } catch {}
+  setFlag(false);
+}
+
 export async function disablePush() {
   try {
     const reg = await navigator.serviceWorker.getRegistration();

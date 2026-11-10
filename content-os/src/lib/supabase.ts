@@ -7,7 +7,7 @@ const KEY = 'sb_publishable_iYX1cp7gNmUjpHT-iRzm4A_qo0TTB51'
 const TABLE = 'content_os_records'
 
 export const sb: SupabaseClient = createClient(URL, KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'vzc:auth' },
+  auth: { persistSession: import.meta.env.VITE_LOCAL !== '1', autoRefreshToken: import.meta.env.VITE_LOCAL !== '1', storageKey: 'vzc:auth' },
 })
 
 export function makeBackend(userId: string): Backend {
