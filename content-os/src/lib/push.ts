@@ -60,6 +60,16 @@ export async function disablePush() {
   }
 }
 
+// Local-only builds: drop any browser push subscription left from a cloud-synced install. Browser only, no Supabase.
+export async function dropPushSubscription(): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator)) return
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = reg && (await reg.pushManager.getSubscription())
+    if (sub) await sub.unsubscribe()
+  } catch { /* nothing to drop */ }
+}
+
 export async function testPush(): Promise<number> {
   const { data } = await sb.auth.getSession()
   const token = data.session?.access_token
