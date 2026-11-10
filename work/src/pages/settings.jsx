@@ -297,6 +297,7 @@ function ShortcutsSection() {
     </>
   );
 }
+const SETTINGS_LINE = { imported: 'Settings imported', kept: 'Your settings were kept' };
 const COUNT_LABELS = [['tasks', 'task'], ['projects', 'project'], ['clients', 'client'], ['invoices', 'invoice'], ['posts', 'post'], ['threads', 'thread'], ['links', 'resource']];
 const SOURCE_LABELS = { work: 'Vandenizar Work backup', pm: 'Project manager export', cos: 'Content OS export' };
 function ImportSheet({ json, preview, close }) {
@@ -304,7 +305,7 @@ function ImportSheet({ json, preview, close }) {
   const parts = COUNT_LABELS.filter(([k]) => preview.counts[k]).map(([k, w]) => preview.counts[k] + ' ' + w + (preview.counts[k] === 1 ? '' : 's'));
   const run = async () => {
     setBusy(true);
-    try { const r = await importBackup(json); close(); toast('Imported ' + r.added + ' item' + (r.added === 1 ? '' : 's')); }
+    try { const r = await importBackup(json); close(); toast('Imported ' + r.added + ' item' + (r.added === 1 ? '' : 's') + (SETTINGS_LINE[r.settings] ? '. ' + SETTINGS_LINE[r.settings] : '')); }
     catch (e) { setBusy(false); toast(e.message || 'Import failed.', { tone: 'warn', duration: 5000 }); }
   };
   return (
@@ -313,7 +314,8 @@ function ImportSheet({ json, preview, close }) {
       <SheetBody>
         <div class="import-counts">{parts.length ? parts.join(', ') : 'No records in this file'}</div>
         {preview.already > 0 && <div class="notice t-butter"><Icon name="info" size={17} />Already imported: {preview.already} record{preview.already === 1 ? '' : 's'} are on this device and will be skipped.</div>}
-        <div class="muted" style={{ fontSize: 13 }}>Nothing on this device is changed or overwritten.</div>
+        {SETTINGS_LINE[preview.settings] && <div class="muted" style={{ fontSize: 13 }}>{SETTINGS_LINE[preview.settings]}.</div>}
+        <div class="muted" style={{ fontSize: 13 }}>Records already on this device are never overwritten.</div>
       </SheetBody>
       <SheetFoot>
         <button type="button" class="btn ghost" onClick={close}>Cancel</button>
@@ -353,7 +355,7 @@ function DataSection() {
         </div>
       </Group>
       <Group title="Reset">
-        <div><button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase all work data?', body: 'All tasks, projects, clients, invoices, payments are deleted on this device and, if signed in, in your account. Export a backup first.', confirmLabel: 'Erase', danger: true })) { await wipeAll(); toast('Data erased'); navigate('/'); } }}>Erase all data</button></div>
+        <div><button class="btn sm danger-soft" onClick={async () => { if (await confirmDialog({ title: 'Erase all work data?', body: 'All tasks, projects, clients, invoices, payments and all content (posts, Threads, resources) are deleted on this device and, if signed in, in your account. Export a backup first.', confirmLabel: 'Erase', danger: true })) { await wipeAll(); toast('Data erased'); navigate('/'); } }}>Erase all data</button></div>
       </Group>
     </>
   );

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetForTests, all, get, put, exportAll } from '../lib/db.js';
+import { DEFAULT_SETTINGS } from '../lib/model.js';
+import { setNotify, slotById, pillarName, formatName, cSettings } from '../content/model.js';
 import { detectBackup, previewImport, importBackup } from './importOld.js';
 import pm from './fixtures/pm-export.json';
 import cos from './fixtures/cos-export.json';
@@ -22,7 +24,7 @@ describe('detectBackup', () => {
 
 describe('previewImport', () => {
   it('counts the project manager file', () => {
-    expect(previewImport(pm)).toEqual({ source: 'pm', counts: { tasks: 3, projects: 2, clients: 2, invoices: 1, posts: 0, threads: 0, links: 0 }, already: 0 });
+    expect(previewImport(pm)).toEqual({ source: 'pm', counts: { tasks: 3, projects: 2, clients: 2, invoices: 1, posts: 0, threads: 0, links: 0 }, already: 0, settings: 'imported' });
   });
   it('counts the content file, legacy ideas as posts', () => {
     expect(previewImport(cos)).toEqual({ source: 'cos', counts: { tasks: 0, projects: 0, clients: 0, invoices: 0, posts: 3, threads: 1, links: 2 }, already: 0 });
@@ -35,7 +37,7 @@ describe('previewImport', () => {
 describe('importBackup: project manager', () => {
   it('gives new ids, keeps links between records and marks the origin', async () => {
     const res = await importBackup(pm);
-    expect(res).toEqual({ added: 11, skipped: 0 }); // 2 clients, 2 projects, 3 tasks, 1 event, 1 feedback, 1 invoice, 1 payment, no legacy, no meta
+    expect(res).toEqual({ added: 11, skipped: 0, settings: 'imported' }); // 2 clients, 2 projects, 3 tasks, 1 event, 1 feedback, 1 invoice, 1 payment, no legacy, no meta
     const proj = all('pmProjects').find((p) => p.importedFrom === 'pm:pr1');
     const client = all('clients').find((c) => c.importedFrom === 'pm:cl1');
     const t1 = all('pmTasks').find((t) => t.importedFrom === 'pm:tk1');
@@ -76,6 +78,39 @@ describe('importBackup: project manager', () => {
     await importBackup(pm);
     expect(get('meta', 'pmSettings').defaultCurrency).toBe('USD');
   });
+  it('takes the backup settings field by field when this device still has the boot defaults', async () => {
+    put('meta', { ...DEFAULT_SETTINGS }); // what main.jsx writes at boot
+    const f = clone(pm);
+    f.data.meta[0] = { id: 'pmSettings', defaultCategory: 'freelance', reminderTime: '07:30', weekStart: 0, invoiceFormat: 'STD-{####}', paymentInstructions: 'BCA 123', business: { name: 'Studio X', email: 'hi@x.co' } };
+    expect(previewImport(f).settings).toBe('imported');
+    const res = await importBackup(f);
+    expect(res.settings).toBe('imported');
+    const s = get('meta', 'pmSettings');
+    expect(s).toMatchObject({ id: 'pmSettings', reminderTime: '07:30', weekStart: 0, invoiceFormat: 'STD-{####}', paymentInstructions: 'BCA 123', defaultCategory: 'freelance' });
+    expect(s.business).toMatchObject({ name: 'Studio X', email: 'hi@x.co', address: DEFAULT_SETTINGS.business.address });
+    expect(s.name).toBe(DEFAULT_SETTINGS.name);
+  });
+  it('keeps fields the user changed here and says so', async () => {
+    put('meta', { ...DEFAULT_SETTINGS, reminderTime: '10:00', business: { ...DEFAULT_SETTINGS.business, name: 'Mine' } });
+    const f = clone(pm);
+    f.data.meta[0] = { id: 'pmSettings', reminderTime: '07:30', invoiceFormat: 'STD-{####}', business: { name: 'Theirs', email: 'hi@x.co' } };
+    const res = await importBackup(f);
+    expect(res.settings).toBe('imported'); // invoiceFormat and email came over
+    const s = get('meta', 'pmSettings');
+    expect(s.reminderTime).toBe('10:00');
+    expect(s.business.name).toBe('Mine');
+    expect(s.business.email).toBe('hi@x.co');
+    expect(s.invoiceFormat).toBe('STD-{####}');
+    const g = clone(pm);
+    g.data.meta[0] = { id: 'pmSettings', reminderTime: '06:00' };
+    expect((await importBackup(g)).settings).toBe('kept');
+    expect(get('meta', 'pmSettings').reminderTime).toBe('10:00');
+  });
+  it('reports none when the backup has no settings', async () => {
+    const f = clone(pm);
+    f.data.meta = [];
+    expect((await importBackup(f)).settings).toBe('none');
+  });
   it('maps project categories by name to ones on this device', async () => {
     put('meta', { id: 'pmCategories', items: [
       { id: 'zzz', name: 'FREELANCE', color: 'rose', archived: false, order: 1 },
@@ -105,7 +140,7 @@ describe('importBackup: project manager', () => {
     await importBackup(pm);
     expect(previewImport(pm).already).toBe(11);
     const again = await importBackup(pm);
-    expect(again).toEqual({ added: 0, skipped: 11 });
+    expect(again).toEqual({ added: 0, skipped: 11, settings: 'kept' });
     expect(all('pmTasks')).toHaveLength(3);
   });
   it('links new records to records imported earlier', async () => {
@@ -146,15 +181,46 @@ describe('importBackup: content', () => {
     expect(typeof p1.createdAt).toBe('number');
     expect(items.filter((i) => i.kind === 'link')).toHaveLength(2);
   });
-  it('writes settings to meta/cSettings only when absent', async () => {
+  it('writes settings to meta/cSettings when absent, keeps local entries with the same id', async () => {
     await importBackup(cos);
     const s = get('meta', 'cSettings');
     expect(s.slots[0].id).toBe('work');
     expect(s.pillars).toHaveLength(1);
     resetForTests();
-    put('meta', { id: 'cSettings', slots: [], pillars: [], formats: [] });
+    put('meta', { id: 'cSettings', slots: [{ id: 'work', name: 'Mine', day: 1 }], pillars: [], formats: [] });
     await importBackup(cos);
-    expect(get('meta', 'cSettings').slots).toEqual([]);
+    expect(get('meta', 'cSettings').slots).toEqual([{ id: 'work', name: 'Mine', day: 1 }]); // same id: local kept
+    expect(get('meta', 'cSettings').pillars).toHaveLength(1); // missing ids are added
+  });
+  it('merges slots, pillars and formats by id into existing content settings', async () => {
+    setNotify({ postTime: '20:30' }); // cSettings now exists with defaults
+    const f = clone(cos);
+    f.data.settings[0].slots.push({ id: 'myslot', name: 'My slot', day: 3, tint: 'rose', hint: '', pillar: 'mypillar', format: 'myformat' });
+    f.data.settings[0].pillars.push({ id: 'mypillar', name: 'My pillar' });
+    f.data.settings[0].formats.push({ id: 'myformat', name: 'My format' });
+    f.data.items[0].slot = 'myslot';
+    await importBackup(f);
+    const s = cSettings();
+    expect(s.slots.map((x) => x.id)).toEqual(expect.arrayContaining(['work', 'shot', 'story', 'desk', 'myslot']));
+    expect(s.slots.filter((x) => x.id === 'work')).toHaveLength(1);
+    expect(s.slots.find((x) => x.id === 'work').name).toBe('Work post'); // local kept
+    expect(s.pillars.some((x) => x.id === 'mypillar')).toBe(true);
+    expect(s.formats.some((x) => x.id === 'myformat')).toBe(true);
+    const imported = all('cItems').find((i) => i.importedFrom === 'cos:p1');
+    expect(slotById(imported.slot).name).toBe('My slot');
+    expect(pillarName('mypillar')).toBe('My pillar');
+    expect(formatName('myformat')).toBe('My format');
+    expect(s.notify.postTime).toBe('20:30'); // local notify untouched
+  });
+  it('fills notify times from the backup only while this device has the defaults', async () => {
+    const f = clone(cos);
+    f.data.settings[0].notify = { morning: false, morningTime: '06:00', postReminder: true, postTime: '18:00' };
+    await importBackup(f);
+    expect(get('meta', 'cSettings').notify).toMatchObject({ morningTime: '06:00', postTime: '18:00', morning: false });
+    resetForTests();
+    setNotify({ postTime: '20:30' });
+    await importBackup(f);
+    expect(get('meta', 'cSettings').notify.postTime).toBe('20:30');
   });
   it('a second import adds nothing', async () => {
     await importBackup(cos);

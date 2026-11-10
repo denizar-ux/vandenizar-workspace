@@ -1,6 +1,7 @@
 // Bring data from the two old apps (project manager, Content OS) or a backup of this app into the shared store.
 import { all, get, put, uid, importAll, COLLECTIONS, flush } from '../lib/db.js';
-import { categories, addCategory, DEFAULT_CATEGORIES } from '../lib/model.js';
+import { categories, addCategory, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, settings } from '../lib/model.js';
+import { DEFAULT_NOTIFY, notifyPrefs } from '../content/model.js';
 
 const NOT_BACKUP = 'This file is not a Vandenizar backup';
 const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
@@ -24,7 +25,59 @@ const PM_PLAN = [
   ['invoices', { clientId: ['clients', ''], projectId: ['pmProjects', ''] }],
   ['payments', { invoiceId: ['invoices', null] }],
 ];
-const PM_META = ['pmSettings', 'pmCategories'];
+const SETTINGS_SKIP = ['id', 'createdAt', 'updatedAt', 'importedFrom'];
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Settings of a project manager file, field by field: a value comes over when this device still has the default for it.
+ * Returns the record to store (null when nothing changes) and 'imported' | 'kept' | 'none'.
+ */
+function pmSettingsPlan(json, mapCategory) {
+  const theirs = rows(json, 'meta').find((r) => r.id === 'pmSettings');
+  if (!theirs) return { record: null, status: 'none' };
+  const stored = get('meta', 'pmSettings');
+  const local = settings();
+  const incoming = { ...theirs };
+  const cat = theirs.defaultCategory || theirs.defaultWorkspace;
+  delete incoming.defaultWorkspace;
+  if (cat) incoming.defaultCategory = mapCategory(cat);
+  const next = { ...local };
+  let applied = 0;
+  for (const [k, v] of Object.entries(incoming)) {
+    if (SETTINGS_SKIP.includes(k) || v === undefined) continue;
+    if (k === 'business' && isObj(v)) {
+      const biz = { ...local.business };
+      for (const [bk, bv] of Object.entries(v)) {
+        if (same(local.business[bk], DEFAULT_SETTINGS.business[bk]) && !same(bv, local.business[bk])) { biz[bk] = bv; applied++; }
+      }
+      next.business = biz;
+    } else if (same(local[k], DEFAULT_SETTINGS[k]) && !same(v, local[k])) { next[k] = v; applied++; }
+  }
+  if (!stored) return { record: { ...next, id: 'pmSettings' }, status: 'imported' };
+  return applied ? { record: { ...stored, ...next, id: 'pmSettings' }, status: 'imported' } : { record: null, status: 'kept' };
+}
+
+const byId = (list) => (Array.isArray(list) ? list.filter((x) => isObj(x) && x.id) : []);
+const addMissing = (local, theirs) => {
+  const have = new Set(local.map((x) => x.id));
+  return [...local, ...theirs.filter((x) => !have.has(x.id))];
+};
+
+/** Content settings: entries whose id is missing here are added, local ones stay. Notify times fill while still at the defaults. */
+function mergeContentSettings(s) {
+  const cur = get('meta', 'cSettings');
+  const { slots, pillars, formats, schemaVersion, notify } = s;
+  if (!cur) {
+    put('meta', { id: 'cSettings', slots, pillars, formats, schemaVersion, ...(isObj(notify) ? { notify: { ...DEFAULT_NOTIFY, ...notify } } : {}) });
+    return;
+  }
+  const next = { ...cur };
+  for (const [key, list] of [['slots', slots], ['pillars', pillars], ['formats', formats]]) {
+    next[key] = addMissing(byId(cur[key]), byId(list));
+  }
+  if (isObj(notify) && same(notifyPrefs(), DEFAULT_NOTIFY)) next.notify = { ...DEFAULT_NOTIFY, ...notify };
+  put('meta', next);
+}
 
 const rows = (json, coll) => (Array.isArray(json.data[coll]) ? json.data[coll].filter((r) => isObj(r) && r.id) : []);
 const originOf = (src, rec) => src + ':' + rec.id;
@@ -66,7 +119,9 @@ export function previewImport(json) {
     for (const r of rows(json, 'items')) { if (r.kind === 'thread') counts.threads++; else if (r.kind === 'link') counts.links++; else counts.posts++; }
     for (const p of plan(json, src)) already += p.rows.length - p.fresh.length;
   }
-  return { source: src, counts, already };
+  const out = { source: src, counts, already };
+  if (src === 'pm') out.settings = pmSettingsPlan(json, (id) => id).status;
+  return out;
 }
 
 const keepNumericCreatedAt = (r) => {
@@ -94,7 +149,7 @@ function categoryMapper(json) {
   };
 }
 
-/** @returns {Promise<{ added: number, skipped: number }>} */
+/** @returns {Promise<{ added: number, skipped: number, settings?: 'imported' | 'kept' | 'none' }>} settings is set for project manager files */
 export async function importBackup(json) {
   const src = detectBackup(json);
   if (!src) throw new Error(NOT_BACKUP);
@@ -145,19 +200,19 @@ export async function importBackup(json) {
       added++;
     }
   }
-  // 3. settings, only when this device has none yet
+  // 3. settings. Project manager: field by field while this device still has the default. Content: merged by id.
+  let settingsStatus;
   if (src === 'pm') {
+    const sp = pmSettingsPlan(json, mapCategory);
+    settingsStatus = sp.status;
+    if (sp.record) put('meta', sp.record);
     for (const r of rows(json, 'meta')) {
-      if (!PM_META.includes(r.id) || get('meta', r.id)) continue;
-      put('meta', r.id === 'pmSettings' && r.defaultCategory ? { ...r, defaultCategory: mapCategory(r.defaultCategory) } : r);
+      if (r.id === 'pmCategories' && !get('meta', r.id)) put('meta', r);
     }
   } else {
     const s = rows(json, 'settings')[0];
-    if (s && !get('meta', 'cSettings')) {
-      const { slots, pillars, formats, schemaVersion } = s;
-      put('meta', { id: 'cSettings', slots, pillars, formats, schemaVersion });
-    }
+    if (s) mergeContentSettings(s);
   }
   await flush();
-  return { added, skipped };
+  return src === 'pm' ? { added, skipped, settings: settingsStatus } : { added, skipped };
 }
