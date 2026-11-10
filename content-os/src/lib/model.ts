@@ -414,12 +414,6 @@ export function removeRef(id: string, refId: string) {
 }
 
 // ---------- notifications ----------
-export const DEFAULT_NOTIFY = { morning: true, morningTime: '08:00', postReminder: true, postTime: '19:00', plan: true, planTime: '20:00' }
+export const DEFAULT_NOTIFY = { morning: true, morningTime: '08:00', postReminder: true, postTime: '19:00' }
 export const notifyPrefs = () => ({ ...DEFAULT_NOTIFY, ...(settings().notify || {}) })
 export function setNotify(p: Partial<typeof DEFAULT_NOTIFY>) { put('settings', { ...settings(), notify: { ...notifyPrefs(), ...p } }) }
-
-// ---------- weekly planning ----------
-/** Slots of a week that have no post yet (only days from today on). */
-export function freeSlots(week: string, t = today()) {
-  return slots().filter((s) => !slotItem(week, s.id) && addDays(week, s.day) >= t)
-}

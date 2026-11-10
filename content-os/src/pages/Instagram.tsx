@@ -1,6 +1,5 @@
 import React from 'react'
-import { Plus, ChevronLeft, ChevronRight, CalendarRange } from 'lucide-react'
-import { Feed } from '../ui/Feed'
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { tz } from '../lib/store'
 import { openGroups, postedItems, igItems, pillars, slotById, firstLine, slots, slotItem, extraItems, weekProgress, thisWeek } from '../lib/model'
 import { fmtShort, dateKey, MONTHS, addDays } from '../lib/time'
@@ -16,8 +15,7 @@ import type { Item } from '../lib/types'
 export default function Instagram() {
   const r = useRoute()
   const z = tz()
-  const tq = r.q.get('tab')
-  const tab = tq === 'posted' ? 'posted' : tq === 'feed' ? 'feed' : 'open'
+  const tab = r.q.get('tab') === 'posted' ? 'posted' : 'open'
   const pf = r.q.get('pillar') || 'all'
   const all = igItems()
   const usedPillars = pillars().filter((p) => all.some((i) => i.pillar === p.id))
@@ -38,11 +36,11 @@ export default function Instagram() {
   return (
     <main className="main wide">
       <PhoneTop />
-      <PageHead eyebrow="From idea to posted" title="Instagram." right={<Button size="sm" icon={<CalendarRange size={16} />} onClick={() => go('/plan')}>Plan week</Button>} />
+      <PageHead eyebrow="From idea to posted" title="Instagram." />
       <div className="stack-lg list-wrap">
         <div className="stack">
-          <Segmented className="seg-fit" label="Show" value={tab} onChange={(v) => setQuery('tab', v === 'open' ? null : v)} options={[{ value: 'open', label: 'In progress', count: openCount }, { value: 'feed', label: 'Feed' }, { value: 'posted', label: 'Posted', count: all.length - openCount }]} />
-          {showFilter && tab !== 'feed' && <Chips label="Pillar" scroll value={pf} onChange={(v) => setQuery('pillar', v === 'all' ? null : v)} options={[{ value: 'all', label: 'All pillars' }, ...usedPillars.map((p) => ({ value: p.id, label: p.name }))]} />}
+          <Segmented className="seg-fit" label="Show" value={tab} onChange={(v) => setQuery('tab', v === 'open' ? null : v)} options={[{ value: 'open', label: 'In progress', count: openCount }, { value: 'posted', label: 'Posted', count: all.length - openCount }]} />
+          {showFilter && <Chips label="Pillar" scroll value={pf} onChange={(v) => setQuery('pillar', v === 'all' ? null : v)} options={[{ value: 'all', label: 'All pillars' }, ...usedPillars.map((p) => ({ value: p.id, label: p.name }))]} />}
         </div>
 
         {tab === 'open' && <WeekSlots week={r.q.get('w') || thisWeek()} />}
@@ -55,8 +53,6 @@ export default function Instagram() {
         ))}</div> : (
           <Empty icon={<IgIcon size={24} />} title={pf === 'all' ? 'Nothing in progress' : 'Nothing in progress for this pillar'} body="Plan a post for one of your weekly slots, or start from an idea." action={<Button variant="primary" icon={<Plus size={17} />} onClick={() => openNew({ kind: 'ig' })}>New post</Button>} />
         ))}
-
-        {tab === 'feed' && <Feed />}
 
         {tab === 'posted' && (months.length ? months.map((m) => {
           const [y, mo] = m.key.split('-').map(Number)

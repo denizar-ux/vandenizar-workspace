@@ -59,7 +59,7 @@ function QuickAdd({ req }: { req: Req }) {
       <Button variant="primary" size="lg" block disabled={!ok} onClick={save}>{kind === 'thread' ? (date ? 'Schedule' : 'Save draft') : kind === 'link' ? 'Add resource' : 'Add post'}</Button>
     }>
       <div className="qa stack" onKeyDown={onKey}>
-        <Segmented label="Type" value={kind} onChange={setKind} options={[{ value: 'ig', label: 'Instagram' }, { value: 'thread', label: 'Threads' }, ...(kind === 'link' ? [{ value: 'link' as NewKind, label: 'Resource' }] : [])]} />
+        <Segmented label="Type" value={kind} onChange={setKind} options={[{ value: 'ig', label: 'Instagram' }, { value: 'thread', label: 'Threads' }, { value: 'link', label: 'Resource' }]} />
         {kind === 'ig' && (
           <>
             <input data-main className="input qa-title" aria-label="Post title" placeholder="What's the post? An idea is fine." value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }} />

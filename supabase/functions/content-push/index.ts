@@ -1,4 +1,4 @@
-// Content OS push: morning summary, post-time reminders, scheduled Threads and the Sunday plan reminder.
+// Content OS push: morning summary, post-time reminders and scheduled Threads.
 // Called every minute by pg_cron (x-cron-secret header), or by a signed-in user to send a test.
 // Uses its own subscriptions table so Workspace reminders never land in the Content OS app (and the reverse).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
@@ -85,14 +85,6 @@ async function runForUser(userId: string) {
   for (const t of threads) {
     const at = t.time ? toMin(t.time, 19 * 60) : (n.postReminder !== false ? toMin(n.postTime, 19 * 60) : null);
     if (at != null && inWindow(now.min, at)) out.push({ key: `cos:th:${t.id}:${now.date}`, title: 'Time to post on Threads', body: short(t.text || '', 120), url: '#/today' });
-  }
-
-  // Sunday evening: plan next week when it still has empty slots
-  if (n.plan !== false && new Date(now.date + 'T00:00:00Z').getUTCDay() === 0 && inWindow(now.min, toMin(n.planTime, 20 * 60))) {
-    const monday = new Date(Date.parse(now.date + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
-    const all = recs.filter((r) => r.coll === 'items').map((r) => r.data).filter((i) => i && i.kind === 'ig');
-    const empty = (settings.slots || []).filter((s: any) => !all.some((i) => i.week === monday && i.slot === s.id));
-    if (empty.length) out.push({ key: `cos:plan:${now.date}`, title: 'Plan next week', body: `${empty.length} empty slot${empty.length > 1 ? 's' : ''}: ${empty.map((s: any) => s.name).join(', ')}. One line each.`, url: '#/plan?week=next' });
   }
 
   let sent = 0;

@@ -13,16 +13,11 @@ import Threads from './pages/Threads'
 import Resources from './pages/Resources'
 import Calendar from './pages/Calendar'
 import Settings from './pages/Settings'
-import Script from './pages/Script'
-import Cover from './pages/Cover'
-import Carousel from './pages/Carousel'
-import Studio from './pages/Studio'
-import PlanWeek from './pages/PlanWeek'
 
 export default function App() {
   useVersion()
   const r = useRoute()
-  const [a, b, c] = r.parts
+  const [a, b] = r.parts
   useEffect(() => { flush(); restoreScroll() }, [r.path])
 
   if (P.auth === 'out') return <div className="app app-login"><Login /><Hosts /></div>
@@ -32,9 +27,7 @@ export default function App() {
   else switch (a) {
     case undefined: case 'today': case 'week': case 'overview': page = <Today />; break
     case 'instagram': page = <Instagram />; break
-    case 'post': case 'item': editor = true; page = c === 'script' ? <Script id={b} /> : c === 'cover' ? <Cover id={b} /> : c === 'carousel' ? <Carousel id={b} /> : <Post id={b} />; break
-    case 'plan': editor = true; page = <PlanWeek />; break
-    case 'studio': page = <Studio />; break
+    case 'post': case 'item': editor = true; page = <Post id={b} />; break
     case 'threads': page = <Threads />; break
     case 'resources': page = <Resources />; break
     case 'ideas': page = <Instagram />; break
