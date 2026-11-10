@@ -9,7 +9,7 @@ const SUPABASE_KEY = 'sb_publishable_iYX1cp7gNmUjpHT-iRzm4A_qo0TTB51';
 export const LOCAL = import.meta.env.VITE_LOCAL === '1';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'vz-auth' },
+  auth: { persistSession: !LOCAL, autoRefreshToken: !LOCAL, detectSessionInUrl: !LOCAL, storageKey: 'vz-auth' },
 });
 
 export const sync = { user: null, status: 'signed_out', error: null, lastSyncAt: 0, ready: false };
