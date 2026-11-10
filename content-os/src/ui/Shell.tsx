@@ -1,5 +1,5 @@
 import React from 'react'
-import { House, AtSign, Link2, CalendarDays, Settings as Gear, Check, Loader, AlertCircle, CloudOff, Plus } from 'lucide-react'
+import { House, AtSign, Palette, CalendarDays, Settings as Gear, Check, Loader, AlertCircle, CloudOff, Plus } from 'lucide-react'
 import { go, useRoute } from '../lib/router'
 import { P, retrySave } from '../lib/store'
 import { Instagram } from './IgIcon'
@@ -11,12 +11,12 @@ export const TABS = [
   { id: 'instagram', label: 'Instagram', icon: Instagram },
   { id: 'threads', label: 'Threads', icon: AtSign },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { id: 'resources', label: 'Resources', icon: Link2 },
+  { id: 'studio', label: 'Studio', icon: Palette },
 ] as const
 
 export function tabOf(parts: string[]): string {
   const p = parts[0] || 'today'
-  return p === 'post' ? 'instagram' : p
+  return p === 'post' || p === 'plan' ? 'instagram' : p
 }
 
 /** What the + button creates on each screen. */
@@ -49,7 +49,7 @@ export function Sidebar() {
   const tab = tabOf(r.parts)
   return (
     <aside className="side" aria-label="Main">
-      <div className="side-brand"><b>vandenizar</b><span>/ content</span></div>
+      <div className="side-brand"><b>vandenizar</b><span>/ studio</span></div>
       <button className="btn btn-primary side-new" onClick={() => openNew({ kind: kindFor(tab) })}><Plus size={18} /><span>New</span></button>
       {TABS.map((t) => {
         const I = t.icon
@@ -69,7 +69,7 @@ export function PhoneTop() {
   const tab = tabOf(r.parts)
   return (
     <div className="phonetop only-phone">
-      <div className="brand-mini grow">vandenizar <span>/ content</span></div>
+      <div className="brand-mini grow">vandenizar <span>/ studio</span></div>
       <IconBtn label="Settings" onClick={() => go('/settings')}><Gear size={21} /></IconBtn>
       <button className="plus" aria-label="New" onClick={() => openNew({ kind: kindFor(tab) })}><Plus size={24} /></button>
     </div>

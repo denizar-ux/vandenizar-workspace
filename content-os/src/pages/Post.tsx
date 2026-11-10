@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Copy, Trash2, CalendarClock, Lightbulb, CopyPlus, X, Check, ArrowUpRight, AlertTriangle, Wand2 } from 'lucide-react'
+import { ArrowLeft, Copy, Trash2, CalendarClock, CopyPlus, Check, ArrowUpRight, AlertTriangle, Wand2, PenLine, Layers, ChevronRight } from 'lucide-react'
 import { get, patch, put, remove, tz } from '../lib/store'
 import { STAGES, stageIndex, setStage, isLate, slotById, pillars, formats, pillarName, formatName, schedule, duplicatePost, firstLine, normalizeUrl, TASKS, isTaskDone, dateBounds, setStageDate, dateConflicts, planBackwards, type DateField as DF } from '../lib/model'
 import { fmtDay, fmtShort, dateKey } from '../lib/time'
@@ -13,10 +13,14 @@ import { References } from '../ui/Refs'
 import { DateField } from '../ui/DateInput'
 import type { Item } from '../lib/types'
 import { gcalAllDay, appLink } from '../lib/gcal'
+import { studioOf, curFormula, beatsWritten, carouselOf, plainLine, promptCaption } from '../studio/studio'
+import { typeName } from '../studio/brand'
+import { CoverThumb, LintList, useFonts } from '../studio/ui'
 
 export default function Post({ id }: { id: string }) {
   const it = get('items', id)
   const [sched, setSched] = useState(false)
+  const ready = useFonts()
   if (!it || it.kind !== 'ig') return <NotFound what="Post" backTo="/instagram" />
   const z = tz()
   const set = (p: Partial<Item>) => patch('items', id, p)
@@ -33,6 +37,10 @@ export default function Post({ id }: { id: string }) {
   const conflicts = dateConflicts(it)
   const canPlan = !!it.date && !done && TASKS.slice(0, 3).some((t) => !isTaskDone(it, t) && !it[t.field])
   const setDate = (f: DF, v: string) => { const r = setStageDate(id, f, v || null); if (!r.ok) toast(r.error, undefined, 'error') }
+  const sd = studioOf(it)
+  const bw = beatsWritten(it)
+  const scriptSub = bw ? `${bw}/${sd.beats.length} beats · ${sd.len}s · ${curFormula(it).name}` : `${typeName(sd.type)} · ${curFormula(it).name}`
+  const slidesN = carouselOf(it).slides.length
   const summary = [it.finalUrl?.trim() ? 'Video added' : null, formatName(it.format), pillarName(it.pillar)].filter(Boolean).join(' · ')
 
   return (
@@ -71,23 +79,26 @@ export default function Post({ id }: { id: string }) {
             {(canPlan || conflicts.length > 0) && <Button size="sm" variant="ghost" icon={<Wand2 size={15} />} onClick={() => { planBackwards(id); toast('Planned back from the post date') }}>{conflicts.length ? 'Fix dates' : 'Fill from post date'}</Button>}
           </div>
           {conflicts.length > 0 && <div className="warnbox" role="alert"><AlertTriangle size={17} /><span>{conflicts.join('. ')}.</span></div>}
-          <div className="sched">
-            {TASKS.map((t) => {
-              const b = dateBounds(it, t.field)
-              return <DateField key={t.key} label={t.label} done={isTaskDone(it, t)} value={(it[t.field] as string) || ''} min={b.min} max={b.max} onChange={(v) => setDate(t.field, v)} />
-            })}
-          </div>
-          {TASKS.some((t) => it[t.field] && !isTaskDone(it, t)) && (
-            <div className="row gap8 wrap gcal-row">
-              <span className="small muted">Google Calendar</span>
-              {TASKS.filter((t) => it[t.field] && !isTaskDone(it, t)).map((t) => (
-                <a key={t.key} className="btn btn-sm" target="_blank" rel="noopener noreferrer"
-                  href={gcalAllDay(`${t.label}: ${firstLine(it.title) || 'Untitled post'}`, it[t.field] as string, appLink('/post/' + id))}>
-                  <CalendarClock size={15} /><span>{t.label}</span>
-                </a>
-              ))}
+          <DateField label="Post day" value={it.date || ''} onChange={(v) => setDate('date', v)} done={done} />
+          <Accordion title="Work days" right={<span className="small muted acc-sum">{TASKS.filter((t) => t.field !== 'date' && it[t.field]).map((t) => `${t.label} ${fmtShort(it[t.field] as string, z)}`).join(' · ') || 'Fill in by themselves'}</span>}>
+            <div className="sched">
+              {TASKS.filter((t) => t.field !== 'date').map((t) => {
+                const b = dateBounds(it, t.field)
+                return <DateField key={t.key} label={t.label} done={isTaskDone(it, t)} value={(it[t.field] as string) || ''} min={b.min} max={b.max} onChange={(v) => setDate(t.field, v)} />
+              })}
             </div>
-          )}
+            {TASKS.some((t) => it[t.field] && !isTaskDone(it, t)) && (
+              <div className="row gap8 wrap gcal-row">
+                <span className="small muted">Google Calendar</span>
+                {TASKS.filter((t) => it[t.field] && !isTaskDone(it, t)).map((t) => (
+                  <a key={t.key} className="btn btn-sm" target="_blank" rel="noopener noreferrer"
+                    href={gcalAllDay(`${t.label}: ${firstLine(it.title) || 'Untitled post'}`, it[t.field] as string, appLink('/post/' + id))}>
+                    <CalendarClock size={15} /><span>{t.label}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </Accordion>
           <button className="rowcard slotrow" onClick={() => setSched(true)}>
             {s ? <span className={cx('pick-dot', 'bg-' + s.tint)} /> : <span className="pick-dot pick-dot-none" />}
             <span className="grow">{s && it.week ? `${s.name} slot · week of ${fmtShort(it.week, z)}` : it.date ? 'No slot on this day' : 'Not in a slot'}</span>
@@ -97,14 +108,33 @@ export default function Post({ id }: { id: string }) {
 
         <References it={it} />
 
-        <Block label="Hook">
-          <AutoTextarea aria-label="Hook" value={it.hook || ''} onChange={(v) => set({ hook: v })} minRows={2} placeholder="The first 2 seconds. Why would someone stop?" />
-        </Block>
-        <Block label="Script">
-          <AutoTextarea aria-label="Script" value={it.script || ''} onChange={(v) => set({ script: v })} minRows={5} placeholder="What happens, shot by shot or line by line." />
-        </Block>
-        <Block label="Caption" right={it.caption?.trim() ? <Button size="sm" variant="ghost" icon={<Copy size={15} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy</Button> : null}>
+        <section className="block">
+          <div className="block-head"><h2 className="block-label grow">Make it</h2></div>
+          <div className="tools">
+            <button className="tool" onClick={() => go(`/post/${id}/script`)}>
+              <span className="tool-ic"><PenLine size={20} /></span>
+              <span className="tool-main"><span className="tool-title">Script</span><span className="tool-sub">{scriptSub}</span></span>
+              <ChevronRight size={18} className="muted" />
+            </button>
+            <button className="tool" onClick={() => go(`/post/${id}/cover`)}>
+              <span className="tool-thumb"><CoverThumb it={it} ready={ready} /></span>
+              <span className="tool-main"><span className="tool-title">Cover</span><span className="tool-sub">{it.cover ? 'Edit the cover' : 'From your hook, in your brand fonts'}</span></span>
+              <ChevronRight size={18} className="muted" />
+            </button>
+            <button className="tool" onClick={() => go(`/post/${id}/carousel`)}>
+              <span className="tool-ic"><Layers size={20} /></span>
+              <span className="tool-main"><span className="tool-title">Carousel</span><span className="tool-sub">{slidesN ? `${slidesN} slide${slidesN > 1 ? 's' : ''}` : 'Build slides from the script'}</span></span>
+              <ChevronRight size={18} className="muted" />
+            </button>
+          </div>
+          {it.hook?.trim() && <p className="small muted hook-line">Hook: “{plainLine(it.hook)}”</p>}
+        </section>
+        <Block label="Caption" right={<>
+          <Button size="sm" variant="ghost" icon={<Copy size={15} />} onClick={() => copyOrShow(promptCaption(it), 'Copy this prompt', 'Caption prompt copied. Paste it in the Claude app.')}>Prompt</Button>
+          {it.caption?.trim() ? <Button size="sm" variant="ghost" icon={<Copy size={15} />} onClick={() => copyOrShow(it.caption!, 'Copy caption', 'Caption copied')}>Copy</Button> : null}
+        </>}>
           <AutoTextarea aria-label="Caption" value={it.caption || ''} onChange={(v) => set({ caption: v })} minRows={3} placeholder="What goes under the post." />
+          <LintList text={it.caption || ''} />
         </Block>
         <Block label="Notes">
           <AutoTextarea aria-label="Notes" value={it.notes || ''} onChange={(v) => set({ notes: v })} minRows={2} placeholder="Shot ideas, gear, links, anything." />

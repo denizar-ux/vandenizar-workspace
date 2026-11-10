@@ -8,6 +8,9 @@ import { PhoneTop } from '../ui/Shell'
 import { Button, toast, copyOrShow, cx } from '../ui/kit'
 import { openNew } from '../ui/QuickAdd'
 import { firstFreeSlot } from '../ui/SlotPicker'
+import { freeSlots, thisWeek as curWeek } from '../lib/model'
+import { defaultPlanWeek } from './PlanWeek'
+import { weekdayIndex } from '../lib/time'
 
 export default function Today() {
   const z = tz(), t = today()
@@ -46,6 +49,7 @@ export default function Today() {
 
       <div className="stack">
         <p className="today-sum">{summary}</p>
+        <PlanCard />
 
         {overN > 0 && (
           <div className="overdue">
@@ -148,5 +152,20 @@ function ThreadRow({ it, showDate }: { it: import('../lib/types').Item; showDate
       </div>
       {!done && <div className="task-actions"><Button size="sm" icon={<Copy size={15} />} onClick={() => copyOrShow(it.text || '', 'Copy draft')}>Copy</Button>{showDate && <Button size="sm" icon={<CalendarArrowUp size={15} />} onClick={() => { const snap = replanThread(it.id); if (snap) toast('Threads moved to today', { label: 'Undo', run: () => restoreSnaps([snap]) }) }}>Move to today</Button>}</div>}
     </article>
+  )
+}
+
+/** Friday to Sunday: nudge to fill next week's empty slots. Shows only while there is something to plan. */
+function PlanCard() {
+  const t = today()
+  if (weekdayIndex(t) < 4) return null
+  const week = defaultPlanWeek(t)
+  const n = freeSlots(week, t).length
+  if (!n || week === curWeek()) return null
+  return (
+    <button className="plancard" onClick={() => go('/plan?week=' + week)}>
+      <span className="grow"><span className="eyebrow">Next week</span><span className="plancard-title">{n} empty slot{n > 1 ? 's' : ''}. Plan them in a minute.</span></span>
+      <ArrowRight size={18} />
+    </button>
   )
 }

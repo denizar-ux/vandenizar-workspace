@@ -4,7 +4,7 @@ import { settings, patch, P, flush, pendingCount, clearLocal, serialize, uid } f
 import { slots, newSlot, saveSlot, deleteSlot, pillars, formats, saveTag, deleteTag, tagUsage, pillarName, formatName, igItems, notifyPrefs, setNotify } from '../lib/model'
 import { saveFile } from '../lib/download'
 import { todayKey, WEEKDAYS, WEEKDAYS_S } from '../lib/time'
-import { back } from '../lib/router'
+import { back, go } from '../lib/router'
 import { sb } from '../lib/supabase'
 import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { PageHead, SaveBadge } from '../ui/Shell'
@@ -56,6 +56,11 @@ export default function Settings() {
 
         <TagSection kind="pillars" title="Pillars" sub="What your content is about. Used to filter Instagram." list={pillars()} onEdit={(t, isNew) => setTag({ kind: 'pillars', t, isNew })} />
         <TagSection kind="formats" title="Formats" list={formats()} onEdit={(t, isNew) => setTag({ kind: 'formats', t, isNew })} />
+
+        <section className="stack">
+          <div><h2 className="h2">Resources</h2><p className="muted small mt4">Links you open often. Moved out of the tab bar.</p></div>
+          <button className="li" style={{ alignSelf: 'stretch' }} onClick={() => go('/resources')}><span className="li-main"><span className="li-title">Open Resources</span></span><ChevronRight size={18} className="muted" /></button>
+        </section>
 
         <Notifications />
 
@@ -201,6 +206,11 @@ function Notifications() {
           <div className="grow"><div className="nrow-title">Time to post</div><div className="small muted">On the post day of each planned post.</div></div>
           <input type="time" className="input time" aria-label="Post reminder time" value={n.postTime} disabled={!n.postReminder} onChange={(e) => e.target.value && setNotify({ postTime: e.target.value })} />
           <Switch label="Post reminder" on={n.postReminder} onChange={(v) => setNotify({ postReminder: v })} />
+        </div>
+        <div className="nrow">
+          <div className="grow"><div className="nrow-title">Plan next week</div><div className="small muted">Sunday, only when next week still has empty slots.</div></div>
+          <input type="time" className="input time" aria-label="Plan reminder time" value={n.planTime} disabled={!n.plan} onChange={(e) => e.target.value && setNotify({ planTime: e.target.value })} />
+          <Switch label="Plan reminder" on={n.plan} onChange={(v) => setNotify({ plan: v })} />
         </div>
       </div>
     </section>
