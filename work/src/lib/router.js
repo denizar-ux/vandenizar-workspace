@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'preact/hooks';
+import { resolveAlias } from '../combined/aliases.js';
 
 // Hash routes like #/content/item/abc. Works inside iframes and installed home-screen apps.
 let current = parse();
 const subs = new Set();
 const stack = []; // our own back stack, so in-app Back works in a home-screen app with no browser chrome
 function parse() {
-  const raw = (typeof location !== 'undefined' ? location.hash : '').replace(/^#\/?/, '');
-  const [p, q] = raw.split('?');
+  let raw = (typeof location !== 'undefined' ? location.hash : '').replace(/^#\/?/, '');
+  let [p, q] = raw.split('?');
+  // old routes from the two source apps: rewrite the address in place so Back does not return to the alias
+  const alias = resolveAlias('/' + (p || ''), q || '');
+  if (alias) {
+    try { history.replaceState(null, '', '#' + alias); } catch {}
+    raw = alias.replace(/^\/?/, '');
+    [p, q] = raw.split('?');
+  }
   const parts = (p || '').split('/').filter(Boolean).map(decodeURIComponent);
   return { path: '/' + parts.join('/'), full: '/' + (p || '') + (q ? '?' + q : ''), parts, query: Object.fromEntries(new URLSearchParams(q || '')) };
 }

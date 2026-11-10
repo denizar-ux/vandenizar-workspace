@@ -60,6 +60,9 @@ function Shell() {
   if (!p0) page = <TodayPage />;
   else if (p0 === 'tasks') { nav = 'tasks'; page = p1 ? <TaskDetail id={p1} key={p1} /> : <TasksPage query={r.query} />; }
   else if (p0 === 'projects') { nav = 'projects'; page = p1 ? <ProjectDetail id={p1} key={p1} /> : <ProjectsPage />; }
+  // Temporary until the Work area replaces these pages: aliased links (#/projects, #/tasks) land here.
+  else if (p0 === 'work' && p1 === 'tasks') { nav = 'tasks'; page = <TasksPage query={r.query} />; }
+  else if (p0 === 'work' && p1 === 'projects') { nav = 'projects'; page = <ProjectsPage />; }
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
   else if (p0 === 'clients') { nav = 'clients'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
   else if (p0 === 'invoices') { nav = 'invoices'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
