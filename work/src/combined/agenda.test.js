@@ -123,3 +123,13 @@ describe('buildAgenda', () => {
     expect(buildAgenda({ date: D }).scheduled[0].sub).toBe('09:00 · Zoom');
   });
 });
+
+describe('untitled posts', () => {
+  it('say Untitled post instead of an empty name', () => {
+    post({ id: 'p1', title: '', date: D });
+    post({ id: 'p2', title: '', stage: 'script', scriptDate: D });
+    const a = buildAgenda({ date: D });
+    expect(a.scheduled.find((i) => i.kind === 'post').title).toBe('Post: Untitled post');
+    expect(a.anytime.find((i) => i.kind === 'ctask').title).toBe('Script: Untitled post');
+  });
+});

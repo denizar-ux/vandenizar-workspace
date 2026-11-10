@@ -14,7 +14,7 @@ import { openQuickAdd } from '../App.jsx';
 import { ChipCount } from '../ui/polish.jsx';
 import { areaOfTask } from '../combined/areas.js';
 import { buildAgenda } from '../combined/agenda.js';
-import { replanLate, undoReplan } from '../combined/replan.js';
+import { runReplan } from '../ui/replanToast.js';
 
 const MAIN_VIEWS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'inbox', label: 'Inbox' }, { id: 'overdue', label: 'Overdue' }];
 const MORE_VIEWS = [{ id: 'all', label: 'All open', icon: 'list' }, { id: 'done', label: 'Done', icon: 'check' }, { id: 'other', label: 'Deferred', icon: 'clock' }, { id: 'archived', label: 'Archived', icon: 'archive' }];
@@ -61,10 +61,7 @@ export function TasksPage({ query, embedded }) {
   const catCounts = {};
   viewList.forEach((t) => { const id = areaOfTask(t).id; catCounts[id] = (catCounts[id] || 0) + 1; });
   const lateCount = view === 'overdue' ? buildAgenda({ date: t0, filter: 'work' }).late.length : 0;
-  const replan = () => {
-    const { snaps, count } = replanLate(today(), 'work');
-    toast('Moved ' + count + ' item' + (count === 1 ? '' : 's'), { action: { label: 'Undo', run: () => undoReplan(snaps) } });
-  };
+  const replan = () => runReplan('work');
   let list = viewList;
   if (project) list = list.filter((t) => (project === 'none' ? !t.projectId : t.projectId === project));
   if (ws) list = list.filter((t) => areaOfTask(t).id === ws);

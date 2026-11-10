@@ -8,8 +8,9 @@ import { tasksOn, overdueTasks, threadsOn, overdueThreads, igItems, cSettings, s
 import { areas, areaOfTask, CONTENT_AREA } from './areas.js';
 
 // isOverdue / isBehind read the real clock, so the agenda judges against its own date.
-export const isLateOn = (t, date) => isOpen(t) && !!t.deadlineDate
-  && (t.deadlineDate < date || (t.deadlineDate === date && date === today() && isPast(t.deadlineDate, t.deadlineTime)));
+// Late means a deadline on an earlier day. Due today with the time gone is still today's business (see passedToday).
+export const isLateOn = (t, date) => isOpen(t) && !!t.deadlineDate && t.deadlineDate < date;
+const passedToday = (t, date) => isOpen(t) && t.deadlineDate === date && !!t.deadlineTime && date === today() && isPast(t.deadlineDate, t.deadlineTime);
 export const isBehindOn = (t, date) => isOpen(t) && !!t.workDate && t.workDate < date && !isLateOn(t, date);
 
 const TASK_LABEL = { script: 'Script', film: 'Film', edit: 'Edit', post: 'Post' };
@@ -39,7 +40,7 @@ function ctaskItem(d) {
   const slot = slotById(it.slot);
   return {
     key: 'ctask:' + it.id + ':' + task.key, kind: 'ctask', area: CONTENT_AREA, time: null,
-    title: (TASK_LABEL[task.key] || task.label) + ': ' + it.title, sub: slot ? slot.name || '' : '',
+    title: (TASK_LABEL[task.key] || task.label) + ': ' + (it.title || 'Untitled post'), sub: slot ? slot.name || '' : '',
     ref: { coll: 'cItems', id: it.id, task: task.key }, actions: ['openPost'], tone: undefined,
   };
 }
@@ -50,7 +51,7 @@ function postItem(it) {
   if (it.finalUrl) actions.push('openVideo');
   return {
     key: 'post:' + it.id, kind: 'post', area: CONTENT_AREA, time: cSettings().notify?.postTime || '19:00',
-    title: 'Post: ' + it.title, sub: [slot?.name, formatName(it.format)].filter(Boolean).join(' · '),
+    title: 'Post: ' + (it.title || 'Untitled post'), sub: [slot?.name, formatName(it.format)].filter(Boolean).join(' · '),
     ref: { coll: 'cItems', id: it.id }, actions, tone: undefined,
   };
 }
@@ -83,7 +84,8 @@ export function buildAgenda({ date, filter = 'all' }) {
       if (billable && t.workDate === date) anyWork.push(taskItem(t, date, 'Client deadline passed', { tone: 'bad' }));
       else if (billable && t.workDate > date) continue; // planned later, not today's business
       else lateWork.push(taskItem(t, date, ['Deadline passed', project?.name].filter(Boolean).join(' · ')));
-    } else if (t.workDate === date) (t.workTime ? scheduled : anyWork).push(taskItem(t, date));
+    } else if (passedToday(t, date)) anyWork.push(taskItem(t, date, 'Deadline passed ' + t.deadlineTime, { tone: 'bad' }));
+    else if (t.workDate === date) (t.workTime ? scheduled : anyWork).push(taskItem(t, date));
     else if (isBehindOn(t, date)) anyWork.push(taskItem(t, date, 'Planned ' + fmtDay(t.workDate)));
     else if (t.deadlineDate === date && !t.workDate) anyWork.push(taskItem(t, date));
     else if (t.pinnedOn === date) anyWork.push(taskItem(t, date));

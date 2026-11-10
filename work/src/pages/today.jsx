@@ -1,6 +1,5 @@
 import { useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
-import { toast } from '../ui/overlay.jsx';
 import { AddBtn } from '../ui/parts.jsx';
 import { BentoCard, ChipCount } from '../ui/polish.jsx';
 import { AgendaRow } from '../ui/agendaRow.jsx';
@@ -13,14 +12,13 @@ import * as M from '../lib/model.js';
 import * as C from '../content/model.js';
 import { hasSample } from '../lib/sample.js';
 import { buildAgenda } from '../combined/agenda.js';
-import { replanLate, undoReplan } from '../combined/replan.js';
+import { runReplan } from '../ui/replanToast.js';
 import { areas, areaOfTask, CONTENT_AREA } from '../combined/areas.js';
 
 const FILTER_KEY = 'vzw:todayFilter';
 const loadFilter = () => { try { return localStorage.getItem(FILTER_KEY) || 'all'; } catch { return 'all'; } };
 const saveFilter = (v) => { try { localStorage.setItem(FILTER_KEY, v); } catch {} };
 
-const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 
 export function TodayPage() {
   useStore();
@@ -45,11 +43,7 @@ export function TodayPage() {
   ].filter((g) => g.items.length);
   const empty = !groups.length && !agenda.late.length;
 
-  const replan = () => {
-    const { snaps, count } = replanLate(t0, filter);
-    if (!count) { toast('Nothing to move'); return; }
-    toast('Moved ' + plural(count, 'item'), { action: { label: 'Undo', run: () => undoReplan(snaps) } });
-  };
+  const replan = () => runReplan(filter, t0);
 
   return (
     <div class="page">
