@@ -146,7 +146,7 @@ function nextDated(t0) {
     if (d) c.push({ date: d, text: t.title });
   }
   for (const e of all('pmEvents')) if (!e.deletedAt && e.date > t0) c.push({ date: e.date, text: e.title });
-  for (const it of all('cItems')) if (it.kind === 'thread' && !it.postedAt && it.date && it.date > t0) c.push({ date: it.date, text: C.firstLine(it.text) });
+  for (const it of C.liveItems()) if (it.kind === 'thread' && !it.postedAt && it.date && it.date > t0) c.push({ date: it.date, text: C.firstLine(it.text) });
   c.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return c[0];
 }

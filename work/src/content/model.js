@@ -1,6 +1,6 @@
 // Content domain: weekly Instagram slots (customisable), Threads drafts, resource links.
 // Ported from Content OS onto the shared data layer: items live in `cItems`, settings in meta/cSettings.
-import { all, get, put, patch, uid } from '../lib/db.js'
+import { all, get, put, patch, remove, uid } from '../lib/db.js'
 import { today as jakartaToday, addDays } from '../lib/date.js'
 import { weekStart, weekdayIndex, fmtDay } from './time.js'
 import { DEFAULT_SLOTS, DEFAULT_PILLARS, DEFAULT_FORMATS, SCHEMA_VERSION } from './defaults.js'
@@ -96,15 +96,34 @@ export function deleteTag(kind, id) {
 }
 export function tagUsage(kind, id) {
   const field = kind === 'pillars' ? 'pillar' : 'format'
-  return all('cItems').filter((i) => i[field] === id).length
+  return liveItems().filter((i) => i[field] === id).length
 }
 
 // ---------- time ----------
 export const today = () => jakartaToday()
 export const thisWeek = () => weekStart(today())
 
+/** Every content item that is not in the trash. All content reads go through this. */
+export const liveItems = () => all('cItems').filter((i) => !i.deletedAt)
+/** Move an item to the trash (restore with restoreItem). */
+export const trashItem = (id) => patch('cItems', id, { deletedAt: Date.now() })
+/** A post that nothing was typed or planned into yet. */
+export const isBlankPost = (it) => !!it && it.kind === 'ig' && !(it.title || '').trim() && !it.date && !it.slot && !it.week && !it.scriptDate && !it.filmDate && !it.editDate
+  && !(it.hook || '').trim() && !(it.script || '').trim() && !(it.caption || '').trim() && !(it.notes || '').trim() && !(it.finalUrl || '').trim() && !(it.refs || []).length && (it.stage || 'idea') === 'idea'
+/** Posts made by the Add button in this session; one that is still blank when you leave it is dropped. */
+const freshBlanks = new Set()
+export const markFreshBlank = (id) => { freshBlanks.add(id) }
+export function dropIfBlank(id) {
+  if (!freshBlanks.delete(id)) return false
+  const it = get('cItems', id)
+  if (!isBlankPost(it)) return false
+  remove('cItems', id)
+  return true
+}
+export const restoreItem = (id) => patch('cItems', id, { deletedAt: null })
+
 // ---------- Instagram ----------
-export const igItems = () => all('cItems').filter((i) => i.kind === 'ig')
+export const igItems = () => liveItems().filter((i) => i.kind === 'ig')
 export const isLate = (i, t = today()) => i.kind === 'ig' && i.stage !== 'done' && !!i.date && i.date < t
 
 export function weekItems(week) {
@@ -358,10 +377,10 @@ export const THREADS_LIMIT = 500
 const threadKey = (t) => (t.date ? t.date + ' ' + (t.time || '99:99') : '9999') + t.createdAt
 /** Drafts: scheduled ones first by date and time, then the rest newest first. */
 export const threadDrafts = () => {
-  const d = all('cItems').filter((i) => i.kind === 'thread' && !i.postedAt)
+  const d = liveItems().filter((i) => i.kind === 'thread' && !i.postedAt)
   return [...d.filter((x) => x.date).sort((a, b) => (threadKey(a) < threadKey(b) ? -1 : 1)), ...d.filter((x) => !x.date).sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))]
 }
-export const threadPosted = () => all('cItems').filter((i) => i.kind === 'thread' && i.postedAt).sort((a, b) => (b.postedAt > a.postedAt ? 1 : -1))
+export const threadPosted = () => liveItems().filter((i) => i.kind === 'thread' && i.postedAt).sort((a, b) => (b.postedAt > a.postedAt ? 1 : -1))
 export function addThread(text, date = null, time = null) {
   if (!text.trim()) return null
   return put('cItems', { id: uid(), kind: 'thread', text: text.trim(), date, time: date ? time : null, postedAt: null })
@@ -371,11 +390,11 @@ export function scheduleThread(id, date, time) {
 }
 export const markPosted = (id, posted) => patch('cItems', id, { postedAt: posted ? nowIso() : null })
 /** Threads planned for a day (posted ones last). */
-export const threadsOn = (d) => all('cItems').filter((i) => i.kind === 'thread' && i.date === d).sort((a, b) => (!!a.postedAt === !!b.postedAt ? (threadKey(a) < threadKey(b) ? -1 : 1) : a.postedAt ? 1 : -1))
-export const overdueThreads = (t = today()) => all('cItems').filter((i) => i.kind === 'thread' && !i.postedAt && i.date && i.date < t).sort((a, b) => (threadKey(a) < threadKey(b) ? -1 : 1))
+export const threadsOn = (d) => liveItems().filter((i) => i.kind === 'thread' && i.date === d).sort((a, b) => (!!a.postedAt === !!b.postedAt ? (threadKey(a) < threadKey(b) ? -1 : 1) : a.postedAt ? 1 : -1))
+export const overdueThreads = (t = today()) => liveItems().filter((i) => i.kind === 'thread' && !i.postedAt && i.date && i.date < t).sort((a, b) => (threadKey(a) < threadKey(b) ? -1 : 1))
 
 // ---------- Resources ----------
-export const links = () => all('cItems').filter((i) => i.kind === 'link').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+export const links = () => liveItems().filter((i) => i.kind === 'link').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
 export function addLink(name, url) {
   const u = normalizeUrl(url); if (!u) return null
   return put('cItems', { id: uid(), kind: 'link', title: name.trim() || linkLabel(u), url: u })

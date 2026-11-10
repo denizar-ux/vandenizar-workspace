@@ -5,7 +5,7 @@ import { Field, TextInput, Empty } from '../ui/kit.jsx';
 import { PageHeader, AddBtn, BackBar } from '../ui/parts.jsx';
 import { openOverlay, SheetHead, SheetBody, SheetFoot, toast } from '../ui/overlay.jsx';
 import { back } from '../lib/router.js';
-import { get, put, remove, useStore } from '../lib/db.js';
+import { get, useStore } from '../lib/db.js';
 import * as C from '../content/model.js';
 
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u || ''; } };
@@ -53,10 +53,9 @@ function ResourceSheet({ id, close }) {
     toast(old ? 'Resource saved' : 'Resource added');
   };
   const del = () => {
-    const snap = { ...old };
-    remove('cItems', id);
+    C.trashItem(id);
     close();
-    toast('Resource deleted', { action: { label: 'Undo', run: () => put('cItems', snap) } });
+    toast('Resource deleted', { action: { label: 'Undo', run: () => C.restoreItem(id) } });
   };
   return (
     <>

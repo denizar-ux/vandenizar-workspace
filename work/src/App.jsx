@@ -166,6 +166,7 @@ function UpdatePill() {
 
 export function newPost() {
   const p = C.createPost({ title: '' });
+  C.markFreshBlank(p.id);
   navigate('/post/' + p.id);
 }
 export function newThread() { navigate('/content/threads?new=1'); }

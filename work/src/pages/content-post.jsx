@@ -1,12 +1,12 @@
 // Post detail (#/post/:id): title, stage, schedule dates, references, hook, script, caption, notes, details.
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Field, TextArea, Select, DateInput, Segmented, Empty } from '../ui/kit.jsx';
 import { openMenu, openOverlay, SheetHead, SheetBody, toast, useMedia, DESKTOP_Q } from '../ui/overlay.jsx';
 import { BackBar } from '../ui/parts.jsx';
 import { PostStagePill, NextButton } from '../ui/slotTile.jsx';
 import { navigate, back } from '../lib/router.js';
-import { get, put, remove, useStore, persist } from '../lib/db.js';
+import { get, put, useStore, persist } from '../lib/db.js';
 import { addDays, isoOf, fmtShort } from '../lib/date.js';
 import { weekRange } from '../content/time.js';
 import * as C from '../content/model.js';
@@ -21,7 +21,9 @@ export function PostDetail({ id }) {
   const desktop = useMedia(DESKTOP_Q);
   const [errors, setErrors] = useState({});
   const [refDraft, setRefDraft] = useState('');
-  if (!it || it.kind !== 'ig') return <div class="page narrow"><BackBar onBack={() => back('/content/ig')} /><Empty icon="image" title="This post is gone" action={<a class="btn primary sm" href="#/content/ig">All posts</a>}>It may have been deleted.</Empty></div>;
+  // backing out of a brand-new, still empty post leaves nothing behind
+  useEffect(() => () => { C.dropIfBlank(id); }, [id]);
+  if (!it || it.deletedAt || it.kind !== 'ig') return <div class="page narrow"><BackBar onBack={() => back('/content/ig')} /><Empty icon="image" title="This post is gone" action={<a class="btn primary sm" href="#/content/ig">All posts</a>}>It may have been deleted.</Empty></div>;
 
   const set = (ch) => put('cItems', { ...get('cItems', id), ...ch });
   const slot = C.slotById(it.slot);
@@ -42,10 +44,9 @@ export function PostDetail({ id }) {
     setRefDraft('');
   };
   const del = () => {
-    const snap = { ...get('cItems', id) };
-    remove('cItems', id);
+    C.trashItem(id);
     back('/content/ig');
-    toast('Post deleted', { action: { label: 'Undo', run: () => { put('cItems', snap); navigate('/post/' + id); } } });
+    toast('Post deleted', { action: { label: 'Undo', run: () => { C.restoreItem(id); navigate('/post/' + id); } } });
   };
   const menu = (e) => openMenu(e, [
     { label: it.week ? 'Change slot' : 'Schedule in a slot', icon: 'calendar', onSelect: () => openSlotSheet(id) },

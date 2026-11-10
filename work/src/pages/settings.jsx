@@ -95,7 +95,7 @@ export function SettingsPage({ section }) {
                 <Icon name="chevronRight" size={16} class="set-chev" />
               </a>
             ))}
-            <a href="#/trash" class="set-nav-item"><span class="set-ico t-plain"><Icon name="trash" size={18} /></span><span class="grow"><span class="set-nav-label">Trash</span><span class="set-nav-sub">Deleted tasks and projects</span></span><Icon name="chevronRight" size={16} class="set-chev" /></a>
+            <a href="#/trash" class="set-nav-item"><span class="set-ico t-plain"><Icon name="trash" size={18} /></span><span class="grow"><span class="set-nav-label">Trash</span><span class="set-nav-sub">Deleted tasks, projects and content</span></span><Icon name="chevronRight" size={16} class="set-chev" /></a>
           </nav>
           <div class="quiet-note">Vandenizar · times in WIB (Asia/Jakarta)</div>
         </div>
@@ -446,11 +446,14 @@ function friendly(e) {
 // ---------- Trash ----------
 export function TrashPage() {
   useStore();
-  const tasks = all('pmTasks').filter((t) => t.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
-  const projects = all('pmProjects').filter((p) => p.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+  const gone = (coll) => all(coll).filter((r) => r.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+  const tasks = gone('pmTasks'), projects = gone('pmProjects');
+  const cItems = gone('cItems');
+  const posts = cItems.filter((i) => i.kind === 'ig'), threads = cItems.filter((i) => i.kind === 'thread'), links = cItems.filter((i) => i.kind === 'link');
+  const total = tasks.length + projects.length + cItems.length;
   const empty = async () => {
     if (!(await confirmDialog({ title: 'Empty the trash?', body: 'This cannot be undone.', confirmLabel: 'Empty trash', danger: true }))) return;
-    tasks.forEach((t) => remove('pmTasks', t.id)); projects.forEach((p) => remove('pmProjects', p.id)); toast('Trash emptied');
+    tasks.forEach((t) => remove('pmTasks', t.id)); projects.forEach((p) => remove('pmProjects', p.id)); cItems.forEach((i) => remove('cItems', i.id)); toast('Trash emptied');
   };
   const Row = ({ coll, r, title }) => (
     <div class="list-row">
@@ -459,12 +462,16 @@ export function TrashPage() {
       <button class="icon-btn ghost sm" aria-label="Delete forever" onClick={async () => { if (await confirmDialog({ title: 'Delete forever?', body: 'This cannot be undone.', confirmLabel: 'Delete forever', danger: true })) { remove(coll, r.id); toast('Deleted forever'); } }}><Icon name="trash" size={15} /></button>
     </div>
   );
+  const Section = ({ label, coll, rows, title }) => rows.length > 0 && <section class="sheet-surface"><div class="group-label">{label}</div><div class="list">{rows.map((r) => <Row coll={coll} r={r} title={title(r)} />)}</div></section>;
   return (
     <div class="page narrow">
-      <PageHeader title="Trash." actions={(tasks.length || projects.length) ? <button class="btn sm outline" onClick={empty}>Empty trash</button> : null} />
-      {!tasks.length && !projects.length ? <Empty icon="trash" title="Trash is empty">Deleted tasks and projects wait here until you remove them for good.</Empty> : <>
-        {projects.length > 0 && <section class="sheet-surface"><div class="group-label">Projects</div><div class="list">{projects.map((p) => <Row coll="pmProjects" r={p} title={p.name || 'Untitled project'} />)}</div></section>}
-        {tasks.length > 0 && <section class="sheet-surface"><div class="group-label">Tasks</div><div class="list">{tasks.map((t) => <Row coll="pmTasks" r={t} title={t.title || 'Untitled task'} />)}</div></section>}
+      <PageHeader title="Trash." actions={total ? <button class="btn sm outline" onClick={empty}>Empty trash</button> : null} />
+      {!total ? <Empty icon="trash" title="Trash is empty">Deleted tasks, projects and content wait here until you remove them for good.</Empty> : <>
+        <Section label="Projects" coll="pmProjects" rows={projects} title={(p) => p.name || 'Untitled project'} />
+        <Section label="Tasks" coll="pmTasks" rows={tasks} title={(t) => t.title || 'Untitled task'} />
+        <Section label="Posts" coll="cItems" rows={posts} title={(i) => i.title || 'Untitled post'} />
+        <Section label="Threads" coll="cItems" rows={threads} title={(i) => C.firstLine(i.text) || 'Empty draft'} />
+        <Section label="Resources" coll="cItems" rows={links} title={(i) => i.title || i.url} />
       </>}
     </div>
   );
@@ -478,7 +485,7 @@ export function MorePage() {
     ['Invoices', 'Create and track invoices', 'file', '/invoices'],
     ['Resources', 'Links, references and saved things', 'link', '/more/resources'],
     ['Settings', 'Account, notifications, defaults', 'settings', '/settings'],
-    ['Trash', 'Deleted tasks and projects', 'trash', '/trash'],
+    ['Trash', 'Deleted tasks, projects and content', 'trash', '/trash'],
   ];
   return (
     <div class="page narrow">

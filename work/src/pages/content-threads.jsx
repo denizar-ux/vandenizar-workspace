@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon.jsx';
 import { Segmented, Empty, DateInput, TimeInput, Field } from '../ui/kit.jsx';
 import { openOverlay, SheetHead, SheetBody, SheetFoot, toast } from '../ui/overlay.jsx';
 import { navigate } from '../lib/router.js';
-import { get, put, patch, remove, useStore } from '../lib/db.js';
+import { get, patch, useStore } from '../lib/db.js';
 import { today, isoOf, fmtDay, relDay } from '../lib/date.js';
 import * as C from '../content/model.js';
 
@@ -15,6 +15,8 @@ async function copy(text) {
 export function ThreadsBody({ query = {} }) {
   useStore();
   const [tab, setTab] = useState('drafts');
+  // a New thread link lands on the drafts tab so the composer exists to focus
+  useEffect(() => { if (query.new) setTab('drafts'); }, [query.new]);
   const drafts = C.threadDrafts(), posted = C.threadPosted();
   const sched = drafts.filter((t) => t.date), loose = drafts.filter((t) => !t.date);
   return (
@@ -78,9 +80,8 @@ function ThreadCard({ t }) {
   const late = !posted && t.date && t.date < today();
   const fit = (el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } };
   const del = () => {
-    const snap = { ...get('cItems', t.id) };
-    remove('cItems', t.id);
-    toast('Draft deleted', { action: { label: 'Undo', run: () => put('cItems', snap) } });
+    C.trashItem(t.id);
+    toast('Draft deleted', { action: { label: 'Undo', run: () => C.restoreItem(t.id) } });
   };
   const markPosted = () => { C.markPosted(t.id, true); toast('Thread posted', { action: { label: 'Undo', run: () => C.markPosted(t.id, false) } }); };
   return (
