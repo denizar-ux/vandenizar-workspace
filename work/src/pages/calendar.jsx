@@ -9,6 +9,9 @@ import { navigate } from '../lib/router.js';
 import { get, useStore } from '../lib/db.js';
 import { today, addDays, addMonths, startOfMonth, daysInMonth, startOfWeek, fmtMonth, fmtMonthShort, fmtWeekdayShort, dayNum, relDay, nowParts, fmtMinutes, fmtShort, fmtDay } from '../lib/date.js';
 import * as M from '../lib/model.js';
+import * as C from '../content/model.js';
+import { areaOfTask, CONTENT_AREA } from '../combined/areas.js';
+import { dragHandlers } from '../lib/dnd.js';
 import { openEventSheet } from './events.jsx';
 import { openQuickAdd } from '../App.jsx';
 
@@ -21,7 +24,24 @@ const VIEW_OPTS = [{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, {
 const loadView = () => { try { const v = localStorage.getItem('vz:pm:cal-view'); return VIEWS.includes(v) ? v : null; } catch { return null; } };
 const saveView = (v) => { try { localStorage.setItem('vz:pm:cal-view', v); } catch {} };
 const nowMinutes = () => { const n = nowParts(); return n.hour * 60 + n.minute; };
-export const toneOfTask = (t) => { const p = t.projectId && get('pmProjects', t.projectId); if (!p) return 'plain'; const c = M.projectCategory(p).color; return c === 'plain' ? 'lavender' : c; };
+export const toneOfTask = (t) => { const c = areaOfTask(t).color; return c === 'plain' ? 'lavender' : c; };
+const CONTENT_TONE = CONTENT_AREA.color; // peach
+const CTASK_LABEL = { script: 'Script', film: 'Film', edit: 'Edit', post: 'Post' };
+const DROP = 'cal:';
+const dropProps = (d) => ({ 'data-drop': DROP + d, 'data-drop-mode': 'cell' });
+// Content chips drag to another day: that sets the stage date, and the model refuses dates that break the order.
+function dropContent(drag, onDrop) {
+  return dragHandlers(drag, (r) => {
+    const day = r.to.slice(DROP.length);
+    onDrop(day);
+  }, { accept: (k) => k.startsWith(DROP) });
+}
+function moveStage(it, task, date) {
+  if (it[task.field] === date) return;
+  const r = C.setStageDate(it.id, task.field, date);
+  if (r.ok) toast(task.label + ' moved to ' + fmtDay(date));
+  else toast(r.error, { tone: 'warn', duration: 4500 });
+}
 
 export function dayItems(d) {
   const timed = [], allDay = [];
@@ -40,6 +60,16 @@ export function dayItems(d) {
     if (p.deadlineDate === d && M.stageIdx(p.stage) < M.stageIdx('delivered')) allDay.push({ kind: 'pdeadline', id: 'pd:' + p.id, title: 'Deadline: ' + p.name + (p.deadlineTime ? ' · ' + p.deadlineTime : ''), p, tone: 'deadline' });
     if (p.shootDate === d) allDay.push({ kind: 'shoot', id: 'sh:' + p.id, title: 'Shoot: ' + p.name, p, tone: 'sage' });
     if (p.followUpDate === d && p.stage === 'client_review') allDay.push({ kind: 'follow', id: 'fu:' + p.id, title: 'Follow up: ' + p.name, p, tone: 'lavender' });
+  }
+  for (const x of C.tasksOn(d)) {
+    if (x.done) continue;
+    allDay.push({ kind: 'ctask', id: 'ct:' + x.it.id + ':' + x.task.key, title: (CTASK_LABEL[x.task.key] || x.task.label) + ': ' + (x.it.title || 'Untitled post'), cit: x.it, ctask: x.task, tone: CONTENT_TONE });
+  }
+  for (const th of C.threadsOn(d)) {
+    const text = C.firstLine(th.text) || 'Thread';
+    const s0 = toMin(th.time);
+    if (s0 == null) { if (!th.postedAt) allDay.push({ kind: 'thread', id: 'th:' + th.id, title: 'Thread: ' + text, cit: th, tone: CONTENT_TONE }); }
+    else timed.push({ kind: 'thread', id: 'th:' + th.id, title: text, start: s0, dur: SNAP, tone: CONTENT_TONE, done: !!th.postedAt, cit: th, sub: 'Threads' });
   }
   for (const event of M.eventsOn(d)) {
     const it = {kind:'event', id:event.id, title:'Event: '+event.title, event, tone:'cyan', sub:event.location || M.projectName(event.projectId)};
@@ -63,9 +93,21 @@ function layout(items) {
   return out;
 }
 function openItem(it) {
-  if (it.event) openEventSheet(it.event.id);
+  if (it.kind === 'ctask') navigate('/post/' + it.cit.id);
+  else if (it.kind === 'thread') navigate('/content/threads');
+  else if (it.event) openEventSheet(it.event.id);
   else if (it.t) navigate('/tasks/' + it.t.id);
   else if (it.p) navigate('/projects/' + it.p.id);
+}
+
+// All-day chip. Content chips can be dragged to another day.
+function Chip({ it, drag }) {
+  const content = it.kind === 'ctask' && drag;
+  return (
+    <button class={'cal-chip t-' + it.tone} onClick={() => openItem(it)} title={it.title} {...(content ? { 'data-drag-ok': true, ...dropContent(it.id, (day) => moveStage(it.cit, it.ctask, day)) } : {})}>
+      {it.tone === 'deadline' && <Icon name="flag" size={11} />}<span class="ellipsis">{it.title}</span>
+    </button>
+  );
 }
 
 export function CalendarPage({ query }) {
@@ -198,11 +240,11 @@ function MonthGrid({ d, compact, onPick }) {
           );
           const cap = 3;
           return (
-            <div class={cls} onClick={(e) => { if (!e.target.closest('.mchip')) onPick(x); }} role="button" tabIndex={0} aria-label={label} onKeyDown={(e) => { if (e.key === 'Enter') onPick(x); }}>
+            <div class={cls} {...dropProps(x)} onClick={(e) => { if (!e.target.closest('.mchip')) onPick(x); }} role="button" tabIndex={0} aria-label={label} onKeyDown={(e) => { if (e.key === 'Enter') onPick(x); }}>
               <b class="mnum">{dayNum(x)}</b>
               <div class="mitems">
                 {items.slice(0, items.length > cap ? cap - 1 : cap).map((it) => (
-                  <button class={'mchip ' + (it.tone === 'deadline' ? 'dl' : 't-' + it.tone)} onClick={() => openItem(it)} title={it.title}>
+                  <button class={'mchip ' + (it.tone === 'deadline' ? 'dl' : 't-' + it.tone)} onClick={() => openItem(it)} title={it.title} {...(it.kind === 'ctask' ? { 'data-drag-ok': true, ...dropContent(it.id, (day) => moveStage(it.cit, it.ctask, day)) } : {})}>
                     {it.start != null && <span class="tnum mtime">{toHHMM(it.start)}</span>}<span class="ellipsis">{it.tone === 'deadline' ? it.title.replace(/^Deadline: /, '') : it.title}</span>
                   </button>
                 ))}
@@ -230,9 +272,9 @@ function Agenda({ days, onPickDay }) {
             <button class="ag-date" onClick={() => onPickDay(d)} aria-label={'Open ' + fmtDay(d)}>
               <span class="ag-dow">{fmtWeekdayShort(d)}</span><b class="ag-num">{dayNum(d)}</b>
             </button>
-            <div class="ag-items">
+            <div class="ag-items" {...dropProps(d)}>
               {(d === t0 || mins > 0) && <div class="ag-meta">{[d === t0 ? 'Today' : '', mins ? fmtMinutes(mins) + ' planned' : ''].filter(Boolean).join(' · ')}</div>}
-              {allDay.map((it) => <button class={'cal-chip t-' + it.tone} onClick={() => openItem(it)}>{it.tone === 'deadline' && <Icon name="flag" size={11} />}<span class="ellipsis">{it.title}</span></button>)}
+              {allDay.map((it) => <Chip it={it} drag={days.length > 1} />)}
               {timed.map((it) => (
                 <button class={'ag-item' + (it.done ? ' done' : '')} onClick={() => openItem(it)}>
                   <span class="ag-time tnum">{toHHMM(it.start)}<small>{fmtMinutes(it.dur)}</small></span>
@@ -291,6 +333,7 @@ function Grid({ days, week, onPickDay }) {
   };
   const startDrag = (e, it, d, mode) => {
     if (it.kind === 'event') { e.stopPropagation(); openEventSheet(it.event.id); return; }
+    if (it.kind === 'thread') { e.stopPropagation(); openItem(it); return; }
     if (it.kind !== 'task' || e.button > 0) return;
     e.stopPropagation();
     const touch = e.pointerType === 'touch';
@@ -343,8 +386,8 @@ function Grid({ days, week, onPickDay }) {
         <div class="cal-allday" style={{ '--n': days.length }}>
           <div class="cal-gutter-label">All day</div>
           {data.map((x) => (
-            <div class="cal-allday-col">
-              {x.allDay.slice(0, cap).map((it) => <button class={'cal-chip t-' + it.tone} onClick={() => openItem(it)}>{it.tone === 'deadline' && <Icon name="flag" size={11} />}<span class="ellipsis">{it.title}</span></button>)}
+            <div class="cal-allday-col" {...(week ? dropProps(x.d) : {})}>
+              {x.allDay.slice(0, cap).map((it) => <Chip it={it} drag={week} />)}
               {x.allDay.length > cap && <button class="cal-more" onClick={() => onPickDay(x.d)}>+{x.allDay.length - cap} more</button>}
             </div>
           ))}
