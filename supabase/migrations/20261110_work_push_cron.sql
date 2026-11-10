@@ -1,0 +1,22 @@
+-- NOT APPLIED YET. Run after work-push is deployed and the user approves (Task 20, step 2).
+-- Schedules work-push every minute, same shape as the existing 'push-reminders' job.
+--
+-- copy headers from job 'push-reminders' (select command from cron.job where jobname='push-reminders')
+-- The x-cron-secret value there is push_config.cron_secret. Do not commit the real secret.
+--
+-- select cron.schedule(
+--   'work-push',
+--   '* * * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://ngdsdkqimosiiqzdacci.supabase.co/functions/v1/work-push',
+--     headers := '{"Content-Type":"application/json","x-cron-secret":"<copy from job push-reminders>"}'::jsonb,
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+--
+-- Check: select count(*) from cron.job where jobname = 'work-push';  -- expect 1
+-- After the iPhone test passes, unschedule the old jobs:
+--   select cron.unschedule('push-reminders');
+--   select cron.unschedule('content-push');   -- name to be confirmed from cron.job

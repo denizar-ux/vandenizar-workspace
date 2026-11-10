@@ -1,9 +1,9 @@
 // Web push: subscribe this device so reminders arrive even when the app is closed.
-// The server (Supabase edge function "push-reminders", run every minute) decides what to send.
+// The server (Supabase edge function "work-push", run every minute) decides what to send.
 import { supabase, sync } from './sync.js';
 
 const VAPID_PUBLIC = 'BFPkY9UzbadR5YZERroJ5TWg07DfRHN6YfFcOqlRxTwiAdi2zVouilGa_hry4M9wnN0_RGJnsEn25CdVq-NB_Cs';
-const FN_URL = 'https://ngdsdkqimosiiqzdacci.supabase.co/functions/v1/push-reminders';
+const FN_URL = 'https://ngdsdkqimosiiqzdacci.supabase.co/functions/v1/work-push';
 const FLAG = 'vz:push';
 
 export const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -52,7 +52,7 @@ export async function enablePush() {
   let sub = await reg.pushManager.getSubscription();
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC) });
   const j = sub.toJSON();
-  const { error } = await supabase.from('push_subscriptions').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, device: deviceName(), user_id: sync.user.id }, { onConflict: 'endpoint' });
+  const { error } = await supabase.from('work_push_subscriptions').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, device: deviceName(), user_id: sync.user.id }, { onConflict: 'endpoint' });
   if (error) throw error;
   setFlag(true);
 }
@@ -74,7 +74,7 @@ export async function disablePush() {
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg && (await reg.pushManager.getSubscription());
     if (sub) {
-      await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      await supabase.from('work_push_subscriptions').delete().eq('endpoint', sub.endpoint);
       await sub.unsubscribe();
     }
   } finally { setFlag(false); }

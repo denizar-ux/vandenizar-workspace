@@ -251,7 +251,7 @@ function PushRow({ s }) {
   return (
     <>
       <div class="set-row">
-        <div class="grow"><div>Notifications on this device</div><div class="hint">{blocked || 'Work schedule reminders, deadlines, project follow-ups and overdue invoices. Works with the app closed.'}</div></div>
+        <div class="grow"><div>Notifications on this device</div><div class="hint">{blocked || 'Work schedule, deadlines, follow-ups, overdue invoices, morning summary and post reminders. Works with the app closed.'}</div></div>
         <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label="Notifications on this device" disabled={!!blocked || busy} onClick={toggle} />
       </div>
       {on && <>

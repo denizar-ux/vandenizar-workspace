@@ -256,4 +256,13 @@ describe('trash', () => {
     const c = M.createPost({ title: '' })
     expect(M.dropIfBlank(c.id)).toBe(false)
   })
+
+  it('a fresh blank post that was trashed is not dropped, so Undo can restore it', () => {
+    const a = M.createPost({ title: '' }); M.markFreshBlank(a.id)
+    M.trashItem(a.id)
+    expect(M.dropIfBlank(a.id)).toBe(false)
+    expect(get('cItems', a.id)).toBeTruthy()
+    M.restoreItem(a.id)
+    expect(M.igItems().some((i) => i.id === a.id)).toBe(true)
+  })
 })

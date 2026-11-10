@@ -116,6 +116,7 @@ export const markFreshBlank = (id) => { freshBlanks.add(id) }
 export function dropIfBlank(id) {
   if (!freshBlanks.delete(id)) return false
   const it = get('cItems', id)
+  if (it && it.deletedAt) return false // already in the trash: leave it so Undo can restore it
   if (!isBlankPost(it)) return false
   remove('cItems', id)
   return true
