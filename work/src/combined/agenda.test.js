@@ -91,4 +91,35 @@ describe('buildAgenda', () => {
     const a = buildAgenda({ date: D });
     expect(a.anytime.filter((i) => i.kind === 'follow')).toHaveLength(1);
   });
+
+  it('billable overdue with work date after today is hidden', () => {
+    put('pmProjects', { id: 'pr1', name: 'Client job', billing: true, categoryId: 'freelance' });
+    task({ id: 't1', projectId: 'pr1', deadlineDate: '2026-11-08', workDate: '2026-11-12' });
+    const a = buildAgenda({ date: D });
+    expect([...a.late, ...a.anytime, ...a.scheduled]).toHaveLength(0);
+  });
+
+  it('billable overdue with no work date is late', () => {
+    put('pmProjects', { id: 'pr1', name: 'Client job', billing: true, categoryId: 'freelance' });
+    task({ id: 't1', projectId: 'pr1', deadlineDate: '2026-11-08' });
+    expect(buildAgenda({ date: D }).late.map((i) => i.key)).toEqual(['task:t1']);
+  });
+
+  it('project-less overdue task is non-billable and stays late', () => {
+    task({ id: 't1', deadlineDate: '2026-11-08', workDate: '2026-11-12' });
+    const a = buildAgenda({ date: D });
+    expect(a.late.map((i) => i.key)).toEqual(['task:t1']);
+    expect(a.anytime).toHaveLength(0);
+  });
+
+  it('timed task shows project, estimate and a future deadline note', () => {
+    put('pmProjects', { id: 'pr1', name: 'Reel', categoryId: 'in_house', billing: false });
+    task({ id: 't1', projectId: 'pr1', estimateMinutes: 90, workDate: D, workTime: '14:00', deadlineDate: '2026-11-13' });
+    expect(buildAgenda({ date: D }).scheduled[0].sub).toBe('Reel · 1h 30m · Deadline ' + fmtDay('2026-11-13'));
+  });
+
+  it('event without end time shows only the start and keeps location', () => {
+    put('pmEvents', { id: 'e1', title: 'Call', date: D, allDay: false, startTime: '09:00', location: 'Zoom' });
+    expect(buildAgenda({ date: D }).scheduled[0].sub).toBe('09:00 · Zoom');
+  });
 });

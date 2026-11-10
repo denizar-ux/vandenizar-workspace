@@ -17,7 +17,8 @@ const byTime = (a, b) => (a.time || '').localeCompare(b.time || '');
 
 function taskItem(t, date, sub, extra = {}) {
   const project = t.projectId ? get('pmProjects', t.projectId) : null;
-  const parts = [project?.name, t.estimateMinutes ? fmtMinutes(t.estimateMinutes) : null];
+  const note = t.deadlineDate ? (t.deadlineDate === date ? 'Deadline today' + (t.deadlineTime ? ' ' + t.deadlineTime : '') : 'Deadline ' + fmtDay(t.deadlineDate)) : null;
+  const parts = [project?.name, t.estimateMinutes ? fmtMinutes(t.estimateMinutes) : null, note];
   return {
     key: 'task:' + t.id, kind: 'task', area: areaOfTask(t), time: t.workDate === date ? t.workTime || null : null,
     title: t.title, sub: sub != null ? sub : parts.filter(Boolean).join(' · '), ref: { coll: 'pmTasks', id: t.id }, actions: [], tone: undefined, ...extra,
@@ -26,7 +27,7 @@ function taskItem(t, date, sub, extra = {}) {
 
 function eventItem(e) {
   const project = e.projectId ? get('pmProjects', e.projectId) : null;
-  const range = e.allDay ? '' : e.startTime + '-' + e.endTime;
+  const range = e.allDay ? '' : e.endTime ? e.startTime + '-' + e.endTime : e.startTime || '';
   return {
     key: 'event:' + e.id, kind: 'event', area: areaOfTask({ projectId: project ? project.id : null }), time: e.allDay ? null : e.startTime,
     title: e.title, sub: [range, e.location].filter(Boolean).join(' · '), ref: { coll: 'pmEvents', id: e.id }, actions: [], tone: undefined,
@@ -76,11 +77,13 @@ export function buildAgenda({ date, filter = 'all' }) {
   for (const t of sortTasks(liveTasks().filter(isOpen), 'deadline')) {
     const project = t.projectId ? get('pmProjects', t.projectId) : null;
     if (isLateOn(t, date)) {
-      if (project && projectBilling(project) && t.workDate && t.workDate >= date) anyWork.push(taskItem(t, date, 'Client deadline passed', { tone: 'bad' }));
+      const billable = project && projectBilling(project);
+      if (billable && t.workDate === date) anyWork.push(taskItem(t, date, 'Client deadline passed', { tone: 'bad' }));
+      else if (billable && t.workDate > date) continue; // planned later, not today's business
       else lateWork.push(taskItem(t, date, ['Deadline passed', project?.name].filter(Boolean).join(' · ')));
     } else if (t.workDate === date) (t.workTime ? scheduled : anyWork).push(taskItem(t, date));
     else if (isBehindOn(t, date)) anyWork.push(taskItem(t, date, 'Planned ' + fmtDay(t.workDate)));
-    else if (t.deadlineDate === date && !t.workDate) anyWork.push(taskItem(t, date, ['Deadline today' + (t.deadlineTime ? ' ' + t.deadlineTime : ''), project?.name].filter(Boolean).join(' · ')));
+    else if (t.deadlineDate === date && !t.workDate) anyWork.push(taskItem(t, date));
     else if (t.pinnedOn === date) anyWork.push(taskItem(t, date));
   }
 
