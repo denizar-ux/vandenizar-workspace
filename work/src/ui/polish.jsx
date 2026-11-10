@@ -5,10 +5,10 @@ import * as M from '../lib/model.js';
 import { projectProgress, segments } from '../combined/areas.js';
 import { StagePill } from './parts.jsx';
 
-export function BentoCard({ tint = 'butter', icon, label, value, children, href }) {
-  const C = href ? 'a' : 'div';
+export function BentoCard({ tint = 'butter', icon, label, value, children, href, onClick }) {
+  const C = href ? 'a' : onClick ? 'button' : 'div';
   return (
-    <C class={'bento t-' + tint} href={href || undefined}>
+    <C class={'bento t-' + tint} href={href || undefined} type={C === 'button' ? 'button' : undefined} onClick={onClick}>
       {icon && <span class="bento-ic" aria-hidden="true"><Icon name={icon} size={18} /></span>}
       <span class="bento-label">{label}</span>
       {value != null && <span class="bento-value tnum">{value}</span>}

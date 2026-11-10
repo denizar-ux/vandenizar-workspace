@@ -1,7 +1,11 @@
 import { render } from 'preact';
 import './fonts.css';
 import './styles.css';
+import * as db from './lib/db.js';
 import { initDb, get, put } from './lib/db.js';
+import * as PM from './lib/model.js';
+import * as CM from './content/model.js';
+import { loadSampleData } from './lib/sample.js';
 import { DEFAULT_SETTINGS, autoArchiveProjects } from './lib/model.js';
 import { App } from './App.jsx';
 import { initSync, onSync, sync, LOCAL } from './lib/sync.js';
@@ -13,6 +17,8 @@ try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =
 
 async function boot() {
   await initDb();
+  // Dev/local-build only: lets visual checks seed data. Not present in a normal production build.
+  if (import.meta.env.DEV || import.meta.env.VITE_LOCAL === '1') window.__vzw = { db, PM, CM, loadSampleData };
   if (!get('meta', 'pmSettings')) put('meta', { ...DEFAULT_SETTINGS });
   const sweep = () => { try { autoArchiveProjects(); } catch (e) { console.error('auto-archive', e); } };
   sweep();
