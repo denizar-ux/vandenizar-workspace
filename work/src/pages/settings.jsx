@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { Field, TextInput, TextArea, Select, TimeInput, NumberInput, Segmented, ListEditor, Empty, copyText, ColorDots } from '../ui/kit.jsx';
-import { toast, confirmDialog, openMenu, openOverlay, SheetHead, SheetBody } from '../ui/overlay.jsx';
+import { toast, confirmDialog, openMenu, openOverlay, SheetHead, SheetBody, SheetFoot } from '../ui/overlay.jsx';
 import { PageHeader, fmtAgo, CategoryField, openCategorySheet } from '../ui/parts.jsx';
 import { WorkflowPicker } from './projects.jsx';
+import { Group, ContentSection } from './settings-content.jsx';
 import { navigate } from '../lib/router.js';
-import { all, patch, remove, useStore, exportAll, importAll, wipeAll, counts } from '../lib/db.js';
-import { today, addDays, fmtShort, isoOf } from '../lib/date.js';
+import { all, patch, remove, useStore, exportAll, wipeAll, counts } from '../lib/db.js';
+import * as C from '../content/model.js';
+import { previewImport, importBackup } from '../combined/importOld.js';
+import { today, addDays } from '../lib/date.js';
 import { CURRENCIES } from '../lib/money.js';
 import * as M from '../lib/model.js';
 import { saveFile, saveMessage } from '../lib/files.js';
@@ -49,27 +52,25 @@ async function downloadBlob(name, text, type, okText) {
 }
 
 const SECTIONS = [
-  { id: 'account', label: 'Account & sync', icon: 'restore', tone: 'cyan' },
+  { id: 'general', label: 'General', icon: 'sun', tone: 'lavender' },
+  { id: 'categories', label: 'Categories', icon: 'tag', tone: 'peach' },
+  { id: 'content', label: 'Content', icon: 'image', tone: 'peach' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', tone: 'butter' },
-  { id: 'general', label: 'Profile & appearance', icon: 'sun', tone: 'lavender' },
-  { id: 'tasks', label: 'Tasks', icon: 'tasks', tone: 'sage' },
-  { id: 'projects', label: 'Projects', icon: 'folder', tone: 'butter' },
-  { id: 'categories', label: 'Project categories', icon: 'tag', tone: 'peach', hidden: true },
-  { id: 'freelance', label: 'Freelance & invoices', icon: 'file', tone: 'rose' },
-  { id: 'shortcuts', label: 'iPhone shortcuts', icon: 'bolt', tone: 'butter' },
+  { id: 'freelance', label: 'Business & invoices', icon: 'file', tone: 'rose' },
   { id: 'data', label: 'Backup & data', icon: 'archive', tone: 'plain' },
+  { id: 'account', label: 'Account', icon: 'restore', tone: 'cyan' },
 ];
+// links from the old layout still land somewhere sensible
+const SECTION_ALIAS = { tasks: 'general', projects: 'categories', shortcuts: 'general' };
 function summary(id, s) {
   switch (id) {
-    case 'account': return LOCAL ? 'Cloud sync is off' : sync.user ? syncLabel() : 'Not signed in';
-    case 'notifications': return LOCAL ? 'Cloud sync is off' : pushFlag() ? 'On for this device' : 'Off on this device';
-    case 'general': return s.name + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
-    case 'tasks': return (s.defaultEstimate ? 'Estimate ' + s.defaultEstimate + 'm' : 'No default estimate') + ' · week starts ' + ({ 1: 'Monday', 6: 'Saturday', 0: 'Sunday' }[s.weekStart] || 'Monday');
-    case 'projects': return 'Categories, workflow';
+    case 'general': return s.name + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device') + ' · week starts ' + ({ 1: 'Monday', 6: 'Saturday', 0: 'Sunday' }[s.weekStart] || 'Monday');
     case 'categories': return M.categories().map((c) => c.name).join(', ');
+    case 'content': return C.slots().length + ' slots · ' + C.pillars().length + ' pillars · ' + C.formats().length + ' formats';
+    case 'notifications': return LOCAL ? 'Reminder times' : pushFlag() ? 'Push on for this device' : 'Push off on this device';
     case 'freelance': return 'Next invoice ' + M.nextInvoiceNumber().num;
-    case 'shortcuts': return 'Home Screen, Siri, Back Tap';
     case 'data': return 'Export, import, sample data';
+    case 'account': return LOCAL ? 'Cloud sync is off' : sync.user ? syncLabel() : 'Not signed in';
     default: return '';
   }
 }
@@ -77,8 +78,9 @@ function summary(id, s) {
 export function SettingsPage({ section }) {
   useStore(); useSync();
   const s = M.settings();
-  const valid = SECTIONS.some((x) => x.id === section);
-  const cur = valid ? section : 'account';
+  const sec = SECTION_ALIAS[section] || section;
+  const valid = SECTIONS.some((x) => x.id === sec);
+  const cur = valid ? sec : 'general';
   const meta = SECTIONS.find((x) => x.id === cur);
   return (
     <div class={'page settings-page ' + (valid ? 'has-section' : 'no-section')}>
@@ -86,7 +88,7 @@ export function SettingsPage({ section }) {
         <div class="set-hub">
           <PageHeader title="Settings." />
           <nav class="set-nav">
-            {SECTIONS.filter((x) => !x.hidden).map((x) => (
+            {SECTIONS.map((x) => (
               <a href={'#/settings/' + x.id} class={'set-nav-item ' + (x.id === cur ? 'on' : '')}>
                 <span class={'set-ico t-' + x.tone}><Icon name={x.icon} size={18} /></span>
                 <span class="grow"><span class="set-nav-label">{x.label}</span><span class="set-nav-sub">{summary(x.id, s)}</span></span>
@@ -98,28 +100,20 @@ export function SettingsPage({ section }) {
           <div class="quiet-note">Vandenizar · times in WIB (Asia/Jakarta)</div>
         </div>
         <div class="set-panel">
-          <a href={cur === 'categories' ? '#/settings/projects' : '#/settings'} class="set-back"><Icon name="chevronLeft" size={18} />{cur === 'categories' ? 'Projects' : 'Settings'}</a>
+          <a href="#/settings" class="set-back"><Icon name="chevronLeft" size={18} />Settings</a>
           <h2 class="set-title">{meta.label}</h2>
-          {cur === 'account' && (LOCAL ? <LocalNote /> : <AccountCard />)}
-          {cur === 'notifications' && (LOCAL ? <LocalNote /> : <NotificationsSection s={s} />)}
-          {cur === 'general' && <GeneralSection s={s} />}
-          {cur === 'tasks' && <TasksSection s={s} />}
-          {cur === 'projects' && <ProjectsSection s={s} />}
-          {cur === 'categories' && <CategoriesSection />}
+          {cur === 'general' && <><GeneralSection s={s} /><TasksSection s={s} /><ShortcutsSection /></>}
+          {cur === 'categories' && <><CategoriesSection /><ProjectsSection s={s} /></>}
+          {cur === 'content' && <ContentSection />}
+          {cur === 'notifications' && <NotificationsSection s={s} />}
           {cur === 'freelance' && <FreelanceSection s={s} />}
-          {cur === 'shortcuts' && <ShortcutsSection />}
           {cur === 'data' && <DataSection />}
+          {cur === 'account' && (LOCAL ? <LocalNote /> : <AccountCard />)}
         </div>
       </div>
     </div>
   );
 }
-const Group = ({ title, hint, children }) => (
-  <section class="block set-card">
-    {title && <div class="set-card-head"><div class="block-title">{title}</div>{hint && <div class="set-card-hint">{hint}</div>}</div>}
-    <div class="set-group">{children}</div>
-  </section>
-);
 const set = (ch) => M.setSettings(ch);
 
 function GeneralSection({ s }) {
@@ -149,9 +143,6 @@ function ProjectsSection({ s }) {
         <CategoryField id="set-cat" label="Default category" value={s.defaultCategory} onChange={(v) => set({ defaultCategory: v })} />
         <div class="field-hint">Built in: In-house, Freelance, Personal, Learning. Billing is switched on per project.</div>
         <Field label="Default workflow"><WorkflowPicker value={s.defaultWorkflow || 'general'} onChange={(v) => set({ defaultWorkflow: v })} /></Field>
-      </Group>
-      <Group>
-        <a class="set-link" href="#/settings/categories"><Icon name="tag" size={18} /><span class="grow">Manage categories</span><span class="muted ellipsis" style={{ maxWidth: '45%' }}>{M.categories().map((c) => c.name).join(', ')}</span><Icon name="chevronRight" size={16} /></a>
       </Group>
     </>
   );
@@ -271,11 +262,20 @@ function PushRow({ s }) {
   );
 }
 function NotificationsSection({ s }) {
+  useStore();
+  const n = C.notifyPrefs();
+  const tog = (on, label, onClick) => <button class={'toggle ' + (on ? 'on' : '')} role="switch" aria-checked={on} aria-label={label} onClick={onClick} />;
   return (
     <>
-      <Group title="Push notifications" hint="Turn on per device"><PushRow s={s} /></Group>
-      <Group title="Daily check time" hint="When deadlines without a time, follow-ups and overdue invoices are announced">
+      {!LOCAL && <Group title="Push notifications" hint="Turn on per device"><PushRow s={s} /></Group>}
+      <Group title="Work reminders" hint="When deadlines without a time, follow-ups and overdue invoices are announced">
         <Field label="Time (WIB)" htmlFor="set-rt"><TimeInput id="set-rt" value={s.reminderTime} onChange={(v) => set({ reminderTime: v || '09:00' })} /></Field>
+      </Group>
+      <Group title="Content reminders">
+        <div class="set-row"><div class="grow"><div>Morning summary</div><div class="hint">What is on for the day: stage tasks, posts and Threads.</div></div>{tog(n.morning, 'Morning summary', () => C.setNotify({ morning: !n.morning }))}</div>
+        {n.morning && <Field label="Morning summary time (WIB)" htmlFor="set-mt"><TimeInput id="set-mt" value={n.morningTime} onChange={(v) => C.setNotify({ morningTime: v || '08:00' })} /></Field>}
+        <div class="set-row"><div class="grow"><div>Post reminder</div><div class="hint">A nudge on days a post is due.</div></div>{tog(n.postReminder, 'Post reminder', () => C.setNotify({ postReminder: !n.postReminder }))}</div>
+        {n.postReminder && <Field label="Post reminder time (WIB)" htmlFor="set-pt"><TimeInput id="set-pt" value={n.postTime} onChange={(v) => C.setNotify({ postTime: v || '19:00' })} /></Field>}
       </Group>
       <Group title="Calendar file instead" hint="Works everywhere, no account needed">
         <div class="muted" style={{ fontSize: 14 }}>Exports the next 30 days of scheduled work, deadlines and follow-ups as an .ics file with alerts. Import it into Apple or Google Calendar. Export again after big changes.</div>
@@ -297,30 +297,53 @@ function ShortcutsSection() {
     </>
   );
 }
+const COUNT_LABELS = [['tasks', 'task'], ['projects', 'project'], ['clients', 'client'], ['invoices', 'invoice'], ['posts', 'post'], ['threads', 'thread'], ['links', 'resource']];
+const SOURCE_LABELS = { work: 'Vandenizar Work backup', pm: 'Project manager export', cos: 'Content OS export' };
+function ImportSheet({ json, preview, close }) {
+  const [busy, setBusy] = useState(false);
+  const parts = COUNT_LABELS.filter(([k]) => preview.counts[k]).map(([k, w]) => preview.counts[k] + ' ' + w + (preview.counts[k] === 1 ? '' : 's'));
+  const run = async () => {
+    setBusy(true);
+    try { const r = await importBackup(json); close(); toast('Imported ' + r.added + ' item' + (r.added === 1 ? '' : 's')); }
+    catch (e) { setBusy(false); toast(e.message || 'Import failed.', { tone: 'warn', duration: 5000 }); }
+  };
+  return (
+    <>
+      <SheetHead title="Import backup" sub={SOURCE_LABELS[preview.source]} onClose={close} />
+      <SheetBody>
+        <div class="import-counts">{parts.length ? parts.join(', ') : 'No records in this file'}</div>
+        {preview.already > 0 && <div class="notice t-butter"><Icon name="info" size={17} />Already imported: {preview.already} record{preview.already === 1 ? '' : 's'} are on this device and will be skipped.</div>}
+        <div class="muted" style={{ fontSize: 13 }}>Nothing on this device is changed or overwritten.</div>
+      </SheetBody>
+      <SheetFoot>
+        <button type="button" class="btn ghost" onClick={close}>Cancel</button>
+        <button type="button" class="btn primary" disabled={busy} onClick={run}>{busy ? 'Importing…' : 'Import'}</button>
+      </SheetFoot>
+    </>
+  );
+}
 function DataSection() {
   useStore();
   const fileRef = useRef();
   const c = counts();
-  const doExport = () => { const name = `vandenizar-backup-${today()}.json`; downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', 'Backup saved: ' + name); };
-  const doImport = async (file) => {
-    try {
-      const json = JSON.parse(await file.text());
-      if (!(await confirmDialog({ title: 'Replace everything with this backup?', body: 'Backup from ' + (json.exportedAt ? fmtShort(isoOf(Date.parse(json.exportedAt))) : 'an unknown date') + '. Records not in the backup are removed. Export first if unsure.', confirmLabel: 'Restore backup', danger: true }))) return;
-      const ok = await importAll(json);
-      toast(ok ? 'Backup restored' : 'Restored in memory, but saving failed. Try again.', { tone: ok ? '' : 'warn' });
-    } catch (e) { toast(e.message || 'That file could not be read.', { tone: 'warn' }); }
+  const doExport = () => { const name = `vandenizar-work-${today()}.json`; downloadBlob(name, JSON.stringify(exportAll(), null, 1), 'application/json', 'Backup saved: ' + name); };
+  const pick = async (file) => {
+    let json;
+    try { json = JSON.parse(await file.text()); } catch { return toast('That file could not be read.', { tone: 'warn' }); }
+    try { const preview = previewImport(json); openOverlay((close) => <ImportSheet json={json} preview={preview} close={close} />, { kind: 'sheet' }); }
+    catch (e) { toast(e.message || 'That file could not be read.', { tone: 'warn' }); }
   };
   return (
     <>
       <Group title="Where your data lives">
         <div style={{ fontSize: 14 }}>{sync.user ? <>Saved on this device and synced to <b>{sync.user.email}</b>.</> : 'Saved on this device only. Sign in to back it up.'}</div>
-        <div class="muted" style={{ fontSize: 13 }}>{c.pmTasks} tasks · {c.pmProjects} projects · {c.clients} clients · {c.invoices} invoices</div>
+        <div class="muted" style={{ fontSize: 13 }}>{c.pmTasks} tasks · {c.pmProjects} projects · {c.clients} clients · {c.invoices} invoices · {C.igItems().length} posts</div>
       </Group>
-      <Group title="Backup file" hint="A JSON copy of everything">
+      <Group title="Backup file" hint="Export saves everything. Import accepts this app's backup, a project manager export or a Content OS export, and never overwrites.">
         <div class="row gap-8 wrap">
           <button class="btn sm outline" onClick={doExport}><Icon name="download" size={15} />Export</button>
           <button class="btn sm outline" onClick={() => fileRef.current.click()}><Icon name="upload" size={15} />Import</button>
-          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; e.currentTarget.value = ''; if (f) doImport(f); }} />
+          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.currentTarget.files[0]; e.currentTarget.value = ''; if (f) pick(f); }} />
         </div>
       </Group>
       <Group title="Sample data">
