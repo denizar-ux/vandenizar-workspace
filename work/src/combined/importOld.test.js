@@ -76,6 +76,31 @@ describe('importBackup: project manager', () => {
     await importBackup(pm);
     expect(get('meta', 'pmSettings').defaultCurrency).toBe('USD');
   });
+  it('maps project categories by name to ones on this device', async () => {
+    put('meta', { id: 'pmCategories', items: [
+      { id: 'zzz', name: 'FREELANCE', color: 'rose', archived: false, order: 1 },
+      { id: 'own', name: 'Studio', color: 'sage', archived: false, order: 2 },
+    ] });
+    await importBackup(pm);
+    const proj = all('pmProjects').find((p) => p.importedFrom === 'pm:pr1'); // freelance
+    expect(proj.categoryId).toBe('zzz');
+    expect(get('meta', 'pmCategories').items).toHaveLength(2);
+  });
+  it('adds a category that does not exist here yet', async () => {
+    put('meta', { id: 'pmCategories', items: [{ id: 'own', name: 'Studio', color: 'sage', archived: false, order: 1 }] });
+    await importBackup(pm);
+    const items = get('meta', 'pmCategories').items;
+    const added = items.find((c) => c.name === 'Freelance');
+    expect(added).toBeTruthy();
+    expect(added.id).not.toBe('own');
+    expect(all('pmProjects').find((p) => p.importedFrom === 'pm:pr1').categoryId).toBe(added.id);
+    expect(all('pmProjects').find((p) => p.importedFrom === 'pm:pr2').categoryId).toBe('personal'); // not listed in the backup's categories: left as is
+  });
+  it('keeps default category ids that exist on both sides', async () => {
+    await importBackup(pm);
+    expect(all('pmProjects').find((p) => p.importedFrom === 'pm:pr1').categoryId).toBe('freelance');
+    expect(all('pmProjects').find((p) => p.importedFrom === 'pm:pr2').categoryId).toBe('personal');
+  });
   it('a second import adds nothing and the preview says so', async () => {
     await importBackup(pm);
     expect(previewImport(pm).already).toBe(11);
@@ -148,6 +173,25 @@ describe('importBackup: work backup and garbage', () => {
     const res = await importBackup(snap);
     expect(res.added).toBe(1);
     expect(all('pmTasks').map((t) => t.id).sort()).toEqual(['a', 'b']);
+  });
+  it('never overwrites a record or setting already on this device', async () => {
+    put('pmTasks', { id: 'X', title: 'old' });
+    put('meta', { id: 'pmSettings', defaultCurrency: 'old' });
+    const snap = exportAll();
+    put('pmTasks', { id: 'Y', title: 'only in file' });
+    put('meta', { id: 'extra', v: 1 });
+    const file = exportAll();
+    resetForTests();
+    put('pmTasks', { id: 'X', title: 'local' });
+    put('meta', { id: 'pmSettings', defaultCurrency: 'local' });
+    expect(previewImport(file).already).toBe(1);
+    const res = await importBackup(file);
+    expect(res).toEqual({ added: 1, skipped: 1 });
+    expect(get('pmTasks', 'X').title).toBe('local');
+    expect(get('pmTasks', 'Y').title).toBe('only in file');
+    expect(get('meta', 'pmSettings').defaultCurrency).toBe('local');
+    expect(get('meta', 'extra').v).toBe(1);
+    expect(snap.app).toBe('vandenizar-work');
   });
   it('throws the exact message for garbage', async () => {
     await expect(importBackup({ nope: true })).rejects.toThrow(MSG);

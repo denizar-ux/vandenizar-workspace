@@ -1,5 +1,6 @@
 // Bring data from the two old apps (project manager, Content OS) or a backup of this app into the shared store.
 import { all, get, put, uid, importAll, COLLECTIONS, flush } from '../lib/db.js';
+import { categories, addCategory, DEFAULT_CATEGORIES } from '../lib/model.js';
 
 const NOT_BACKUP = 'This file is not a Vandenizar backup';
 const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
@@ -73,15 +74,43 @@ const keepNumericCreatedAt = (r) => {
   return typeof createdAt === 'number' ? { ...rest, createdAt } : rest;
 };
 
+// Old category id -> id of the category with the same name on this device (added when missing).
+function categoryMapper(json) {
+  const stored = rows(json, 'meta').find((r) => r.id === 'pmCategories');
+  const theirs = (stored && Array.isArray(stored.items) ? stored.items : DEFAULT_CATEGORIES).filter((c) => c && c.id);
+  const cache = new Map();
+  return (oldId) => {
+    if (!oldId) return oldId;
+    if (cache.has(oldId)) return cache.get(oldId);
+    const src = theirs.find((c) => c.id === oldId);
+    let id = oldId;
+    if (src && src.name) {
+      const name = String(src.name).trim().toLowerCase();
+      const hit = categories({ includeArchived: true }).find((c) => String(c.name).trim().toLowerCase() === name);
+      id = hit ? hit.id : addCategory(src.name, src.color || 'plain').id;
+    }
+    cache.set(oldId, id);
+    return id;
+  };
+}
+
 /** @returns {Promise<{ added: number, skipped: number }>} */
 export async function importBackup(json) {
   const src = detectBackup(json);
   if (!src) throw new Error(NOT_BACKUP);
 
   if (src === 'work') {
+    // Never overwrite: only records whose id is not on this device yet go through importAll.
     let added = 0, skipped = 0;
-    for (const c of COLLECTIONS) if (c !== 'meta') for (const r of rows(json, c)) (get(c, r.id) ? skipped++ : added++);
-    await importAll(json, { replace: false });
+    const data = {};
+    for (const c of COLLECTIONS) {
+      data[c] = rows(json, c).filter((r) => {
+        const exists = !!get(c, r.id);
+        if (c !== 'meta') exists ? skipped++ : added++;
+        return !exists;
+      });
+    }
+    await importAll({ ...json, data }, { replace: false });
     return { added, skipped };
   }
 
@@ -95,6 +124,7 @@ export async function importBackup(json) {
       idMap[s.coll].set(r.id, known || (s.fresh.includes(r) ? uid() : null));
     }
   }
+  const mapCategory = src === 'pm' ? categoryMapper(json) : null;
   // 2. write, with references pointing at the new ids
   let added = 0, skipped = 0;
   for (const s of steps) {
@@ -105,6 +135,11 @@ export async function importBackup(json) {
         if (rec[field] == null || rec[field] === '') continue;
         rec[field] = idMap[target]?.get(rec[field]) || fallback;
       }
+      if (s.coll === 'pmProjects') {
+        const { workspace, ...rest } = rec;
+        rec = { ...rest, categoryId: mapCategory(rec.categoryId || workspace) };
+        if (!rec.categoryId) delete rec.categoryId;
+      }
       if (src === 'cos' && rec.kind === 'idea') rec = { ...rec, kind: 'ig', stage: 'idea' };
       put(s.coll, rec);
       added++;
@@ -112,7 +147,10 @@ export async function importBackup(json) {
   }
   // 3. settings, only when this device has none yet
   if (src === 'pm') {
-    for (const r of rows(json, 'meta')) if (PM_META.includes(r.id) && !get('meta', r.id)) put('meta', r);
+    for (const r of rows(json, 'meta')) {
+      if (!PM_META.includes(r.id) || get('meta', r.id)) continue;
+      put('meta', r.id === 'pmSettings' && r.defaultCategory ? { ...r, defaultCategory: mapCategory(r.defaultCategory) } : r);
+    }
   } else {
     const s = rows(json, 'settings')[0];
     if (s && !get('meta', 'cSettings')) {
