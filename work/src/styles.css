@@ -911,3 +911,21 @@ a.bento:active { transform: scale(.985); }
 .month-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
 .posted-row { color: var(--ink); text-decoration: none; }
 .group-label .count { margin-left: 6px; }
+
+/* ---------- post detail ---------- */
+.sched-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.sched-done { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; color: var(--good); font-weight: 600; }
+.field-error { font-size: 12.5px; color: var(--bad); font-weight: 500; }
+.slot-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 16px; border-radius: 999px; background: var(--surface-2); font-size: 15px; text-align: left; color: var(--ink); }
+.ref-row { display: flex; align-items: center; gap: 10px; min-height: 46px; border-bottom: 1px solid var(--line); }
+.ref-link { display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 40%; font-size: 14.5px; font-weight: 550; color: var(--ink); text-decoration: none; }
+.details-sum { font-size: 13px; font-weight: 400; margin-left: auto; margin-right: 8px; }
+.posted-note { color: var(--good); font-weight: 600; align-items: center; }
+.btn.lg.grow { flex: 1; justify-content: center; }
+.week-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-weight: 550; }
+.slot-opt { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 18px; border-radius: 18px; color: var(--ink); text-align: left; font-size: 15px; }
+.slot-opt:disabled { opacity: .45; }
+.slot-opt.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.sched-grid .field-label { display: flex; align-items: center; min-height: 20px; }
+.post-detail .seg .seg-btn { padding: 0 10px; flex: 1 1 auto; font-size: 13.5px; }
+.post-detail .status-banner { flex-wrap: nowrap; align-items: flex-start; font-size: 14.5px; }

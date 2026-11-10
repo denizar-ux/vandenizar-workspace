@@ -20,6 +20,7 @@ import { ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
 import { ContentPage } from './pages/content-ig.jsx';
+import { PostDetail } from './pages/content-post.jsx';
 import { LOCAL } from './lib/sync.js';
 import { SettingsPage, TrashPage, MorePage, LoginPage, useSync, syncLabel } from './pages/settings.jsx';
 
@@ -66,7 +67,7 @@ function Shell() {
   else if (p0 === 'projects' && p1) { nav = 'work'; page = <ProjectDetail id={p1} key={p1} />; }
   else if (p0 === 'work') { nav = 'work'; page = <WorkPage tab={p1} query={r.query} />; }
   else if (p0 === 'content') { nav = 'content'; page = <ContentPage tab={p1} query={r.query} />; }
-  else if (p0 === 'post') { nav = 'content'; page = <Placeholder title="Content." line="Coming next." />; }
+  else if (p0 === 'post' && p1) { nav = 'content'; page = <PostDetail id={p1} key={p1} />; }
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
   else if (p0 === 'clients') { nav = 'more'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
   else if (p0 === 'invoices') { nav = 'more'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
