@@ -35,7 +35,8 @@ export function checkItem(item) {
     toast('Task done', { action: { label: 'Undo', run: () => M.reopenTask(id) } });
   } else if (item.kind === 'ctask') {
     const prev = C.completeTask(id, C.taskOf(item.ref.task));
-    toast('Moved to the next stage', { action: { label: 'Undo', run: () => prev && C.setStage(id, prev) } });
+    const now = (get('cItems', id) || {}).stage;
+    toast(now === 'done' ? 'Posted' : 'Moved to ' + C.stageOf(now).label, { action: { label: 'Undo', run: () => prev && C.setStage(id, prev) } });
   } else if (item.kind === 'post') {
     const prev = (get('cItems', id) || {}).stage || 'idea';
     C.setStage(id, 'done');
@@ -65,8 +66,10 @@ export function AgendaRow({ item }) {
   const hasCheck = item.kind !== 'event';
   return (
     <div class={'prow agenda-row ar-' + item.kind}>
-      {hasCheck
-        ? <Check checked={false} onChange={() => checkItem(item)} label={(item.kind === 'follow' ? 'Open ' : 'Complete ') + item.title} />
+      {item.kind === 'follow'
+        ? <button type="button" class="ar-chev" aria-label="Open project" onClick={() => openItem(item)}><Icon name="chevronRight" size={15} stroke={2.2} /></button>
+        : hasCheck
+        ? <Check checked={false} onChange={() => checkItem(item)} label={'Complete ' + item.title} />
         : <span class="ar-ev" aria-hidden="true"><Icon name="clock" size={16} /></span>}
       <span class="ar-dot" style={{ background: 'var(--' + item.area.color + ')' }} title={item.area.name} aria-label={item.area.name} role="img" />
       <div class="prow-main ar-main">

@@ -6,6 +6,7 @@ import { pickProject, InvoicePill, StagePill, whenLabel, PageHeader } from './ui
 import { useRoute, navigate } from './lib/router.js';
 import { useStore, persist, flush, get } from './lib/db.js';
 import * as M from './lib/model.js';
+import * as C from './content/model.js';
 import { today, addDays, relDay } from './lib/date.js';
 import { fmtMoney } from './lib/money.js';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
@@ -18,6 +19,7 @@ import { CalendarPage } from './pages/calendar.jsx';
 import { ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
+import { ContentPage } from './pages/content-ig.jsx';
 import { LOCAL } from './lib/sync.js';
 import { SettingsPage, TrashPage, MorePage, LoginPage, useSync, syncLabel } from './pages/settings.jsx';
 
@@ -55,7 +57,7 @@ function Shell() {
     const q = { ...r.query }; delete q.add;
     const rest = new URLSearchParams(q).toString();
     navigate(r.path + (rest ? '?' + rest : ''), { replace: true });
-    setTimeout(() => { if (add === 'task') openQuickAdd(); else if (add === 'search') openSearch(); else if (add === 'post' || add === 'thread') toast('Coming in the next update'); }, 120);
+    setTimeout(() => { if (add === 'task') openQuickAdd(); else if (add === 'search') openSearch(); else if (add === 'post') newPost(); else if (add === 'thread') newThread(); }, 120);
   }, [r.full]);
 
   let page, nav = 'today';
@@ -63,7 +65,7 @@ function Shell() {
   else if (p0 === 'tasks' && p1) { nav = 'work'; page = <TaskDetail id={p1} key={p1} />; }
   else if (p0 === 'projects' && p1) { nav = 'work'; page = <ProjectDetail id={p1} key={p1} />; }
   else if (p0 === 'work') { nav = 'work'; page = <WorkPage tab={p1} query={r.query} />; }
-  else if (p0 === 'content') { nav = 'content'; page = <Placeholder title="Content." line="Coming next." />; }
+  else if (p0 === 'content') { nav = 'content'; page = <ContentPage tab={p1} query={r.query} />; }
   else if (p0 === 'post') { nav = 'content'; page = <Placeholder title="Content." line="Coming next." />; }
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
   else if (p0 === 'clients') { nav = 'more'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
@@ -75,7 +77,7 @@ function Shell() {
   else if (p0 === 'search') { nav = 'search'; page = <SearchPage />; }
   else if (p0 === 'dev' && p1 === 'ui') { nav = 'more'; page = <DevUiPage />; }
   if (!page) page = <div class="page narrow"><div class="empty"><div class="empty-title">This page moved or no longer exists.</div><a class="btn primary" href="#/">Go to Today</a></div></div>;
-  const detail = (p0 === 'tasks' || p0 === 'projects' || p0 === 'invoices' || p0 === 'clients') && p1;
+  const detail = (p0 === 'tasks' || p0 === 'post' || p0 === 'projects' || p0 === 'invoices' || p0 === 'clients') && p1;
 
   return (
     <div class={'app' + (detail ? ' is-detail' : '')}>
@@ -164,6 +166,12 @@ function UpdatePill() {
   return <div class="update-pill" role="status"><span>New version ready</span><button class="btn xs primary" disabled={busy} onClick={() => { setBusy(true); applyUpdate(); }}>{busy ? 'Updating…' : 'Update'}</button></div>;
 }
 
+export function newPost() {
+  const p = C.createPost({ title: '' });
+  navigate('/post/' + p.id);
+}
+export function newThread() { navigate('/content/threads?new=1'); }
+
 // =====================================================================
 // ADD MENU
 // =====================================================================
@@ -171,8 +179,8 @@ const ADD_ITEMS = [
   { id: 'task', label: 'Task', icon: 'square', run: () => openQuickAdd() },
   { id: 'event', label: 'Event', icon: 'calendar', run: () => openEventSheet(null, {}) },
   { id: 'project', label: 'Project', icon: 'folder', run: () => openProjectSheet() },
-  { id: 'post', label: 'IG post', icon: 'image', run: () => toast('Coming in the next update') },
-  { id: 'thread', label: 'Thread', icon: 'chat', run: () => toast('Coming in the next update') },
+  { id: 'post', label: 'IG post', icon: 'image', run: () => newPost() },
+  { id: 'thread', label: 'Thread', icon: 'chat', run: () => newThread() },
 ];
 const LAST_ADD = 'vzw:lastAdd';
 const lastAdd = () => { try { return localStorage.getItem(LAST_ADD) || ''; } catch { return ''; } };

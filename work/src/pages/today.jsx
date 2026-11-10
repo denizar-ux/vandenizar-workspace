@@ -4,6 +4,7 @@ import { toast } from '../ui/overlay.jsx';
 import { AddBtn } from '../ui/parts.jsx';
 import { BentoCard, ChipCount } from '../ui/polish.jsx';
 import { AgendaRow } from '../ui/agendaRow.jsx';
+import { SlotTile } from '../ui/slotTile.jsx';
 import { openAddMenu } from '../App.jsx';
 import { navigate } from '../lib/router.js';
 import { all, get, useStore } from '../lib/db.js';
@@ -112,7 +113,8 @@ function SummaryCards({ everything }) {
   const timed = everything.scheduled.filter((i) => i.time);
   const upcoming = timed.filter((i) => i.time >= now);
   const nextThree = (upcoming.length ? upcoming : timed).slice(0, 3);
-  const todo = everything.scheduled.length + everything.anytime.length + everything.late.length;
+  const notEvent = (i) => i.kind !== 'event';
+  const todo = everything.scheduled.filter(notEvent).length + everything.anytime.filter(notEvent).length + everything.late.filter(notEvent).length;
   const waiting = M.liveProjects().filter((p) => !p.archived && p.stage === 'client_review').length;
   const toSched = () => {
     const el = document.getElementById('today-scheduled') || document.querySelector('.agenda-panel');
@@ -189,22 +191,15 @@ function Upcoming() {
   );
 }
 
-// Placeholder list; Task 15 swaps this for the slot tiles.
+// This week's Instagram slots, same tiles as the Content tab.
 export function ThisWeekSlots() {
   const week = C.thisWeek();
+  const { posted, total } = C.weekProgress(week);
   return (
     <section class="block">
-      <div class="block-head"><h2 class="block-title">This week</h2></div>
-      <div class="mini-agenda">
-        {C.slots().map((sl) => {
-          const it = C.slotItem(week, sl.id);
-          return (
-            <a key={sl.id} class="mag-row" href={it ? '#/post/' + it.id : '#/content/ig'}>
-              <span class="muted" style={{ minWidth: 104 }}>{sl.name}</span>
-              <span class={'grow ellipsis' + (it ? '' : ' muted')}>{it ? it.title : 'Empty'}</span>
-            </a>
-          );
-        })}
+      <div class="block-head"><h2 class="block-title">This week</h2><a class="muted overview-note" href="#/content/ig">{posted} of {total} posted</a></div>
+      <div class="slot-grid">
+        {C.slots().map((sl) => <SlotTile key={sl.id} week={week} slot={sl} />)}
       </div>
     </section>
   );

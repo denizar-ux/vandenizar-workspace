@@ -128,7 +128,7 @@ export function weekProgress(week) {
 const byDate = (a, b) => (a.date || '9999') < (b.date || '9999') ? -1 : (a.date || '9999') > (b.date || '9999') ? 1 : (a.createdAt < b.createdAt ? -1 : 1)
 
 /** @param {{ title: string, week?: string|null, slot?: string|null, notes?: string, date?: string|null }} p */
-export function createPost({ title, week = null, slot = null, notes = '', date = null }) {
+export function createPost({ title = '', week = null, slot = null, notes = '', date = null }) {
   if (date && !slot) {
     const p = createPost({ title, notes })
     setStageDate(p.id, 'date', date)
