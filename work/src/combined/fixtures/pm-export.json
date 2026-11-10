@@ -1,0 +1,40 @@
+{
+  "app": "vandenizar-workspace",
+  "schema": 1,
+  "exportedAt": "2026-11-09T10:00:00.000Z",
+  "data": {
+    "clients": [
+      { "id": "cl1", "name": "Ainayya", "pic": "Rina", "email": "rina@example.com", "phone": "", "address": "", "createdAt": 1760000000000, "updatedAt": 1760000000000 },
+      { "id": "cl2", "name": "GBK Studio", "pic": "", "email": "", "phone": "", "address": "", "createdAt": 1760000100000, "updatedAt": 1760000100000 }
+    ],
+    "pmProjects": [
+      { "id": "pr1", "name": "Winter campaign", "categoryId": "freelance", "clientId": "cl1", "stage": "editing", "nextActionTaskId": "tk2", "deliverables": [{ "id": "dv1", "title": "Main film", "status": "not_started" }], "createdAt": 1760001000000, "updatedAt": 1760001000000, "deletedAt": null },
+      { "id": "pr2", "name": "Desk reel", "categoryId": "personal", "clientId": null, "stage": "planned", "nextActionTaskId": null, "deliverables": [], "createdAt": 1760002000000, "updatedAt": 1760002000000, "deletedAt": null }
+    ],
+    "pmTasks": [
+      { "id": "tk1", "title": "Shortlist locations", "status": "open", "projectId": "pr1", "invoiceId": null, "workDate": "2026-11-12", "subtasks": [{ "id": "s1", "title": "Call venue", "done": false }], "createdAt": 1760003000000, "updatedAt": 1760003000000, "deletedAt": null },
+      { "id": "tk2", "title": "Rough cut", "status": "open", "projectId": "pr1", "invoiceId": "in1", "workDate": "2026-11-14", "createdAt": 1760003100000, "updatedAt": 1760003100000, "deletedAt": null },
+      { "id": "tk3", "title": "Buy cable", "status": "inbox", "projectId": null, "invoiceId": null, "workDate": null, "createdAt": "not-a-number", "updatedAt": 1760003200000, "deletedAt": null }
+    ],
+    "pmEvents": [
+      { "id": "ev1", "title": "Shoot day", "date": "2026-11-13", "time": "09:00", "projectId": "pr1", "createdAt": 1760004000000, "updatedAt": 1760004000000, "deletedAt": null }
+    ],
+    "feedback": [
+      { "id": "fb1", "projectId": "pr1", "deliverableId": "dv1", "text": "Tighten the intro", "source": "client", "resolvedAt": null, "taskId": "tk2", "createdAt": 1760005000000, "updatedAt": 1760005000000 }
+    ],
+    "invoices": [
+      { "id": "in1", "number": "INV-2026-0001", "clientId": "cl1", "projectId": "pr1", "date": "2026-11-01", "items": [{ "id": "it1", "desc": "Winter campaign", "qty": 1, "rate": 5000000 }], "createdAt": 1760006000000, "updatedAt": 1760006000000 }
+    ],
+    "payments": [
+      { "id": "pay1", "invoiceId": "in1", "amount": 2500000, "date": "2026-11-05", "voided": false, "createdAt": 1760007000000, "updatedAt": 1760007000000 }
+    ],
+    "meta": [
+      { "id": "pmSettings", "defaultCategory": "freelance", "defaultCurrency": "IDR" },
+      { "id": "pmCategories", "items": [{ "id": "freelance", "name": "Freelance", "color": "sage", "archived": false, "order": 1 }] },
+      { "id": "recent", "items": [] }
+    ],
+    "tasks": [
+      { "id": "legacy1", "title": "Legacy task from the habit app" }
+    ]
+  }
+}
