@@ -10,6 +10,7 @@ import { useStore } from '../lib/db.js';
 import { addDays, isoOf, fmtShort } from '../lib/date.js';
 import { weekRange, MONTHS } from '../content/time.js';
 import * as C from '../content/model.js';
+import { ThreadsBody } from './content-threads.jsx';
 import { newPost, newThread } from '../App.jsx';
 
 export function ContentPage({ tab, query = {} }) {
@@ -19,12 +20,10 @@ export function ContentPage({ tab, query = {} }) {
     <div class="page content-page">
       <PageHeader title="Content." actions={<AddBtn label={t === 'ig' ? 'New post' : 'New Thread'} onClick={() => (t === 'ig' ? newPost() : newThread())} />} />
       <Segmented class="full" options={[{ id: 'ig', label: 'Instagram' }, { id: 'threads', label: 'Threads' }]} value={t} onChange={(id) => navigate('/content/' + id)} />
-      {t === 'ig' ? <InstagramBody /> : <ThreadsSlot query={query} />}
+      {t === 'ig' ? <InstagramBody /> : <ThreadsBody query={query} />}
     </div>
   );
 }
-
-const ThreadsSlot = () => <div class="coming">Threads are coming next.</div>;
 
 function InstagramBody() {
   const [week, setWeek] = useState(C.thisWeek());

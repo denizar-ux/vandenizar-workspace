@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { Icon } from './ui/Icon.jsx';
 import { Overlays, Toasts, openOverlay, openMenu, SheetHead, SheetBody, useMedia, DESKTOP_Q, toast, closeAll } from './ui/overlay.jsx';
 import { Field, DateInput, TimeInput, NumberInput, TextArea, Segmented } from './ui/kit.jsx';
-import { pickProject, InvoicePill, StagePill, whenLabel, PageHeader } from './ui/parts.jsx';
+import { pickProject, InvoicePill, StagePill, whenLabel } from './ui/parts.jsx';
 import { useRoute, navigate } from './lib/router.js';
 import { useStore, persist, flush, get } from './lib/db.js';
 import * as M from './lib/model.js';
@@ -21,6 +21,7 @@ import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx'
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
 import { ContentPage } from './pages/content-ig.jsx';
 import { PostDetail } from './pages/content-post.jsx';
+import { ResourcesPage } from './pages/resources.jsx';
 import { LOCAL } from './lib/sync.js';
 import { SettingsPage, TrashPage, MorePage, LoginPage, useSync, syncLabel } from './pages/settings.jsx';
 
@@ -73,7 +74,7 @@ function Shell() {
   else if (p0 === 'invoices') { nav = 'more'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
   else if (p0 === 'settings') { nav = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { nav = 'trash'; page = <TrashPage />; }
-  else if (p0 === 'more' && p1 === 'resources') { nav = 'more'; page = <Placeholder title="Resources." line="Coming next." />; }
+  else if (p0 === 'more' && p1 === 'resources') { nav = 'more'; page = <ResourcesPage />; }
   else if (p0 === 'more') { nav = 'more'; page = <MorePage />; }
   else if (p0 === 'search') { nav = 'search'; page = <SearchPage />; }
   else if (p0 === 'dev' && p1 === 'ui') { nav = 'more'; page = <DevUiPage />; }
@@ -93,10 +94,6 @@ function Shell() {
       <Toasts />
     </div>
   );
-}
-
-function Placeholder({ title, line }) {
-  return <div class="page narrow"><PageHeader title={title} /><div class="coming">{line}</div></div>;
 }
 
 function SaveBanner() {

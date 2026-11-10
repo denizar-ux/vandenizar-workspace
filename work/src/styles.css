@@ -929,3 +929,17 @@ a.bento:active { transform: scale(.985); }
 .sched-grid .field-label { display: flex; align-items: center; min-height: 20px; }
 .post-detail .seg .seg-btn { padding: 0 10px; flex: 1 1 auto; font-size: 13.5px; }
 .post-detail .status-banner { flex-wrap: nowrap; align-items: flex-start; font-size: 14.5px; }
+
+/* ---------- threads, resources ---------- */
+.thread-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.thread-card, .thread-composer { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.thread-composer { background: var(--peach); box-shadow: none; }
+.thread-card.posted { background: var(--surface-2); box-shadow: none; }
+.thread-ta { width: 100%; border: 0; outline: none; background: transparent; resize: none; overflow: hidden; padding: 0; font-size: 16px; line-height: 1.45; color: var(--ink); font-family: inherit; display: block; }
+.thread-composer .thread-ta { min-height: 52px; }
+.thread-ta::placeholder { color: var(--ink-2); }
+.thread-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.thread-foot .pill { height: 28px; }
+.res-row { gap: 4px; }
+.res-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+.res-ic { width: 40px; height: 40px; border-radius: 50%; background: var(--peach); display: grid; place-items: center; font-weight: 600; flex: none; }
