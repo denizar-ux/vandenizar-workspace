@@ -23,20 +23,20 @@ alter table public.work_records enable row level security;
 
 drop policy if exists "own rows select" on public.work_records;
 create policy "own rows select" on public.work_records
-  for select using ((select auth.uid()) = user_id);
+  for select to authenticated using ((select auth.uid()) = user_id);
 
 drop policy if exists "own rows insert" on public.work_records;
 create policy "own rows insert" on public.work_records
-  for insert with check ((select auth.uid()) = user_id);
+  for insert to authenticated with check ((select auth.uid()) = user_id);
 
 drop policy if exists "own rows update" on public.work_records;
 create policy "own rows update" on public.work_records
-  for update using ((select auth.uid()) = user_id)
+  for update to authenticated using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
 drop policy if exists "own rows delete" on public.work_records;
 create policy "own rows delete" on public.work_records
-  for delete using ((select auth.uid()) = user_id);
+  for delete to authenticated using ((select auth.uid()) = user_id);
 
 create table if not exists public.work_push_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -56,17 +56,17 @@ alter table public.work_push_subscriptions enable row level security;
 
 drop policy if exists "own subs select" on public.work_push_subscriptions;
 create policy "own subs select" on public.work_push_subscriptions
-  for select using (user_id = (select auth.uid()));
+  for select to authenticated using (user_id = (select auth.uid()));
 
 drop policy if exists "own subs insert" on public.work_push_subscriptions;
 create policy "own subs insert" on public.work_push_subscriptions
-  for insert with check (user_id = (select auth.uid()));
+  for insert to authenticated with check (user_id = (select auth.uid()));
 
 drop policy if exists "own subs update" on public.work_push_subscriptions;
 create policy "own subs update" on public.work_push_subscriptions
-  for update using (user_id = (select auth.uid()))
+  for update to authenticated using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
 drop policy if exists "own subs delete" on public.work_push_subscriptions;
 create policy "own subs delete" on public.work_push_subscriptions
-  for delete using (user_id = (select auth.uid()));
+  for delete to authenticated using (user_id = (select auth.uid()));
