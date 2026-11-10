@@ -4,7 +4,8 @@ import './styles.css';
 import { initDb, get, put } from './lib/db.js';
 import { DEFAULT_SETTINGS, autoArchiveProjects } from './lib/model.js';
 import { App } from './App.jsx';
-import { initSync, onSync, sync } from './lib/sync.js';
+import { initSync, onSync, sync, LOCAL } from './lib/sync.js';
+import { dropPushSubscription } from './lib/push.js';
 import { migrateLegacy } from './lib/migrate.js';
 import { applyTheme, getTheme } from './pages/settings.jsx';
 
@@ -19,6 +20,7 @@ async function boot() {
   sweep();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sweep(); });
   render(<App />, document.getElementById('app'));
+  if (LOCAL) { dropPushSubscription(); return; }
   initSync().catch(() => {});
   // Records pulled from the cloud may include older Workspace tasks; bring them over once synced.
   let last = '';

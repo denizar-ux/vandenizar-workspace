@@ -16,11 +16,13 @@ import { CalendarPage } from './pages/calendar.jsx';
 import { ProjectsPage, ProjectDetail, openProjectSheet } from './pages/projects.jsx';
 import { ClientsPage, ClientDetail, openClientSheet } from './pages/clients.jsx';
 import { InvoicesPage, InvoiceEditor, createInvoiceAndOpen } from './pages/invoices.jsx';
+import { LOCAL } from './lib/sync.js';
 import { SettingsPage, TrashPage, MorePage, LoginPage, useSync, syncLabel } from './pages/settings.jsx';
 
 export function App() {
   useStore();
   const auth = useSync();
+  if (LOCAL) return <Shell />;
   if (!auth.ready) return <div class="app app-login" />;
   if (!auth.user) return <div class="app app-login"><LoginPage /><Toasts /></div>;
   return <Shell />;

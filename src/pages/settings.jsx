@@ -10,7 +10,7 @@ import { today, addDays, fmtShort, isoOf } from '../lib/date.js';
 import { CURRENCIES } from '../lib/money.js';
 import * as M from '../lib/model.js';
 import { saveFile, saveMessage } from '../lib/files.js';
-import { sync, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
+import { sync, LOCAL, signIn, signUp, signOut, syncNow, resetPassword, updatePassword, onSync } from '../lib/sync.js';
 import { pushSupported, isIOS, isStandalone, pushFlag, pushStatus, enablePush, disablePush, testPush } from '../lib/push.js';
 import { loadSampleData, removeSampleData, hasSample } from '../lib/migrate.js';
 
@@ -33,6 +33,7 @@ export function useSync() {
   return sync;
 }
 export function syncLabel(s = sync) {
+  if (LOCAL) return 'Saved on this device';
   if (!s.ready) return 'Starting…';
   if (!s.user) return 'Saved on this device';
   if (s.status === 'syncing') return 'Syncing…';
@@ -60,8 +61,8 @@ const SECTIONS = [
 ];
 function summary(id, s) {
   switch (id) {
-    case 'account': return sync.user ? syncLabel() : 'Not signed in';
-    case 'notifications': return pushFlag() ? 'On for this device' : 'Off on this device';
+    case 'account': return LOCAL ? 'Cloud sync is off' : sync.user ? syncLabel() : 'Not signed in';
+    case 'notifications': return LOCAL ? 'Cloud sync is off' : pushFlag() ? 'On for this device' : 'Off on this device';
     case 'general': return s.name + ' · ' + ({ system: 'Match device', light: 'Light', dark: 'Dark' }[getTheme()] || 'Match device');
     case 'tasks': return (s.defaultEstimate ? 'Estimate ' + s.defaultEstimate + 'm' : 'No default estimate') + ' · week starts ' + ({ 1: 'Monday', 6: 'Saturday', 0: 'Sunday' }[s.weekStart] || 'Monday');
     case 'projects': return 'Categories, workflow';
@@ -99,8 +100,8 @@ export function SettingsPage({ section }) {
         <div class="set-panel">
           <a href={cur === 'categories' ? '#/settings/projects' : '#/settings'} class="set-back"><Icon name="chevronLeft" size={18} />{cur === 'categories' ? 'Projects' : 'Settings'}</a>
           <h2 class="set-title">{meta.label}</h2>
-          {cur === 'account' && <AccountCard />}
-          {cur === 'notifications' && <NotificationsSection s={s} />}
+          {cur === 'account' && (LOCAL ? <LocalNote /> : <AccountCard />)}
+          {cur === 'notifications' && (LOCAL ? <LocalNote /> : <NotificationsSection s={s} />)}
           {cur === 'general' && <GeneralSection s={s} />}
           {cur === 'tasks' && <TasksSection s={s} />}
           {cur === 'projects' && <ProjectsSection s={s} />}
@@ -335,6 +336,10 @@ function DataSection() {
       </Group>
     </>
   );
+}
+
+function LocalNote() {
+  return <div class="quiet-note">Saved on this device. Cloud sync is off.</div>;
 }
 
 function AccountCard() {
