@@ -38,7 +38,7 @@ export const Pill = ({ tone = 'plain', icon, children, onClick, sm, cls }) => {
   const C = onClick ? 'button' : 'span';
   return <C class={'pill t-' + tone + (sm ? ' sm' : '') + (cls ? ' ' + cls : '') + (onClick ? ' clickable' : '')} onClick={onClick}>{icon && <Icon name={icon} size={sm ? 13 : 15} />}{children}</C>;
 };
-export const StagePill = ({ stage, p, onClick, sm, size }) => <Pill tone="glass" icon={size === 'sm' ? null : stage === 'completed' || stage === 'approved' ? 'check' : 'chat'} onClick={onClick} sm={sm || size === 'sm'} cls={size === 'sm' ? 'stage-sm' : ''}>{p ? M.projectStageLabel(p) : M.stageOf(stage).label}</Pill>;
+export const StagePill = ({ stage, p, onClick, sm, size }) => <Pill tone={size === 'sm' ? M.stageOf(p ? p.stage : stage).tone : 'glass'} icon={size === 'sm' ? null : stage === 'completed' || stage === 'approved' ? 'check' : 'chat'} onClick={onClick} sm={sm || size === 'sm'} cls={size === 'sm' ? 'stage-sm' : ''}>{p ? M.projectStageLabel(p) : M.stageOf(stage).label}</Pill>;
 export const CategoryPill = ({ id, sm, onClick }) => { const c = M.categoryOf(id); return <Pill tone={c.color} sm={sm} onClick={onClick}>{c.name}</Pill>; };
 export const CategoryDot = ({ id, lg }) => <span class={'cat-dot t-' + M.categoryOf(id).color + (lg ? ' lg' : '')} aria-hidden="true" />;
 export const DeliverablePill = ({ status, onClick }) => { const s = M.deliverableStatus(status); return <Pill tone={s.tone} sm onClick={onClick}>{s.label}</Pill>; };

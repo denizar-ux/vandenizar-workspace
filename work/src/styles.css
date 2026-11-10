@@ -833,7 +833,7 @@ a.bento:active { transform: scale(.985); }
 .progrow-meter { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 64px; flex: none; }
 .progrow-count { font-size: 12.5px; font-weight: 550; color: var(--ink-2); }
 .progrow-bar { display: block; width: 100%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.progrow-bar span { display: block; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--tint) 30%, var(--ink) 70%); }
+.progrow-bar span { display: block; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--tint) 70%, var(--ink) 30%); }
 @media (min-width: 960px) { .progrow-meter { width: 110px; } .progrow:hover { background: var(--surface-2); } }
 .dev-ui { display: flex; flex-direction: column; gap: 22px; }
 .dev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
