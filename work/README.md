@@ -16,7 +16,7 @@ Set `VITE_LOCAL=1` to preview local-only, without Supabase sign-in or sync.
 
 ## Data
 
-Data lives in IndexedDB (database `vandenizar-work`) and syncs to the Supabase table `work_records`. The migration is in `supabase/migrations/20261110_work_tables.sql`.
+Data lives in IndexedDB (database `vandenizar-work`) and syncs to the Supabase table `work_records`. The migration is in `supabase/migrations/20261110000000_work_tables.sql`.
 
 ## Notifications
 

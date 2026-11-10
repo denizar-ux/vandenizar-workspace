@@ -64,7 +64,8 @@ async function claim(userId: string, key: string) {
 async function runForUser(userId: string) {
   const now = wib();
   const tomorrow = addDays(now.date, 1);
-  const { data: rows } = await sb.from('work_records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['pmTasks', 'pmProjects', 'meta', 'invoices', 'payments', 'clients', 'cItems']);
+  const { data: rows, error: readErr } = await sb.from('work_records').select('coll,id,data').eq('user_id', userId).eq('deleted', false).in('coll', ['pmTasks', 'pmProjects', 'meta', 'invoices', 'payments', 'clients', 'cItems']);
+  if (readErr) throw new Error('work_records read failed: ' + readErr.message);
   const recs = rows || [];
   const settings = recs.find((r) => r.coll === 'meta' && r.id === 'pmSettings')?.data || {};
   const cs = recs.find((r) => r.coll === 'meta' && r.id === 'cSettings')?.data || {};

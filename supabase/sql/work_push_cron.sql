@@ -1,9 +1,15 @@
--- NOT APPLIED YET. Run after work-push is deployed and the user approves (Task 20, step 2).
--- Schedules work-push every minute, same shape as the existing 'push-reminders' job.
+-- NOT APPLIED YET, and not a migration (it holds a secret placeholder). Run by hand in the SQL editor
+-- after work-push is deployed and the user approves (Task 20).
 --
--- copy headers from job 'push-reminders' (select command from cron.job where jobname='push-reminders')
+-- Order: 1) unschedule the old jobs, 2) schedule 'work-push'. Both steps are in this file.
+-- Before step 1, copy the headers from the old job so the secret is not lost:
+--   select command from cron.job where jobname = 'push-reminders';
 -- The x-cron-secret value there is push_config.cron_secret. Do not commit the real secret.
---
+
+-- 1) Unschedule the old jobs. A job that does not exist is skipped, no error.
+select cron.unschedule(jobid) from cron.job where jobname in ('push-reminders', 'content-push');
+
+-- 2) Schedule work-push every minute, same shape as the old 'push-reminders' job.
 -- select cron.schedule(
 --   'work-push',
 --   '* * * * *',
@@ -17,6 +23,4 @@
 -- );
 --
 -- Check: select count(*) from cron.job where jobname = 'work-push';  -- expect 1
--- After the iPhone test passes, unschedule the old jobs:
---   select cron.unschedule('push-reminders');
---   select cron.unschedule('content-push');   -- name to be confirmed from cron.job
+--        select jobname from cron.job where jobname in ('push-reminders', 'content-push');  -- expect no rows
