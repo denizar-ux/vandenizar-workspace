@@ -1,0 +1,225 @@
+/* Vandenizar Money: liquid glass theme (Sales Insights reference).
+   Urbanist for everything, frosted white panels on a soft peach + periwinkle wash,
+   black for the active state, peach for the focus card, periwinkle for chart marks.
+   Loaded last; overrides tokens and surfaces from styles.css, money.css and theme.css. */
+@font-face { font-family: 'Urbanist Variable'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('./fonts/urbanist-latin-wght-normal.woff2') format('woff2'); }
+
+:root{
+  --font:"Urbanist Variable","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --bg:#eceef5;--surface:rgba(255,255,255,.62);--surface-2:rgba(255,255,255,.5);--solid:#f7f8fc;
+  --ink:#24262f;--ink-2:#4f5260;--muted:#878a98;--faint:#a9acb8;
+  --line:rgba(36,38,47,.06);--line-strong:rgba(36,38,47,.11);--border:var(--line-strong);
+  --btn:#17181d;--btn-ink:#ffffff;--navy:#17181d;--navy-2:#4f5260;--navy-soft:rgba(255,255,255,.7);
+  --peri:#a9aee9;--peri-2:#c9ccf3;--peach:#f7c9ad;--peach-2:#fbe4d6;--blue:#4f6df3;--good:#2f9e6e;
+  --slate:var(--peri);
+  --rim:rgba(255,255,255,.85);
+  --g-bg:linear-gradient(165deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.5) 100%);
+  --g-bg-2:linear-gradient(165deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,.42) 100%);
+  --g-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 1px 0 rgba(255,255,255,1),0 1px 2px rgba(70,80,130,.04),0 14px 34px rgba(70,80,130,.09);
+  --g-shadow-sm:inset 0 0 0 1px rgba(255,255,255,.85),0 6px 16px rgba(70,80,130,.08);
+  --g-filter:blur(24px) saturate(1.7);
+  --hero:linear-gradient(160deg,#f6c3a4 0%,#f9dccb 45%,#fdf1e9 100%);
+  --card-shadow:var(--g-shadow);
+  --fade:var(--g-bg);
+  --glass:rgba(250,251,255,.62);--glass-strong:rgba(246,247,252,.86);--glass-rim:rgba(255,255,255,.85);--glass-filter:var(--g-filter);
+  --blob-a:rgba(250,196,164,.55);--blob-b:rgba(170,178,240,.5);--blob-c:rgba(214,206,250,.45);
+  --radius-lg:24px;--radius-md:18px;--radius-xl:30px
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0e1016;--surface:rgba(40,44,58,.5);--surface-2:rgba(255,255,255,.06);--solid:#191c25;
+  --ink:#eef0f6;--ink-2:#c4c7d3;--muted:#8d91a1;--faint:#5f6374;
+  --line:rgba(255,255,255,.07);--line-strong:rgba(255,255,255,.12);
+  --btn:#f2f3f7;--btn-ink:#14151a;--navy:#e8e9f0;--navy-soft:rgba(255,255,255,.08);
+  --peri:#7f86d6;--peri-2:#3a3f6a;--peach:#e5a582;--peach-2:#5a3d33;--blue:#6f88ff;
+  --rim:rgba(255,255,255,.08);
+  --g-bg:linear-gradient(165deg,rgba(48,52,68,.62) 0%,rgba(30,33,44,.5) 100%);
+  --g-bg-2:linear-gradient(165deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%);
+  --g-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.08),0 14px 34px rgba(0,0,0,.3);
+  --g-shadow-sm:inset 0 0 0 1px rgba(255,255,255,.08),0 6px 16px rgba(0,0,0,.25);
+  --hero:linear-gradient(160deg,rgba(229,150,112,.55) 0%,rgba(120,80,70,.45) 50%,rgba(40,40,56,.55) 100%);
+  --glass:rgba(24,27,36,.62);--glass-strong:rgba(26,29,39,.9);--glass-rim:rgba(255,255,255,.08);
+  --blob-a:rgba(214,130,96,.22);--blob-b:rgba(110,118,220,.24);--blob-c:rgba(150,120,220,.18)
+}}
+:root[data-theme=dark]{
+  --bg:#0e1016;--surface:rgba(40,44,58,.5);--surface-2:rgba(255,255,255,.06);--solid:#191c25;
+  --ink:#eef0f6;--ink-2:#c4c7d3;--muted:#8d91a1;--faint:#5f6374;
+  --line:rgba(255,255,255,.07);--line-strong:rgba(255,255,255,.12);
+  --btn:#f2f3f7;--btn-ink:#14151a;--navy:#e8e9f0;--navy-soft:rgba(255,255,255,.08);
+  --peri:#7f86d6;--peri-2:#3a3f6a;--peach:#e5a582;--peach-2:#5a3d33;--blue:#6f88ff;
+  --rim:rgba(255,255,255,.08);
+  --g-bg:linear-gradient(165deg,rgba(48,52,68,.62) 0%,rgba(30,33,44,.5) 100%);
+  --g-bg-2:linear-gradient(165deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%);
+  --g-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.08),0 14px 34px rgba(0,0,0,.3);
+  --g-shadow-sm:inset 0 0 0 1px rgba(255,255,255,.08),0 6px 16px rgba(0,0,0,.25);
+  --hero:linear-gradient(160deg,rgba(229,150,112,.55) 0%,rgba(120,80,70,.45) 50%,rgba(40,40,56,.55) 100%);
+  --glass:rgba(24,27,36,.62);--glass-strong:rgba(26,29,39,.9);--glass-rim:rgba(255,255,255,.08);
+  --blob-a:rgba(214,130,96,.22);--blob-b:rgba(110,118,220,.24);--blob-c:rgba(150,120,220,.18)
+}
+
+/* ---------- canvas: soft color wash behind the glass ---------- */
+html{background:var(--bg)}
+body{background:transparent;font-family:var(--font);letter-spacing:0;font-weight:450}
+.app::before{content:"";position:fixed;inset:-10%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38% 30% at 88% 6%,var(--blob-a),transparent 70%),
+    radial-gradient(42% 34% at 4% 42%,var(--blob-b),transparent 70%),
+    radial-gradient(40% 32% at 92% 72%,var(--blob-c),transparent 70%),
+    radial-gradient(36% 26% at 30% 100%,var(--blob-a),transparent 70%)}
+body::before{background:var(--glass);-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter)}
+button,input,select,textarea{font-family:inherit}
+
+/* ---------- type ---------- */
+.serif,.pagehead .eyebrow{font-family:var(--font);font-style:normal;font-weight:600;letter-spacing:-.01em}
+.pagehead .eyebrow{font-size:14px;font-weight:500;color:var(--muted);margin-bottom:4px}
+.eyebrow{font-weight:500;color:var(--muted)}
+.page-title{font-size:34px;font-weight:450;letter-spacing:-.025em}
+@media(min-width:960px){.page-title{font-size:44px}}
+@media(max-width:959px){.pagehead .page-title{font-size:32px}}
+.h2,.vz-home .section-head .h2,.today-grid .section-head .h2{font-size:18px;font-weight:550;letter-spacing:-.015em}
+.h3{font-weight:600}
+.sheet-title{font-weight:550;font-size:21px;letter-spacing:-.015em}
+.li-title{font-weight:550}
+.tx-amt{font-weight:600}
+.hero-amt,.bn-amt,.amt-input,.tc-amt,.mini-wide .mini-val,.donut-mid b,.content-title,.upnext-title{font-weight:450;letter-spacing:-.025em}
+.mini-val,.cu-amt,.calsum b,.tile-title,.pcard-title{font-weight:500;letter-spacing:-.015em}
+.hero-amt .rp,.tc-amt .rp,.mini-val .rp,.amt-rp{font-weight:450}
+.side-brand b{font-weight:650;letter-spacing:-.03em}
+
+/* ---------- glass surfaces ---------- */
+.card,.calsum>div,.tile,.pcard-plain,.list,.today-card,.bars-card,.mini,.cu,.mcell,.upnext,.pcard,
+.tile.tint-sage,.tile.tint-cyan,.tile.tint-peach,.tile.tint-lavender,.tile.tint-butter,
+.upnext.tint-sage,.upnext.tint-cyan,.upnext.tint-butter,.upnext.tint-lavender,.pcard.tint-butter{
+  background:var(--g-bg);-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter);box-shadow:var(--g-shadow);color:var(--ink)}
+.list{border-radius:26px;padding:4px 16px}
+.card,.tile,.pcard-plain{border-radius:26px}
+.today-card,.bars-card{border-radius:28px}
+.mini,.cu{border-radius:26px}
+.calsum>div{border-radius:20px}
+.mcell{border-radius:16px;box-shadow:inset 0 0 0 1px var(--rim)}
+.mcell.out{background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.mcell.sel{box-shadow:inset 0 0 0 2px var(--btn)}
+.mini-warn{box-shadow:inset 0 0 0 2px rgba(196,62,57,.35),var(--g-shadow)}
+.li{border-bottom-color:var(--line)}
+.today-empty{border-radius:26px;border:1.5px dashed var(--line-strong);background:rgba(255,255,255,.25)}
+.banner{border-radius:22px;-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter);box-shadow:var(--g-shadow-sm)}
+.banner.tint-butter{background:linear-gradient(160deg,rgba(252,231,178,.75),rgba(255,255,255,.5))}
+.banner.tint-peach{background:linear-gradient(160deg,rgba(247,201,173,.75),rgba(255,255,255,.5))}
+.banner.tint-rose{background:linear-gradient(160deg,rgba(244,184,184,.75),rgba(255,255,255,.5))}
+.banner.tint-lavender{background:linear-gradient(160deg,rgba(201,204,243,.8),rgba(255,255,255,.5))}
+
+/* glass discs for app icons (category/account discs keep their own colors) */
+.qa-ic,.mini-ic,.hero-chip svg,.cu-auto,.iconbtn.boxed,.hero-go,.sheet-head .iconbtn{
+  background:var(--g-bg);color:var(--ink);box-shadow:var(--g-shadow-sm);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.qa-ic{width:56px;height:56px}
+.qa-b{color:var(--ink-2);font-weight:550;font-size:12px}
+.prof-av{background:var(--g-bg);color:var(--ink);box-shadow:var(--g-shadow-sm);font-weight:650}
+.ic{box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)}
+
+/* ---------- hero: the peach focus card ---------- */
+.hero{background:var(--hero);border-radius:30px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),inset 0 1px 0 rgba(255,255,255,.9),0 18px 40px rgba(220,140,100,.18);padding:18px 18px 20px}
+.hero-over{box-shadow:inset 0 0 0 2px rgba(196,62,57,.4),0 18px 40px rgba(220,140,100,.18)}
+.hero-chip{color:var(--ink-2);font-size:13.5px;font-weight:550}
+.hero-chip svg{width:34px;height:34px;padding:8px;background:rgba(255,255,255,.6)}
+.hero-go{width:44px;height:44px;background:rgba(255,255,255,.65);color:var(--ink)}
+.hero-amt{font-size:44px;margin-top:8px}
+.hero-amt .rp{font-size:22px;color:var(--ink-2)}
+.hero-sub{color:var(--ink-2)}
+.hero-pill{background:var(--blue);color:#fff;box-shadow:none;font-weight:600;padding:4px 10px 4px 8px}
+.hero-pill svg,.hero-pill.up svg{color:#fff}
+.hero-pill.up{background:#e0675f}
+.hl-row,.hero-foot{color:var(--ink-2)}
+.sbar{height:24px;border-radius:12px;background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
+.sbar-fill{border-radius:12px;background:var(--peri)}
+.sbar.warn .sbar-fill{background:repeating-linear-gradient(-45deg,#f3b58e 0 5px,#eea27a 5px 10px)}
+.sbar.over .sbar-fill{background:repeating-linear-gradient(-45deg,#e98a84 0 5px,#d9625b 5px 10px)}
+.sbar-pct{color:var(--ink)}
+@media(min-width:960px){.hero{padding:26px}.hero-amt{font-size:56px}}
+
+/* ---------- chart marks ---------- */
+.bar-col{background:transparent;max-width:30px}
+.bar-fill{background:linear-gradient(180deg,var(--peri) 0%,color-mix(in srgb,var(--peri) 75%,#fff) 100%);border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.bar.on .bar-fill{background:repeating-linear-gradient(-45deg,var(--peach) 0 4px,var(--peach-2) 4px 8px);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.bar-lb{font-size:12px}
+.bn-delta.up{color:#d9625b}.bn-delta.down{color:var(--blue)}
+.bars{height:136px;gap:8px}
+.pbar{background:rgba(255,255,255,.5);box-shadow:inset 0 0 0 1px var(--rim);height:9px}
+.pbar span{background:var(--peri)}
+.tc-bar{background:rgba(255,255,255,.55)}
+.tc-bar span{background:var(--peri)}
+.lbar{background:rgba(255,255,255,.5)}
+.dot-plan{box-shadow:inset 0 0 0 1.5px var(--peri)}
+
+/* ---------- controls ---------- */
+.btn{background:var(--g-bg);box-shadow:var(--g-shadow-sm);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-weight:600;color:var(--ink)}
+.btn-primary{background:var(--btn);color:var(--btn-ink);box-shadow:0 10px 22px rgba(20,22,30,.22)}
+.btn-ghost{background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.btn-soft{background:rgba(255,255,255,.5);box-shadow:inset 0 0 0 1px var(--rim)}
+.btn-danger{background:var(--bad);color:#fff;box-shadow:none}
+.pill-dark,.today-card .tc-go{background:var(--btn);color:var(--btn-ink);box-shadow:0 8px 18px rgba(20,22,30,.2)}
+.today-card .tc-go{width:44px;height:44px}
+.pill-soft{background:rgba(255,255,255,.65);box-shadow:inset 0 0 0 1px var(--rim);color:var(--ink);font-weight:600;height:32px}
+.seg{background:var(--g-bg);-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter);box-shadow:var(--g-shadow-sm);padding:5px}
+.seg-item{font-weight:550;color:var(--ink-2);height:42px}
+.seg-item.on{background:var(--btn);color:var(--btn-ink);box-shadow:0 6px 14px rgba(20,22,30,.18)}
+.chip{background:var(--g-bg);box-shadow:var(--g-shadow-sm);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--ink);font-weight:550}
+.chip.on{background:var(--btn);color:var(--btn-ink);box-shadow:none}
+.input,select.input,textarea.input{background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.85);box-shadow:inset 0 1px 2px rgba(70,80,130,.05)}
+.input:focus{border-color:var(--peri);box-shadow:0 0 0 3px color-mix(in srgb,var(--peri) 35%,transparent)}
+.input-plain{background:transparent;border:0;box-shadow:none}
+.switch.on{background:var(--btn)}
+.switch.on span{background:var(--btn-ink)}
+.amt:focus-within{border-color:var(--btn)}
+.act{background:var(--g-bg);box-shadow:var(--g-shadow-sm)}
+.act svg{color:var(--ink)}
+.task-check{border-color:var(--btn)}
+.cat-tile.on,.acc-chip.on{background:var(--btn);color:var(--btn-ink)}
+.acc-chip{background:rgba(255,255,255,.45);box-shadow:inset 0 0 0 1px var(--rim)}
+.cu-log{color:var(--blue)}
+.linkbtn{color:var(--muted);font-weight:600}
+.mcell.today .mnum{background:var(--btn);color:var(--btn-ink)}
+.mcell.hot{background:var(--hero)}
+.mcell.hot,.mcell.hot .mamt{color:var(--ink)}
+
+/* the round "new" button picks up the peach accent from the reference dock */
+.plus,.fab,.minibar .plus{background:radial-gradient(circle at 35% 30%,#fde3d3 0%,var(--peach) 70%);color:#24262f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 10px 22px rgba(230,150,110,.35)}
+.prof-act .iconbtn,.pagehead-acts .iconbtn,.minibar .iconbtn{background:var(--g-bg);box-shadow:var(--g-shadow-sm);border-radius:50%;width:44px;height:44px;margin-left:6px}
+.prof-act,.pagehead-acts{gap:0}
+.prof-act .plus,.pagehead-acts .plus{margin-left:6px;width:44px;height:44px}
+
+/* ---------- sheets ---------- */
+.sheet{background:var(--glass-strong);-webkit-backdrop-filter:blur(40px) saturate(1.8);backdrop-filter:blur(40px) saturate(1.8);box-shadow:inset 0 0 0 1px var(--glass-rim),0 30px 80px rgba(40,46,80,.25)}
+.sheet-foot{background:transparent;border-top-color:var(--line)}
+.sheet-layer{background:rgba(40,46,80,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.sheet .list,.sheet .card,.sheet .calsum>div,.sheet .tile{background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 1px var(--rim);-webkit-backdrop-filter:none;backdrop-filter:none}
+.sheet .seg{background:rgba(255,255,255,.5);box-shadow:inset 0 0 0 1px var(--rim)}
+.sheet .seg-item.on{background:var(--btn);color:var(--btn-ink)}
+.menu,.popover,.toast{-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter)}
+
+/* ---------- floating dock: icon-only glass capsule ---------- */
+.dock{left:50%;right:auto;transform:translateX(-50%);width:auto;max-width:none;padding:7px;border-radius:999px;
+  background:var(--glass);-webkit-backdrop-filter:blur(28px) saturate(1.8);backdrop-filter:blur(28px) saturate(1.8);
+  box-shadow:inset 0 0 0 1px var(--glass-rim),inset 0 1px 0 rgba(255,255,255,.9),0 16px 40px rgba(40,46,80,.18)}
+.dock-inner{display:flex;gap:6px}
+.dock-item{min-height:0;gap:0;font-size:0}
+.dock-item>span:last-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.dock-ic{width:54px;height:54px;border-radius:50%;background:var(--g-bg-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--rim)}
+.dock-item.on .dock-ic{background:var(--btn);color:var(--btn-ink);box-shadow:0 6px 14px rgba(20,22,30,.25)}
+.dock-item:active .dock-ic{transform:scale(.93)}
+
+/* ---------- desktop sidebar ---------- */
+@media(min-width:960px){
+  .side{background:var(--glass);-webkit-backdrop-filter:var(--g-filter);backdrop-filter:var(--g-filter);border-right:0;box-shadow:inset -1px 0 0 var(--glass-rim)}
+  .side-item{font-weight:550}
+  .side-item:hover{background:rgba(255,255,255,.55)}
+  .side-item.on{background:var(--btn);color:var(--btn-ink)}
+}
+.minibar{background:var(--glass)}
+
+/* dark mode tweaks for pieces that use white overlays above */
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .hero-chip svg,:root:not([data-theme=light]) .hero-go,:root:not([data-theme=light]) .sbar,:root:not([data-theme=light]) .tc-bar,:root:not([data-theme=light]) .pbar,:root:not([data-theme=light]) .input,:root:not([data-theme=light]) .pill-soft,:root:not([data-theme=light]) .btn-soft,:root:not([data-theme=light]) .acc-chip,:root:not([data-theme=light]) .lbar,:root:not([data-theme=light]) .sheet .list,:root:not([data-theme=light]) .sheet .card,:root:not([data-theme=light]) .sheet .seg{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.08)}}
+:root[data-theme=dark] .hero-chip svg,:root[data-theme=dark] .hero-go,:root[data-theme=dark] .sbar,:root[data-theme=dark] .tc-bar,:root[data-theme=dark] .pbar,:root[data-theme=dark] .input,:root[data-theme=dark] .pill-soft,:root[data-theme=dark] .btn-soft,:root[data-theme=dark] .acc-chip,:root[data-theme=dark] .lbar,:root[data-theme=dark] .sheet .list,:root[data-theme=dark] .sheet .card,:root[data-theme=dark] .sheet .seg{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.08)}
+
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .card,.list,.mini,.cu,.today-card,.bars-card,.dock,.sheet,.seg,.side{background:var(--solid)}
+}
+.acc-chip.on,.cat-tile.on{background:var(--btn)!important;color:var(--btn-ink)}

@@ -4,6 +4,6 @@ export function applyTheme(t: Theme = getTheme()) {
   const root = document.documentElement
   if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme')
   const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#0d111c' : '#f2f4f8'))
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#0e1016' : '#eceef5'))
 }
 export function setTheme(t: Theme) { try { localStorage.setItem('vzm2:theme', t) } catch { /* ignore */ } applyTheme(t) }
