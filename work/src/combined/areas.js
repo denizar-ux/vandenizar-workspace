@@ -9,7 +9,8 @@ export const areas = () => [...categories().map(toArea), CONTENT_AREA];
 
 export function areaOfTask(task) {
   const project = task && task.projectId ? get('pmProjects', task.projectId) : null;
-  return toArea(categoryOf(project ? projectCategoryId(project) : settings().defaultCategory));
+  // A linked project decides the area; otherwise the task's own category, then the default.
+  return toArea(categoryOf(project ? projectCategoryId(project) : (task && task.categoryId) || settings().defaultCategory));
 }
 
 export function projectProgress(project) {

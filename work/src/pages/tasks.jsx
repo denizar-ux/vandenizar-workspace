@@ -246,6 +246,7 @@ export function TaskDetail({ id }) {
       <div class="row gap-8 wrap">
         <button class={'pill clickable ' + (project ? 't-butter' : 't-plain')} onClick={() => pickProject({ onPick: (p) => set({ projectId: p ? p.id : null }) })}><Icon name="folder" size={15} />{project ? project.name : 'Link project'}</button>
         {project && <a class="pill clickable t-plain" href={'#/projects/' + project.id}>Open project<Icon name="arrowRight" size={13} /></a>}
+        {!project && (() => { const c = M.categoryOf(t.categoryId || M.settings().defaultCategory); return <button class="pill clickable t-plain" onClick={(e) => openMenu(e, M.categories().map((x) => ({ label: x.name, icon: x.id === c.id ? 'check' : undefined, onSelect: () => set({ categoryId: x.id }) })), { title: 'Category' })}><span class={'cat-dot t-' + c.color} aria-hidden="true" />{c.name}<Icon name="chevronDown" size={13} /></button>; })()}
         {M.isOverdue(t) && <span class="pill t-rose">Overdue</span>}
         {M.isBehind(t) && <span class="pill t-butter">Not done yet</span>}
         {t.status === 'done' && <span class="pill t-sage"><Icon name="check" size={13} />Done</span>}

@@ -207,6 +207,7 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
   const [workDate, setWorkDate] = useState(date || (startMode === 'tomorrow' ? t1 : t0));
   const [workTime, setWorkTime] = useState(time || '');
   const [pid, setPid] = useState(projectId);
+  const [cat, setCat] = useState(M.settings().defaultCategory);
   const [dl, setDl] = useState({ date: '', time: '' });
   const [est, setEst] = useState(M.settings().defaultEstimate || '');
   const [steps, setSteps] = useState([]);
@@ -222,7 +223,7 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
     if (!tt) { toast('Write the task first.', { tone: 'warn' }); const el = document.getElementById('qa-title'); if (el) el.focus(); return; }
     const pending = stepDraft.trim() ? [...steps, { id: Math.random().toString(36).slice(2, 10), title: stepDraft.trim(), done: false, order: steps.length }] : steps;
     const wd = scheduled ? workDate || null : null;
-    const t = M.newTask({ title: tt, workDate: wd, workTime: wd ? workTime || null : null, projectId: pid || null, deadlineDate: dl.date || null, deadlineTime: dl.date ? dl.time || null : null, estimateMinutes: est ? +est : null, subtasks: pending, notes });
+    const t = M.newTask({ title: tt, workDate: wd, workTime: wd ? workTime || null : null, projectId: pid || null, categoryId: pid ? null : cat, deadlineDate: dl.date || null, deadlineTime: dl.date ? dl.time || null : null, estimateMinutes: est ? +est : null, subtasks: pending, notes });
     close();
     toast(wd ? 'Added for ' + relDay(wd).toLowerCase() + (workTime ? ' ' + workTime : '') : 'Added to Inbox', { action: { label: 'Open', run: () => navigate('/tasks/' + t.id) } });
   };
@@ -240,6 +241,13 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
               <span class="grow ellipsis">{project ? project.name : 'No project'}</span><Icon name="chevronDown" size={15} />
             </button>
           </Field>
+          {!project && (
+            <Field label="Category">
+              <div class="row gap-6 wrap" role="radiogroup" aria-label="Category">
+                {M.categories().map((c) => <button type="button" role="radio" aria-checked={cat === c.id} class={'chip' + (cat === c.id ? ' on' : '')} onClick={() => setCat(c.id)}><span class={'cat-dot t-' + c.color} aria-hidden="true" />{c.name}</button>)}
+              </div>
+            </Field>
+          )}
           <div class="qa-tiles" role="radiogroup" aria-label="Work schedule">
             {tiles.map((o) => <button type="button" role="radio" aria-checked={mode === o.id} class={'qa-tile' + (mode === o.id ? ' on' : '')} onClick={() => pick(o.id)}><Icon name={o.icon || 'calendar'} size={18} />{o.label}</button>)}
           </div>
