@@ -241,6 +241,12 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
 .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
 .presets { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.sheet > * { flex-shrink: 0; }
+.cstrip { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; flex: none; }
+.cthumb { width: 78px; flex: none; position: relative; }
+.cthumb span { position: absolute; left: 5px; top: 4px; font-size: 11px; font-weight: 700; color: #fff; background: rgba(0,0,0,.5); border-radius: 6px; padding: 0 5px; }
+.cadd { width: 78px; flex: none; border-radius: 10px; border: 1.5px dashed var(--line-strong); display: grid; place-items: center; color: var(--muted); min-height: 98px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .banner { background: var(--butter); border-radius: var(--r-md); padding: 12px 16px; font-size: 14px; }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s ease; } @keyframes up { from { transform: translateY(24px); opacity: .5; } } }
 </style>
@@ -803,7 +809,7 @@ function PostPage({ id }) {
     </div>
 
     ${p.format === 'carousel' && html`<div class="sec">
-      <div class="sec-h"><h3>Slides · ${(p.slides || []).length}</h3><button class="btn sm" onClick=${() => fileRef.current && fileRef.current.click()}><${Icon} n="plus" s=${16} />Add slides</button></div>
+      <div class="sec-h wrap gap-8"><h3>Slides · ${(p.slides || []).length + (p.cover && p.cover.renderId ? 1 : 0)}</h3><div class="row gap-6"><button class="btn sm" onClick=${() => fileRef.current && fileRef.current.click()}><${Icon} n="plus" s=${16} />Add images</button><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CarouselBuilder} close=${c} postId=${p.id} />`)}><${Icon} n="layers" s=${16} />${p.deck ? 'Edit carousel' : 'Build carousel'}</button></div></div>
       <input type="file" id="slides-in" accept="image/*" multiple hidden ref=${fileRef} onChange=${(e) => { uploadSlides([...e.currentTarget.files]); e.currentTarget.value = ''; }} />
       ${(p.slides || []).length > 0 ? html`
         <div class="swipe">${p.cover && p.cover.renderId && html`<div style=${`background-image:url(${assetSrc(p.cover.renderId)})`}></div>`}${p.slides.map((s) => html`<div style=${`background-image:url(${assetSrc(s)})`}></div>`)}</div>
@@ -859,23 +865,26 @@ VO: ... (one VO line per sentence, each with its own Visual and Teks)
 ... continue for Belokan and Penutup jujur.
 
 Then one line "Isi dulu:" listing the [placeholders] he must replace, or "Isi dulu: -" if none.`;
+const CAROUSEL_ASK = `Write this as an Instagram carousel of 6-9 slides, from hook to CTA, using the method: slide 1 is the hook as a first-person confession, the next slides carry the why with his concrete details, one slide is the turn, and the last slide is a soft CTA that never begs for follows (for example: save it for your next shoot, or tell me yours). Each slide has a title of 2-8 words (you may wrap one word in *stars* for the accent font) and an optional body of 1-2 short sentences. Add a "photo" note saying which photo fits, from footage he likely has. Return JSON only: {"slides":[{"role":"hook|content|cta","kicker":"tiny label or empty","title":"","body":"","photo":""}]}`;
 const CHECKLIST = `Checklist: 3 detik pertama ada "aku" + perasaan atau momen nyata? Ada 3 detail yang cuma dia yang punya? Ada kalimat belokan? Penutup jujur, nggak menggurui, nggak nyuruh follow? Lolos tes "orang lain bisa posting video persis sama?" Tiap kalimat ada visualnya? 45-60 detik, ±100-150 kata, natural pas diomongin?`;
 
 function WriteWithClaude({ p }) {
   const [busy, setBusy] = useState(null); const [out, setOut] = useState(''); const [target, setTarget] = useState(null);
   const [showRef, setShowRef] = useState(!!p.refScript); const [take, setTake] = useState(['structure', 'hook']);
+  const [mode, setMode] = useState(p.format === 'carousel' ? 'carousel' : 'video'); const [deckOut, setDeckOut] = useState(null);
   const ctl = useRef(null);
   if (!sample) return html`<div class="ai"><b>Write with Claude</b><span class="small">Open this page in Claude to write hooks, scripts and captions here.</span></div>`;
   const story = () => (p.story && p.story.trim() ? `\nHis real story and details (the only facts you may use about his life):\n${p.story.trim()}\n` : '\nHe has not written his story yet, so use [placeholders] for every personal detail.\n');
-  const isStory = p.format !== 'carousel' && p.format !== 'photo';
+  const isStory = mode === 'video';
   const lang = settings().lang === 'en' ? 'Write in natural spoken English.' : 'Write in casual spoken Indonesian with aku/kamu.';
   const TAKES = { structure: 'the structure and pacing (beat order, where the turn sits)', hook: 'the hook pattern (rewrite it as his own confession)', angle: 'the angle or idea (retold through his own life)', visuals: 'the visual ideas and shot rhythm' };
   const asks = {
     hook: () => `Give 5 hook options for this post. Each is a first-person confession under 12 words, using the hook patterns. Number them 1-5, nothing else.`,
-    script: () => isStory ? `Write the storytelling script for this reel using the method.\n${SCRIPT_FORMAT}` : `Write the slide-by-slide text for this carousel (Slide 1, Slide 2, ..., 6-9 slides, one or two short lines each). Slide 1 is the hook as a confession, the middle slides carry the why and the turn, the last slide closes honestly. Keep the why-rule and never invent his life; use [placeholders].`,
+    script: () => `Write the storytelling script for this reel using the method.\n${SCRIPT_FORMAT}`,
+    carousel: () => CAROUSEL_ASK,
     why: () => `Before writing, ask him the why ladder for this post as exactly 3 short questions in casual Indonesian (gw/lu): 1) Kenapa lu bikin video ini? 2) Kenapa itu penting buat lu, momen nyatanya apa? 3) Kenapa itu masih nempel sampe sekarang, kebiasaan atau barang apa yang ketinggalan? Make each question specific to this post. Number them 1-3, nothing else.`,
     review: () => `Review his current script against the checklist. ${CHECKLIST}\nFirst list only the checklist items it misses, one line each, in casual Indonesian (gw/lu). Then a line "---", then the script with only the failing beats rewritten, keeping his own wording everywhere else, in the same format.\n${SCRIPT_FORMAT}`,
-    rewrite: () => `Here is someone else's script as a reference:\n"""\n${(p.refScript || '').trim()}\n"""\nTake only ${take.map((k) => TAKES[k]).join(', ') || 'the structure'} from it. Do not copy its sentences, its facts or its life events. Retell it as his own story using the method, with his real details or [placeholders].\n${isStory ? SCRIPT_FORMAT : 'Write it as carousel slide text (Slide 1, Slide 2, ...).'}`,
+    rewrite: () => `Here is someone else's script as a reference:\n"""\n${(p.refScript || '').trim()}\n"""\nTake only ${take.map((k) => TAKES[k]).join(', ') || 'the structure'} from it. Do not copy its sentences, its facts or its life events. Retell it as his own story using the method, with his real details or [placeholders].\n${isStory ? SCRIPT_FORMAT : CAROUSEL_ASK}`,
     caption: () => `Write one Instagram caption: 2-4 short lines in his voice that add something the video does not say, then a blank line and 3-5 relevant hashtags. No emoji spam, no asking for follows.`,
   };
   const run = async (kind) => {
@@ -884,11 +893,24 @@ function WriteWithClaude({ p }) {
     if (ctl.current) ctl.current.abort();
     const ac = new AbortController(); ctl.current = ac; setBusy(kind); setOut(''); setTarget(kind);
     const prompt = `${postContext(p)}${story()}\n${STORY_METHOD}\n\n${STYLE_GUARD}\n\n${lang}\n\nTask: ${asks[kind]()}`;
+    setDeckOut(null);
+    if (kind === 'carousel' || (kind === 'rewrite' && !isStory)) {
+      try { const v = await sample.json(prompt, { signal: ac.signal, modelTier: 'complex' }); const sl = (v && v.slides) || []; setDeckOut(sl); setOut(sl.map((x, i) => `Slide ${i + 1} · ${x.role || ''}\n${x.kicker ? x.kicker + '\n' : ''}${x.title || ''}${x.body ? '\n' + x.body : ''}${x.photo ? '\nFoto: ' + x.photo : ''}`).join('\n\n')); }
+      catch (e) { if (e && e.name !== 'AbortError') setOut('Claude could not answer. Try again.'); }
+      setBusy(null); return;
+    }
     try { const res = await sample(prompt, { signal: ac.signal, onText: ({ text }) => setOut(text), cache: false, modelTier: kind === 'hook' || kind === 'why' ? 'default' : 'complex' }); setOut(res.text); }
     catch (e) { if (e && e.name !== 'AbortError') setOut(e && e.code === 'rate_limited' ? 'Claude is busy. Try again in a minute.' : e && e.code === 'not_granted' ? 'Claude is not allowed on this page.' : 'Something went wrong. Try again.'); }
     setBusy(null);
   };
   const field = { hook: 'hook', script: 'script', review: 'script', rewrite: 'script', caption: 'caption' }[target];
+  const useDeck = (open) => {
+    const cur = S.posts[p.id]; const base = cur.deck || defaultDeck(cur); const old = base.slides || [];
+    const slides = deckOut.map((x, i) => newSlide({ role: ['hook', 'cta'].includes(x.role) ? x.role : 'content', kicker: x.kicker || '', title: x.title || '', body: x.body || '', photo: x.photo || '', photoId: (old[i] && old[i].photoId) || null }));
+    savePost(p.id, { format: 'carousel', deck: { ...base, slides }, script: out }, 0);
+    toast(slides.length + ' slides ready in the carousel builder');
+    if (open) openOverlay((c) => html`<${CarouselBuilder} close=${c} postId=${p.id} />`);
+  };
   const use = (mode) => {
     if (target === 'hook') { const first = (out.match(/^\s*1[.)]\s*(.+)$/m) || [])[1]; savePost(p.id, { hook: (first || out).trim().replace(/^"|"$/g, '') }, 0); return toast('Hook updated'); }
     if (target === 'why') { savePost(p.id, { story: ((p.story || '') + (p.story ? '\n\n' : '') + out.trim() + '\n\nJawaban gw:\n') }, 0); return toast('Questions added to your story. Answer them there.'); }
@@ -902,7 +924,8 @@ function WriteWithClaude({ p }) {
     <div class="row gap-8"><${Icon} n="spark" /><b>Write with Claude</b><span class="small muted" style="margin-left:auto">Storytelling method</span></div>
     <div class="field"><label for="ai-story">Your real story</label>
       <textarea class="input" id="ai-story" rows="4" placeholder="What actually happened, how it felt, details only you have. Claude only uses what you write here. Missing parts become [placeholders]." value=${p.story || ''} onInput=${(e) => savePost(p.id, { story: e.currentTarget.value })}></textarea></div>
-    <div class="row gap-6 wrap">${B('why', '3 why questions')}${B('hook', '5 hooks')}${B('script', isStory ? 'Script' : 'Slide text')}${B('review', 'Check my script')}${B('caption', 'Caption')}
+    <div class="row gap-8 wrap"><span class="small muted">Make it a</span><div class="seg">${[['video', 'Video'], ['carousel', 'Carousel']].map(([k, l]) => html`<button class=${mode === k ? 'on' : ''} onClick=${() => setMode(k)}>${l}</button>`)}</div></div>
+    <div class="row gap-6 wrap">${B('why', '3 why questions')}${B('hook', '5 hooks')}${isStory ? B('script', 'Video script') : B('carousel', 'Carousel slides')}${isStory ? B('review', 'Check my script') : ''}${B('caption', 'Caption')}
       ${busy && html`<button class="btn sm ghost" onClick=${() => ctl.current && ctl.current.abort()}>Stop</button>`}</div>
     <button class="row gap-6 small" style="font-weight:650;align-self:flex-start" onClick=${() => setShowRef(!showRef)} aria-expanded=${showRef}><${Icon} n=${showRef ? 'down' : 'right'} s=${15} />Rewrite from someone else's script</button>
     ${showRef && html`<div class="col gap-8">
@@ -913,9 +936,206 @@ function WriteWithClaude({ p }) {
     </div>`}
     ${out && html`<div class="out">${out}</div>`}
     ${out && !busy && html`<div class="row gap-6 wrap">
-      ${target === 'why' ? html`<button class="btn sm primary" onClick=${() => use('replace')}>Add to my story</button>` : html`<button class="btn sm primary" onClick=${() => use('replace')}>${target === 'hook' ? 'Use hook 1' : target === 'review' ? 'Use fixed script' : 'Use this'}</button>`}
-      ${target !== 'hook' && target !== 'why' && html`<button class="btn sm" onClick=${() => use('append')}>Add below mine</button>`}
+      ${deckOut ? html`<button class="btn sm primary" onClick=${() => useDeck(true)}>Open in carousel builder</button><button class="btn sm" onClick=${() => useDeck(false)}>Save slides</button>` : target === 'why' ? html`<button class="btn sm primary" onClick=${() => use('replace')}>Add to my story</button>` : html`<button class="btn sm primary" onClick=${() => use('replace')}>${target === 'hook' ? 'Use hook 1' : target === 'review' ? 'Use fixed script' : 'Use this'}</button>`}
+      ${!deckOut && target !== 'hook' && target !== 'why' && html`<button class="btn sm" onClick=${() => use('append')}>Add below mine</button>`}
       <button class="btn sm ghost" onClick=${() => navigator.clipboard.writeText(out).then(() => toast('Copied'), () => {})}>Copy</button></div>`}
+  </div>`;
+}
+
+/* ----- Carousel builder ----- */
+// Five carousel styles taken from Denizar's references. Each role (hook / content / cta) says how kicker, title and body look and where they sit.
+const T = (font, size, o = {}) => ({ font, size, ...o });
+const CAROUSEL_STYLES = {
+  journal: { name: 'Journal', grade: 0.4,
+    hook: { pos: 'middle', align: 'center', kicker: T('garamond-regular', 34, { upper: true, ls: 0.12 }), title: T('garamond-regular', 200, { upper: true, hs: 0.8, lh: 0.9 }), body: T('editors-italic', 56) },
+    content: { pos: 'top', align: 'left', kicker: T('avenir-bold', 22, { upper: true, ls: 0.16 }), title: T('editors-regular', 66, { lh: 1, accent: 'editors-italic' }), body: T('avenir-bold', 28, { lh: 1.28 }) },
+    cta: { pos: 'middle', align: 'center', kicker: T('avenir-bold', 22, { upper: true, ls: 0.16 }), title: T('editors-regular', 84, { lh: 1, accent: 'editors-italic' }), body: T('avenir-bold', 28, { lh: 1.28 }) } },
+  quiet: { name: 'Quiet', grade: 0.15,
+    hook: { pos: 'top', align: 'center', inner: 'left', box: 0.66, title: T('helvetica-regular', 44, { lh: 1.08, ls: -0.01 }), body: T('helvetica-regular', 44, { lh: 1.08, ls: -0.01 }) },
+    content: { pos: 'top', align: 'center', inner: 'left', box: 0.66, title: T('helvetica-regular', 38, { lh: 1.1, ls: -0.01 }), body: T('helvetica-regular', 38, { lh: 1.1, ls: -0.01 }) },
+    cta: { pos: 'middle', align: 'center', box: 0.66, title: T('helvetica-regular', 38, { lh: 1.1, ls: -0.01 }), body: T('helvetica-regular', 38, { lh: 1.1, ls: -0.01 }) } },
+  diary: { name: 'Diary', grade: 0.35, header: true,
+    hook: { pos: 'top', align: 'left', bodyAt: 'bottom', title: T('editors-regular', 118, { lh: 0.98, accent: 'ballpark-script' }), body: T('avenir-regular', 28, { lh: 1.3 }) },
+    content: { pos: 'middle', align: 'center', bodyAt: 'bottom', title: T('editors-regular', 80, { lh: 1.05, accent: 'ballpark-script' }), body: T('avenir-regular', 28, { lh: 1.3 }) },
+    cta: { pos: 'middle', align: 'center', bodyAt: 'bottom', title: T('editors-regular', 86, { lh: 1.05, accent: 'ballpark-script' }), body: T('avenir-regular', 28, { lh: 1.3 }) } },
+  shotguide: { name: 'Shot guide', grade: 0.3, footer: true,
+    hook: { pos: 'middle', align: 'center', title: T('helvetica-bold', 150, { ls: -0.03, lh: 0.95 }), body: T('avenir-bold', 30, { accent: 'editors-italic' }) },
+    content: { pos: 'middle', align: 'right', title: T('helvetica-bold', 112, { ls: -0.03, lh: 0.95 }), body: T('avenir-bold', 28, { lh: 1.25 }) },
+    cta: { pos: 'middle', align: 'center', title: T('helvetica-bold', 100, { ls: -0.03, lh: 0.95 }), body: T('avenir-bold', 30, { lh: 1.25 }) } },
+  gear: { name: 'Gear notes', grade: 0.3,
+    hook: { pos: 'middle', align: 'center', kicker: T('editors-regular', 44), title: T('editors-regular', 112, { lh: 0.95 }), body: T('avenir-regular', 26, { upper: true, ls: 0.12 }) },
+    content: { pos: 'top', align: 'center', bodyAt: 'bottom', box: 0.74, kicker: T('avenir-bold', 22, { upper: true, ls: 0.1 }), title: T('editors-regular', 86, { lh: 0.98 }), body: T('editors-regular', 38, { lh: 1.25 }) },
+    cta: { pos: 'middle', align: 'center', box: 0.74, kicker: T('avenir-bold', 22, { upper: true, ls: 0.1 }), title: T('editors-regular', 86, { lh: 0.98 }), body: T('editors-regular', 38, { lh: 1.25 }) } },
+};
+const roleOf = (s, i, n) => (s.role === 'hook' || s.role === 'cta' ? s.role : i === 0 ? 'hook' : i === n - 1 && s.role !== 'content' ? 'cta' : 'content');
+const newSlide = (o = {}) => ({ id: uid(), role: 'content', kicker: '', title: '', body: '', photo: '', photoId: null, photo2Id: null, pos: null, align: null, scale: 1, zoom: 1, px: 0, py: 0, ...o });
+function defaultDeck(p) {
+  const st = settings();
+  return { style: p.pillar === 'setup' ? 'gear' : p.pillar === 'shot' ? 'shotguide' : 'journal', ratio: '4:5', color: '#ffffff', grade: null, shadow: true,
+    header: { left: '#' + (pillarOf(p.pillar).name || 'diary').replace(/[^\w]/g, ''), center: p.title || 'Digital Diary', right: '#vandenizar' },
+    footer: { left: 'by @' + (st.profile.username || 'vandenizar'), right: 'STEAL THESE FRAMES', sub: 'A few shots I keep coming back to' },
+    slides: [newSlide({ role: 'hook', title: p.title || 'Your title' }), newSlide({ title: 'First point' }), newSlide({ role: 'cta', title: 'Save this for your next shoot' })] };
+}
+const imgCache = {};
+const getImg = (id) => (id ? (imgCache[id] || (imgCache[id] = loadImg(assetSrc(id)).catch(() => null))) : Promise.resolve(null));
+function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
+  const [W0, H0] = coverSize(deck.ratio || '4:5'); cv.width = Math.round(W0 * scaleDown); cv.height = Math.round(H0 * scaleDown);
+  const ctx = cv.getContext('2d'); ctx.setTransform(scaleDown, 0, 0, scaleDown, 0, 0); const W = W0, H = H0;
+  const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, i, n); const R = sty[role];
+  ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
+  const fill = (img, x, y, w, h) => { if (!img) return; const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; const sc = Math.max(w / iw, h / ih) * (s.zoom || 1); const dw = iw * sc, dh = ih * sc; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.drawImage(img, x + (w - dw) / 2 + (s.px || 0) * (dw - w) / 2, y + (h - dh) / 2 + (s.py || 0) * (dh - h) / 2, dw, dh); ctx.restore(); };
+  if (im2) { fill(im1, 0, 0, W, H / 2 - 3); fill(im2, 0, H / 2 + 3, W, H / 2 - 3); } else fill(im1, 0, 0, W, H);
+  const pos = s.pos || R.pos; const align = s.align || R.align; const g = deck.grade != null ? deck.grade : sty.grade;
+  if (g > 0) {
+    const grad = (top) => { const gr = ctx.createLinearGradient(0, top ? 0 : H * 0.4, 0, top ? H * 0.6 : H); gr.addColorStop(top ? 0 : 1, `rgba(10,8,6,${g})`); gr.addColorStop(top ? 1 : 0, 'rgba(10,8,6,0)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); };
+    if (pos === 'top' || sty.header) grad(true); if (pos === 'bottom' || R.bodyAt === 'bottom' || sty.footer) grad(false);
+    if (pos === 'middle') { ctx.fillStyle = `rgba(10,8,6,${g * 0.45})`; ctx.fillRect(0, 0, W, H); }
+  }
+  ctx.fillStyle = deck.color || '#fff'; ctx.textBaseline = 'alphabetic';
+  if (deck.shadow !== false) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 2; }
+  const m = 76; const sc = s.scale || 1; const top = 70, bot = H - 70;
+  const setFont = (key, px, ls) => { ctx.font = `${px}px "${fam(key)}"`; try { ctx.letterSpacing = (ls || 0) * px + 'px'; } catch (e) {} };
+  const layout = (items, maxW) => {
+    const rows = [];
+    items.forEach(({ text, spec, gap }) => {
+      if (!text || !spec) return;
+      const it = spec.accent || (FONT_LIB[spec.font] && FONT_LIB[spec.font][2]) || spec.font; const hs = spec.hs || 1;
+      // Long body text wraps by words inside the box; titles break only on new lines and shrink to fit.
+      const paras = String(text).split('\n');
+      const wrapLine = (raw) => {
+        const words = raw.split(/(\s+)/); const out = []; let cur = '';
+        const width = (t) => { let w = 0; segsOf(spec.upper ? t.toUpperCase() : t).forEach((sg) => { setFont(sg.it ? it : spec.font, spec.size * sc, spec.ls); w += ctx.measureText(sg.t).width * hs; }); return w; };
+        words.forEach((w) => { const next = cur + w; if (cur && width(next.trim()) > maxW && spec.size * sc < 70) { out.push(cur.trim()); cur = w.trim(); } else cur = next; });
+        if (cur.trim()) out.push(cur.trim()); return out.length ? out : [''];
+      };
+      paras.forEach((para) => wrapLine(para).forEach((raw) => {
+        const segs = segsOf(spec.upper ? raw.toUpperCase() : raw); let px = spec.size * sc, w = 0;
+        const meas = () => { w = 0; segs.forEach((sg) => { setFont(sg.it ? it : spec.font, px, spec.ls); sg.w = ctx.measureText(sg.t).width * hs; w += sg.w; }); };
+        meas(); for (let k = 0; k < 30 && w > maxW && px > 12; k++) { px *= 0.94; meas(); }
+        rows.push({ segs, px, w, hs, ls: spec.ls, font: spec.font, it, h: px * (spec.lh || (px > 70 ? 0.98 : 1.3)) });
+      }));
+      if (rows.length) rows[rows.length - 1].gap = gap != null ? gap : Math.max(12, spec.size * sc * 0.28);
+    });
+    if (rows.length) rows[rows.length - 1].gap = 0;
+    return { rows, h: rows.reduce((a, r) => a + r.h + (r.gap || 0), 0) };
+  };
+  const place = (lay, anchor, al, boxW) => {
+    if (!lay.rows.length) return;
+    let y = anchor === 'top' ? top + (sty.header ? 70 : 20) : anchor === 'bottom' ? bot - (sty.footer ? 110 : 20) - lay.h : (H - lay.h) / 2;
+    const boxX = al === 'left' ? m : al === 'right' ? W - m - boxW : (W - boxW) / 2;
+    lay.rows.forEach((r) => {
+      const inner = R.inner || al; const x0 = inner === 'left' ? boxX : inner === 'right' ? boxX + boxW - r.w : boxX + (boxW - r.w) / 2;
+      let x = x0; const base = y + r.h * 0.8;
+      r.segs.forEach((sg) => { setFont(sg.it ? r.it : r.font, r.px, r.ls); ctx.save(); ctx.translate(x, base); ctx.scale(r.hs, 1); ctx.fillText(sg.t, 0, 0); ctx.restore(); x += sg.w; });
+      y += r.h + (r.gap || 0);
+    });
+  };
+  const boxW = (W - m * 2) * (R.box || (align === 'center' ? 1 : 0.86));
+  const main = [{ text: s.kicker, spec: R.kicker }, { text: s.title, spec: R.title }];
+  if (R.bodyAt === 'bottom') { place(layout(main, boxW), pos, align, boxW); place(layout([{ text: s.body, spec: R.body }], boxW), 'bottom', R.align === 'left' && pos === 'top' ? 'left' : 'center', boxW); }
+  else place(layout([...main, { text: s.body, spec: R.body }], boxW), pos, align, boxW);
+  // Header row (Diary) and footer (Shot guide) repeat on every slide.
+  const small = (t, x, y, al, font, size, ls) => { if (!t) return; setFont(font, size, ls); const w = ctx.measureText(t).width; ctx.fillText(t, al === 'left' ? x : al === 'right' ? x - w : x - w / 2, y); };
+  if (sty.header && deck.header) { small(deck.header.left, m, top + 10, 'left', 'avenir-regular', 24, 0.02); small(deck.header.center, W / 2, top + 10, 'center', 'avenir-bold', 26, 0); small(deck.header.right, W - m, top + 10, 'right', 'avenir-regular', 24, 0.02); }
+  if (sty.footer && deck.footer) { small(deck.footer.left, m, bot - 10, 'left', 'avenir-bold', 26, 0); small(deck.footer.right, W - m, bot - 40, 'right', 'avenir-bold', 22, 0.04); small(deck.footer.sub, W - m, bot - 10, 'right', 'avenir-regular', 18, 0); }
+  ctx.shadowColor = 'transparent';
+}
+const deckFonts = (deck) => { const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const ks = new Set(['avenir-regular', 'avenir-bold']); ['hook', 'content', 'cta'].forEach((r) => ['kicker', 'title', 'body'].forEach((k) => { const sp = sty[r][k]; if (sp) { ks.add(sp.font); if (sp.accent) ks.add(sp.accent); const it = FONT_LIB[sp.font] && FONT_LIB[sp.font][2]; if (it) ks.add(it); } })); return Promise.all([...ks].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {}))); };
+
+function SlideCanvas({ deck, s, i, n, scale, onClick, sel }) {
+  const ref = useRef(null);
+  useEffect(() => { let on = true; Promise.all([deckFonts(deck), getImg(s.photoId), getImg(s.photo2Id)]).then(([, a, b]) => { if (on && ref.current) drawSlide(ref.current, deck, s, i, n, a, b, scale); }); return () => { on = false; }; }, [deck, s, i, n]);
+  return html`<canvas ref=${ref} onClick=${onClick} style=${`width:100%;display:block;border-radius:${scale < 0.5 ? 10 : 16}px;${sel ? 'outline:3px solid var(--ink);outline-offset:2px;' : ''}${onClick ? 'cursor:pointer;' : ''}`}></canvas>`;
+}
+
+function CarouselBuilder({ close, postId }) {
+  const p = S.posts[postId];
+  const [deck, setDeck] = useState(() => JSON.parse(JSON.stringify(p.deck || defaultDeck(p))));
+  const [sel, setSel] = useState(0); const [busy, setBusy] = useState(null);
+  const first = useRef(true);
+  useEffect(() => { if (first.current) { first.current = false; return; } savePost(p.id, { deck }, 800); }, [deck]);
+  const n = deck.slides.length; const s = deck.slides[Math.min(sel, n - 1)] || deck.slides[0];
+  const up = (patch) => setDeck((d) => ({ ...d, ...patch }));
+  const upS = (patch) => setDeck((d) => ({ ...d, slides: d.slides.map((x, j) => (j === sel ? { ...x, ...patch } : x)) }));
+  const move = (d) => { const j = sel + d; if (j < 0 || j >= n) return; setDeck((dk) => { const a = [...dk.slides]; [a[sel], a[j]] = [a[j], a[sel]]; return { ...dk, slides: a }; }); setSel(j); };
+  const upload = async (f) => { if (!assets) { toast('Uploads need the page opened in Claude.'); return null; } const r = await assets.upload(await shrink(f, 2160)); return r.id; };
+  const bulk = async (files) => {
+    setBusy('photos'); const ids = [];
+    for (const f of files) { try { const id = await upload(f); if (id) ids.push(id); } catch (e) { toast('Could not upload ' + f.name); } }
+    setDeck((d) => { const sl = d.slides.map((x) => ({ ...x })); let k = 0; sl.forEach((x) => { if (!x.photoId && k < ids.length) x.photoId = ids[k++]; }); while (k < ids.length) { const cta = sl.length && roleOf(sl[sl.length - 1], sl.length - 1, sl.length) === 'cta' ? sl.pop() : null; sl.push(newSlide({ photoId: ids[k++] })); if (cta) sl.push(cta); } return { ...d, slides: sl }; });
+    setBusy(null); if (ids.length) toast(ids.length + ' photo' + (ids.length > 1 ? 's' : '') + ' placed');
+  };
+  const one = async (f, key) => { if (!f) return; setBusy(key); try { const id = await upload(f); if (id) upS({ [key]: id }); } catch (e) { toast('Could not upload the photo.'); } setBusy(null); };
+  const renderAll = async (type) => { await deckFonts(deck); const out = []; for (let i = 0; i < n; i++) { const sl = deck.slides[i]; const [a, b] = await Promise.all([getImg(sl.photoId), getImg(sl.photo2Id)]); const cv = document.createElement('canvas'); drawSlide(cv, deck, sl, i, n, a, b, 1); out.push(await new Promise((r) => cv.toBlob(r, type, 0.92))); } return out; };
+  const saveToPost = async () => {
+    if (!assets) return toast('Saving needs the page opened in Claude.');
+    setBusy('save');
+    try {
+      const blobs = await renderAll('image/jpeg'); const ids = []; for (const b of blobs) ids.push((await assets.upload(b)).id);
+      const cur = S.posts[p.id]; const prev = { cover: cur.cover, slides: cur.slides };
+      savePost(p.id, { deck, format: 'carousel', cover: { ...(cur.cover || {}), renderId: ids[0], ratio: deck.ratio, fromDeck: true }, slides: ids.slice(1) }, 0);
+      toast(n + ' slides saved to the post', { label: 'Undo', run: () => savePost(p.id, prev, 0) });
+    } catch (e) { toast('Could not save the slides. Check your connection.'); }
+    setBusy(null);
+  };
+  const exportAll = async () => {
+    if (!downloads) return toast('Downloading needs the page opened in Claude.');
+    setBusy('export');
+    try { const blobs = await renderAll('image/jpeg'); const base = (p.title || 'carousel').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase(); for (let i = 0; i < blobs.length; i++) await downloads.save({ filename: `${base}-${String(i + 1).padStart(2, '0')}.jpg`, data: blobs[i] }); }
+    catch (e) { if (!e || e.code !== 'declined') toast('Export stopped.'); }
+    setBusy(null);
+  };
+  const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, sel, n); const R = sty[role];
+  return html`<div class="sheet wide">
+    <div class="sheet-h wrap gap-8"><h2>Carousel</h2><div class="row gap-6 wrap">
+      <button class="btn sm ghost" onClick=${close}>Close</button>
+      ${downloads && html`<button class="btn sm" disabled=${!!busy} onClick=${exportAll}><${Icon} n="download" s=${16} />${busy === 'export' ? 'Exporting…' : 'Export all'}</button>`}
+      <button class="btn sm primary" disabled=${!!busy} onClick=${saveToPost}>${busy === 'save' ? 'Saving…' : 'Save to post'}</button></div></div>
+    <div class="field"><span class="lbl">Style</span><div class="presets">${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (deck.style === k ? ' on' : '')} onClick=${() => up({ style: k, grade: null })}>${v.name}</button>`)}</div></div>
+    <div class="cstrip">${deck.slides.map((x, i) => html`<div class="cthumb"><${SlideCanvas} deck=${deck} s=${x} i=${i} n=${n} scale=${0.18} sel=${i === sel} onClick=${() => setSel(i)} /><span>${i + 1}</span></div>`)}
+      <button class="cadd" aria-label="Add slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, newSlide()); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="plus" /></button></div>
+    <div class="ced">
+      <div class="cstage" style=${`aspect-ratio:${coverSize(deck.ratio).join('/')}`}><${SlideCanvas} deck=${deck} s=${s} i=${sel} n=${n} scale=${0.6} /></div>
+      <div class="col gap-12 lc">
+        <div class="row gap-6 wrap">
+          <label class="btn sm" for="cb-bulk"><${Icon} n="image" s=${16} />${busy === 'photos' ? 'Uploading…' : 'Add photos'}</label>
+          <input type="file" id="cb-bulk" accept="image/*" multiple hidden onChange=${(e) => { bulk([...e.currentTarget.files]); e.currentTarget.value = ''; }} />
+          <span class="small muted">Pick several at once. They fill empty slides in order.</span>
+        </div>
+        <div class="field"><span class="lbl">Size</span><div class="seg">${['4:5', '3:4', '1:1'].map((k) => html`<button class=${deck.ratio === k ? 'on' : ''} onClick=${() => up({ ratio: k })}>${RATIOS[k].name}</button>`)}</div></div>
+        <div class="field"><span class="lbl">Text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (deck.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => up({ color: c })}></button>`)}<button class=${'chip' + (deck.shadow !== false ? ' on' : '')} onClick=${() => up({ shadow: deck.shadow === false })}>Soft shadow</button></div></div>
+        <label class="lbl">Darken photos<input type="range" min="0" max="0.8" step="0.01" value=${deck.grade != null ? deck.grade : sty.grade} onInput=${(e) => up({ grade: +e.currentTarget.value })} /></label>
+        ${sty.header && html`<div class="field"><span class="lbl">Header on every slide</span><div class="grid3"><input class="input" aria-label="Header left" value=${deck.header.left} onInput=${(e) => up({ header: { ...deck.header, left: e.currentTarget.value } })} /><input class="input" aria-label="Header middle" value=${deck.header.center} onInput=${(e) => up({ header: { ...deck.header, center: e.currentTarget.value } })} /><input class="input" aria-label="Header right" value=${deck.header.right} onInput=${(e) => up({ header: { ...deck.header, right: e.currentTarget.value } })} /></div></div>`}
+        ${sty.footer && html`<div class="field"><span class="lbl">Footer on every slide</span><input class="input" aria-label="Footer left" value=${deck.footer.left} onInput=${(e) => up({ footer: { ...deck.footer, left: e.currentTarget.value } })} /><div class="grid2"><input class="input" aria-label="Footer right" value=${deck.footer.right} onInput=${(e) => up({ footer: { ...deck.footer, right: e.currentTarget.value } })} /><input class="input" aria-label="Footer small line" value=${deck.footer.sub} onInput=${(e) => up({ footer: { ...deck.footer, sub: e.currentTarget.value } })} /></div></div>`}
+      </div>
+      <div class="col gap-12 rc">
+        <div class="row between wrap gap-8"><b>Slide ${sel + 1} of ${n}</b><div class="row gap-4">
+          <button class="icon-btn" aria-label="Move slide left" onClick=${() => move(-1)}><${Icon} n="left" s=${18} /></button>
+          <button class="icon-btn" aria-label="Move slide right" onClick=${() => move(1)}><${Icon} n="right" s=${18} /></button>
+          <button class="icon-btn" aria-label="Duplicate slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, { ...s, id: uid() }); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="copy" s=${18} /></button>
+          <button class="icon-btn" aria-label="Delete slide" disabled=${n <= 1} onClick=${() => { setDeck((d) => ({ ...d, slides: d.slides.filter((_, j) => j !== sel) })); setSel(Math.max(0, sel - 1)); }}><${Icon} n="trash" s=${18} /></button></div></div>
+        <div class="seg">${[['hook', 'Hook'], ['content', 'Content'], ['cta', 'CTA']].map(([k, l]) => html`<button class=${role === k ? 'on' : ''} onClick=${() => upS({ role: k })}>${l}</button>`)}</div>
+        ${s.photo && html`<div class="banner small">Photo idea: ${s.photo}</div>`}
+        ${R.kicker && html`<div class="field"><label for="cb-k">Small label</label><input class="input" id="cb-k" value=${s.kicker} onInput=${(e) => upS({ kicker: e.currentTarget.value })} /></div>`}
+        <div class="field"><label for="cb-t">Title</label><textarea class="input" id="cb-t" rows="2" value=${s.title} onInput=${(e) => upS({ title: e.currentTarget.value })}></textarea><span class="small muted">*Stars* set a word in the accent font.</span></div>
+        <div class="field"><label for="cb-b">Text</label><textarea class="input" id="cb-b" rows="3" value=${s.body} onInput=${(e) => upS({ body: e.currentTarget.value })}></textarea></div>
+        <div class="row gap-6 wrap">
+          <label class="btn sm" for="cb-p1"><${Icon} n="image" s=${16} />${busy === 'photoId' ? 'Uploading…' : s.photoId ? 'Change photo' : 'Photo'}</label>
+          <input type="file" id="cb-p1" accept="image/*" hidden onChange=${(e) => { one(e.currentTarget.files[0], 'photoId'); e.currentTarget.value = ''; }} />
+          <label class="btn sm" for="cb-p2"><${Icon} n="layers" s=${16} />${busy === 'photo2Id' ? 'Uploading…' : s.photo2Id ? 'Change second photo' : 'Second photo (split)'}</label>
+          <input type="file" id="cb-p2" accept="image/*" hidden onChange=${(e) => { one(e.currentTarget.files[0], 'photo2Id'); e.currentTarget.value = ''; }} />
+          ${s.photo2Id && html`<button class="btn sm ghost" onClick=${() => upS({ photo2Id: null })}>Remove split</button>`}
+        </div>
+        <div class="field"><span class="lbl">Text position</span><div class="seg">${['top', 'middle', 'bottom'].map((k) => html`<button class=${(s.pos || R.pos) === k ? 'on' : ''} onClick=${() => upS({ pos: k })}>${k[0].toUpperCase() + k.slice(1)}</button>`)}</div></div>
+        <div class="field"><span class="lbl">Align</span><div class="seg">${['left', 'center', 'right'].map((k) => html`<button class=${(s.align || R.align) === k ? 'on' : ''} onClick=${() => upS({ align: k })}>${k[0].toUpperCase() + k.slice(1)}</button>`)}</div></div>
+        <div class="grid2">
+          <label class="lbl">Text size<input type="range" min="0.6" max="1.5" step="0.01" value=${s.scale || 1} onInput=${(e) => upS({ scale: +e.currentTarget.value })} /></label>
+          <label class="lbl">Zoom photo<input type="range" min="1" max="2.5" step="0.01" value=${s.zoom || 1} onInput=${(e) => upS({ zoom: +e.currentTarget.value })} /></label>
+          <label class="lbl">Photo left / right<input type="range" min="-1" max="1" step="0.01" value=${s.px || 0} onInput=${(e) => upS({ px: +e.currentTarget.value })} /></label>
+          <label class="lbl">Photo up / down<input type="range" min="-1" max="1" step="0.01" value=${s.py || 0} onInput=${(e) => upS({ py: +e.currentTarget.value })} /></label>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
