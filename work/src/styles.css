@@ -871,6 +871,10 @@ a.bento:active { transform: scale(.985); }
 .ar-body { display: flex; flex-direction: column; text-align: left; background: transparent; padding: 0; min-width: 0; width: 100%; color: inherit; font: inherit; }
 .ar-main { gap: 8px; }
 .ar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ar-inbox { padding: 12px 0; }
+.ar-inbox .ar-actions { gap: 6px; }
+.ar-inbox .chip-btn { height: 26px; padding: 0 10px; font-size: 12px; font-weight: 550; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); background: transparent; }
+.inbox-more { margin-top: 4px; padding: 8px 0; font-size: 13px; font-weight: 600; color: var(--ink-2); background: transparent; }
 .today-empty { padding: 28px 0 20px; text-align: center; }
 .today-empty-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 6px; }
 

@@ -2,7 +2,8 @@ import { useState } from 'preact/hooks';
 import { Icon } from '../ui/Icon.jsx';
 import { AddBtn } from '../ui/parts.jsx';
 import { BentoCard, ChipCount } from '../ui/polish.jsx';
-import { AgendaRow } from '../ui/agendaRow.jsx';
+import { AgendaRow, checkItem } from '../ui/agendaRow.jsx';
+import { Check } from '../ui/kit.jsx';
 import { SlotTile } from '../ui/slotTile.jsx';
 import { openAddMenu } from '../App.jsx';
 import { navigate } from '../lib/router.js';
@@ -212,17 +213,19 @@ function InboxGroup({ items }) {
   const t0 = today(), t1 = addDays(t0, 1);
   const weekEnd = addDays(t0, (7 - dow(t0)) % 7); // Sunday
   const showWeek = weekEnd > t1;
-  const shown = all ? items : items.slice(0, 5);
+  const LIMIT = 3;
+  const shown = all ? items : items.slice(0, LIMIT);
   const give = (i, date, label) => { M.rescheduleWork(i.ref.id, date, null); toast(label, { action: { label: 'Undo', run: () => M.rescheduleWork(i.ref.id, null, null) } }); };
   return (
     <div id="today-inbox" class="agenda-group">
       <div class="group-label">Belum dijadwalin<span class="count">{items.length}</span></div>
       {shown.map((i) => (
         <div key={i.key} class="prow agenda-row ar-inbox">
+          <Check checked={false} onChange={() => checkItem(i)} label={'Complete ' + i.title} />
+          <span class="ar-dot" style={{ background: 'var(--' + i.area.color + ')' }} title={i.area.name} aria-label={i.area.name} role="img" />
           <div class="prow-main ar-main">
             <button type="button" class="ar-body" onClick={() => navigate('/tasks/' + i.ref.id)}>
               <span class="prow-title">{i.title}</span>
-              {i.sub && <span class="prow-sub">{i.sub}</span>}
             </button>
             <span class="ar-actions">
               <button type="button" class="chip-btn" onClick={() => give(i, t0, 'Masuk Today')}>Today</button>
@@ -232,7 +235,7 @@ function InboxGroup({ items }) {
           </div>
         </div>
       ))}
-      {items.length > 5 && <button type="button" class="btn sm soft" onClick={() => setAll(!all)}>{all ? 'Tampilin lebih sedikit' : 'Lihat semua ' + items.length}</button>}
+      {items.length > LIMIT && <button type="button" class="inbox-more" onClick={() => setAll(!all)}>{all ? 'Lebih sedikit' : 'Lihat semua ' + items.length}</button>}
     </div>
   );
 }

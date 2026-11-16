@@ -71,7 +71,7 @@ function Shell() {
   else if (p0 === 'post' && p1) { nav = 'content'; page = <PostDetail id={p1} key={p1} />; }
   else if (p0 === 'calendar') { nav = 'calendar'; page = <CalendarPage query={r.query} />; }
   else if (p0 === 'clients') { nav = 'more'; page = p1 ? <ClientDetail id={p1} key={p1} /> : <ClientsPage />; }
-  else if (p0 === 'invoices') { nav = 'more'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
+  else if (p0 === 'invoices') { nav = 'invoices'; page = p1 ? <InvoiceEditor id={p1} key={p1} /> : <InvoicesPage query={r.query} />; }
   else if (p0 === 'settings') { nav = 'settings'; page = <SettingsPage section={p1} />; }
   else if (p0 === 'trash') { nav = 'trash'; page = <TrashPage />; }
   else if (p0 === 'more' && p1 === 'resources') { nav = 'more'; page = <ResourcesPage />; }
@@ -107,8 +107,9 @@ function SaveBanner() {
 
 const SIDE = [
   { id: 'today', label: 'Today', icon: 'home', path: '/' },
-  { id: 'work', label: 'Work', icon: 'folder', path: '/work/projects' },
+  { id: 'work', label: 'Project', icon: 'folder', path: '/work/projects' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
+  { id: 'invoices', label: 'Invoice', icon: 'file', path: '/invoices' },
   { id: 'more', label: 'More', icon: 'menu', path: '/more' },
 ];
 function Sidebar({ nav }) {
@@ -124,7 +125,7 @@ function Sidebar({ nav }) {
           <a href={'#' + it.path} class={'side-link' + (nav === it.id ? ' on' : '')} aria-current={nav === it.id ? 'page' : undefined}>
             <Icon name={it.icon} size={19} />{it.label}
             {it.id === 'work' && overdue > 0 && <span class="side-count">{overdue}</span>}
-            {it.id === 'more' && invOver > 0 && <span class="side-count">{invOver}</span>}
+            {it.id === 'invoices' && invOver > 0 && <span class="side-count">{invOver}</span>}
           </a>
         ))}
       </nav>
