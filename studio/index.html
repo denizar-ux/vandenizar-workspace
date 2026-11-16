@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vandenizar Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..800&family=Playfair+Display:ital,wght@1,400..800&family=Pinyon+Script&family=Anton&display=swap" rel="stylesheet">
+<style>
+/* Studio follows the Work app: warm-white canvas, oversized light Manrope titles, flat pastel blocks,
+   black primary controls. Layout: sidebar on desktop, dock + floating add on phones. */
+:root {
+  --bg: #f7f6f2; --surface: #fffefa; --surface-2: #f1efe9;
+  --ink: #11110f; --ink-2: #4f504c; --muted: #6f706a; --faint: #9a9b94;
+  --line: rgba(17,17,15,.11); --line-strong: rgba(17,17,15,.22);
+  --butter: #f9e7bd; --cyan: #dceff0; --sage: #dcebdd; --lavender: #e9def7; --rose: #f7dada; --peach: #f8dfcc;
+  --btn: #11110f; --btn-ink: #fffefa; --good: #2c8a57; --warn: #9a5a0e; --bad: #c43e39;
+  --glass: rgba(255,254,250,.78); --scrim: rgba(17,17,15,.32);
+  --r-xl: 30px; --r-lg: 24px; --r-md: 16px;
+  --shadow-pop: 0 18px 50px rgba(20,20,16,.16), 0 2px 6px rgba(20,20,16,.06);
+  --font-ui: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141412; --surface: #1d1d1a; --surface-2: #262622; --ink: #f3f2ec; --ink-2: #cfcec6; --muted: #a3a39b; --faint: #7a7a73;
+  --line: rgba(243,242,236,.1); --line-strong: rgba(243,242,236,.2);
+  --butter: #3a3320; --cyan: #1f3335; --sage: #213025; --lavender: #2e2739; --rose: #3b2526; --peach: #3a2b20;
+  --btn: #f3f2ec; --btn-ink: #141412; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84; --glass: rgba(34,34,31,.8); --scrim: rgba(0,0,0,.55);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141412; --surface: #1d1d1a; --surface-2: #262622; --ink: #f3f2ec; --ink-2: #cfcec6; --muted: #a3a39b; --faint: #7a7a73;
+  --line: rgba(243,242,236,.1); --line-strong: rgba(243,242,236,.2);
+  --butter: #3a3320; --cyan: #1f3335; --sage: #213025; --lavender: #2e2739; --rose: #3b2526; --peach: #3a2b20;
+  --btn: #f3f2ec; --btn-ink: #141412; --good: #6fd39a; --warn: #e8b264; --bad: #ff8a84; --glass: rgba(34,34,31,.8); --scrim: rgba(0,0,0,.55);
+  color-scheme: dark; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15.5px; line-height: 1.45; font-weight: 450; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+button:disabled { opacity: .45; cursor: default; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 10px; }
+img { max-width: 100%; display: block; }
+.row { display: flex; align-items: center; } .col { display: flex; flex-direction: column; }
+.wrap { flex-wrap: wrap; } .between { justify-content: space-between; } .grow { flex: 1 1 auto; min-width: 0; }
+.gap-4{gap:4px}.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}.gap-16{gap:16px}.gap-24{gap:24px}
+.muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: 13px; } .tnum { font-variant-numeric: tabular-nums; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.t-butter{background:var(--butter)}.t-cyan{background:var(--cyan)}.t-sage{background:var(--sage)}.t-lavender{background:var(--lavender)}.t-rose{background:var(--rose)}.t-peach{background:var(--peach)}.t-plain{background:var(--surface-2)}
+
+/* shell */
+.shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100%; }
+.side { position: sticky; top: 0; height: 100vh; padding: 28px 18px 18px; display: flex; flex-direction: column; gap: 22px; border-right: 1px solid var(--line); }
+.brand b { display: block; font-size: 25px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+.brand span { color: var(--muted); font-size: 14px; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav button { display: flex; align-items: center; gap: 14px; height: 48px; padding: 0 16px; border-radius: 999px; font-size: 16px; color: var(--ink-2); text-align: left; }
+.nav button.on { background: var(--btn); color: var(--btn-ink); }
+.nav button:not(.on):hover { background: var(--surface-2); }
+.side .foot { margin-top: auto; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+.dotok { width: 8px; height: 8px; border-radius: 50%; background: var(--good); } .dotbad { background: var(--bad); }
+.main { min-width: 0; padding: 40px 48px 120px; }
+.page { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.page.narrow { max-width: 760px; }
+.dock { display: none; }
+.fab { display: none; }
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .main { padding: calc(20px + var(--sat)) 16px calc(120px + var(--sab)); }
+  .dock { display: flex; position: fixed; left: 12px; right: 12px; bottom: calc(10px + var(--sab)); z-index: 30; justify-content: space-around; padding: 8px 6px; border-radius: 34px; background: var(--glass); backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5); box-shadow: var(--shadow-pop); }
+  .dock button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11.5px; color: var(--muted); padding: 6px 8px; border-radius: 22px; min-width: 58px; }
+  .dock button.on { color: var(--ink); font-weight: 650; }
+  .dock button.on .ico { background: var(--btn); color: var(--btn-ink); }
+  .dock .ico { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; }
+  .fab { display: grid; place-items: center; position: fixed; right: 18px; bottom: calc(96px + var(--sab)); width: 58px; height: 58px; border-radius: 50%; background: var(--btn); color: var(--btn-ink); z-index: 31; box-shadow: var(--shadow-pop); }
+}
+
+/* type & controls */
+.hello { color: var(--ink-2); font-size: 18px; }
+.date-eyebrow { font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 650; color: var(--muted); }
+h1.big { font-size: clamp(44px, 8vw, 84px); font-weight: 500; letter-spacing: -.055em; line-height: .95; margin: 6px 0 0; text-wrap: balance; }
+h1.pt { font-size: clamp(34px, 5vw, 52px); font-weight: 500; letter-spacing: -.045em; line-height: 1; margin: 0; }
+h2 { font-size: 24px; font-weight: 550; letter-spacing: -.03em; margin: 0; }
+h3 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin: 0; }
+.btn { height: 44px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 15px; box-shadow: inset 0 0 0 1px var(--line-strong); white-space: nowrap; }
+.btn.primary { background: var(--btn); color: var(--btn-ink); box-shadow: none; }
+.btn.sm { height: 36px; padding: 0 14px; font-size: 14px; }
+.btn.ghost { box-shadow: none; } .btn.ghost:hover { background: var(--surface-2); }
+.btn.danger { color: var(--bad); }
+.btn.block { width: 100%; }
+.addbtn { height: 54px; border-radius: 999px; background: var(--btn); color: var(--btn-ink); display: flex; align-items: center; gap: 12px; padding: 0 22px; font-size: 16px; font-weight: 600; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink-2); }
+.icon-btn:hover { background: var(--surface-2); }
+.chip { height: 38px; padding: 0 15px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line-strong); font-size: 14px; font-weight: 550; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--ink-2); }
+.chip.on { background: var(--btn); color: var(--btn-ink); box-shadow: none; }
+.chip .n { font-size: 12px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--surface-2); color: var(--ink); display: grid; place-items: center; }
+.chip.on .n { background: var(--btn-ink); color: var(--btn); }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 26px; }
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field > label, .lbl { font-size: 13.5px; color: var(--muted); font-weight: 550; }
+.input, .select, textarea.input { width: 100%; min-height: 48px; padding: 12px 15px; border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--surface); outline: none; }
+.input:focus, textarea.input:focus { border-color: var(--ink); }
+textarea.input { resize: vertical; line-height: 1.5; }
+.select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 21px, calc(100% - 15px) 21px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
+.title-input { width: 100%; border: 0; background: transparent; font-size: clamp(30px, 5vw, 46px); font-weight: 500; letter-spacing: -.045em; line-height: 1.05; outline: none; padding: 0; resize: none; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+.seg { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--surface-2); gap: 2px; max-width: 100%; overflow-x: auto; align-self: flex-start; }
+.seg button { flex: none; }
+.seg button { height: 34px; padding: 0 13px; border-radius: 999px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+input[type=range] { width: 100%; accent-color: var(--ink); }
+.empty { text-align: center; padding: 34px 16px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+/* today */
+.bento { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 16px; }
+.tile { border-radius: var(--r-xl); padding: 24px; min-height: 190px; display: flex; flex-direction: column; text-align: left; }
+.tile .ti { width: 50px; height: 50px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; margin-bottom: auto; }
+.tile .tl { color: var(--ink-2); margin-top: 22px; }
+.tile .tv { font-size: 46px; font-weight: 450; letter-spacing: -.04em; line-height: 1.05; }
+.tile .ts { font-size: 19px; }
+@media (max-width: 860px) { .bento { grid-template-columns: 1fr 1fr; } .bento .tile:first-child { grid-row: span 2; } .tile { min-height: 150px; padding: 18px; } .tile .tv { font-size: 38px; } }
+.two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 26px; align-items: start; }
+@media (max-width: 960px) { .two { grid-template-columns: 1fr; } }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.slot { border-radius: var(--r-lg); padding: 18px; min-height: 150px; display: flex; flex-direction: column; gap: 6px; text-align: left; position: relative; overflow: hidden; }
+.slot .sh { display: flex; justify-content: space-between; font-weight: 650; font-size: 14px; }
+.slot .sh span:last-child { font-weight: 500; color: var(--ink-2); }
+.slot .st { font-size: 18px; letter-spacing: -.02em; }
+.slot .plus { margin-top: auto; width: 40px; height: 40px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; }
+.slot.has { color: #fffefa; }
+.slot.has .bgimg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.slot.has .bgimg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.42), rgba(0,0,0,.05) 50%, rgba(0,0,0,.5)); }
+.slot.has > *:not(.bgimg) { position: relative; } .slot.has .sh span:last-child { color: rgba(255,255,255,.85); }
+.list { display: flex; flex-direction: column; }
+.item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); text-align: left; width: 100%; }
+.item:last-child { border-bottom: 0; }
+.check { width: 30px; height: 30px; border-radius: 50%; border: 1.6px solid var(--ink-2); flex: none; display: grid; place-items: center; }
+.check.done { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); }
+.item .it { font-size: 16.5px; } .item .is { font-size: 13.5px; color: var(--muted); }
+.late { background: var(--rose); border-radius: var(--r-md); padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.thumb { width: 44px; height: 58px; border-radius: 10px; background-size: cover; background-position: center; flex: none; }
+
+/* pipeline */
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 14px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x proximity; }
+.colm { background: var(--surface-2); border-radius: var(--r-lg); padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 260px; scroll-snap-align: start; }
+.colm.drop { outline: 2px dashed var(--ink-2); outline-offset: -4px; }
+.colm .ch { display: flex; align-items: center; gap: 8px; padding: 4px 6px 2px; font-weight: 650; }
+.kcard { background: var(--surface); border-radius: var(--r-md); padding: 10px; display: flex; gap: 10px; text-align: left; border: 1px solid var(--line); cursor: grab; }
+.kcard .kt { font-weight: 600; font-size: 15px; line-height: 1.25; }
+.kcard .ks { font-size: 12.5px; color: var(--muted); }
+.kcard .nx { margin-left: auto; align-self: center; }
+
+/* calendar */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal .dow { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 700; padding: 0 6px; }
+.cal .day { min-height: 104px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 7px; display: flex; flex-direction: column; gap: 4px; text-align: left; overflow: hidden; }
+.cal .day.out { opacity: .4; } .cal .day.today { border-color: var(--ink); }
+.cal .day.sel { box-shadow: inset 0 0 0 2px var(--ink); }
+.cal .dn { font-size: 13px; font-weight: 650; }
+.cal .ev { font-size: 12px; border-radius: 7px; padding: 2px 6px; font-weight: 600; }
+.cal .sl { font-size: 11px; color: var(--faint); }
+@media (max-width: 640px) { .cal .day { min-height: 56px; padding: 5px; } .cal .ev { font-size: 0; height: 7px; padding: 0; } .cal .sl { display: none; } }
+
+/* feed preview */
+.phone { width: 100%; max-width: 420px; margin: 0 auto; background: #fff; color: #0c0c0c; border-radius: 34px; box-shadow: var(--shadow-pop); overflow: hidden; border: 1px solid rgba(0,0,0,.08); }
+.phone .ph { padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px; font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+.phone .uname { font-weight: 700; font-size: 18px; }
+.phone .stats { display: flex; align-items: center; gap: 18px; }
+.phone .av { width: 80px; height: 80px; border-radius: 50%; background: #e7e3da center/cover; flex: none; border: 1px solid rgba(0,0,0,.08); }
+.phone .st b { display: block; font-size: 16px; } .phone .st { font-size: 13px; text-align: center; }
+.phone .bio { font-size: 13.5px; line-height: 1.35; white-space: pre-line; }
+.phone .tabs { display: flex; border-top: 1px solid #eee; }
+.phone .tabs button { flex: 1; height: 44px; display: grid; place-items: center; color: #999; border-bottom: 1.5px solid transparent; }
+.phone .tabs button.on { color: #0c0c0c; border-color: #0c0c0c; }
+.igrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: #fff; }
+.igrid .cell { aspect-ratio: 3/4; position: relative; background: #ddd center/cover; overflow: hidden; color: #fff; text-align: left; }
+.igrid.reels .cell { aspect-ratio: 9/16; }
+.igrid .cell .ph-t { position: absolute; inset: 0; padding: 10px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 12px; font-weight: 600; color: var(--ink); }
+.igrid .cell .badge { position: absolute; top: 6px; right: 6px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); color: #fff; }
+.igrid .cell .sched { position: absolute; left: 6px; top: 6px; font-size: 10.5px; font-weight: 700; background: rgba(0,0,0,.55); color: #fff; border-radius: 6px; padding: 2px 6px; }
+.igrid .cell.picked { outline: 3px solid #3897f0; outline-offset: -3px; }
+.igrid .cell .num { position: absolute; bottom: 6px; right: 6px; font-size: 11px; background: rgba(0,0,0,.55); border-radius: 6px; padding: 1px 6px; }
+
+/* overlay & sheets */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 861px) { .scrim { align-items: center; } }
+.sheet { background: var(--bg); width: 100%; max-width: 560px; max-height: calc(100% - 30px); overflow: auto; border-radius: 28px 28px 0 0; padding: 22px 22px calc(26px + var(--sab)); display: flex; flex-direction: column; gap: 18px; }
+@media (min-width: 861px) { .sheet { border-radius: 28px; max-height: 88vh; } }
+.sheet.wide { max-width: 1040px; }
+.sheet-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sheet-h h2 { font-size: 26px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(110px + var(--sab)); background: var(--btn); color: var(--btn-ink); border-radius: 999px; padding: 12px 20px; z-index: 80; display: flex; gap: 16px; align-items: center; font-weight: 600; box-shadow: var(--shadow-pop); max-width: calc(100% - 32px); }
+.toast button { text-decoration: underline; font-weight: 700; }
+@media (min-width: 861px) { .toast { bottom: 30px; } }
+.menu { position: fixed; z-index: 70; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow-pop); padding: 6px; min-width: 200px; border: 1px solid var(--line); }
+.menu button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; text-align: left; font-weight: 550; }
+.menu button:hover { background: var(--surface-2); }
+
+/* post */
+.sec { display: flex; flex-direction: column; gap: 12px; }
+.sec-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cover-prev { width: 150px; border-radius: 14px; overflow: hidden; background: var(--surface-2); flex: none; }
+.slides { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.slide { width: 96px; flex: none; aspect-ratio: 3/4; border-radius: 12px; background: var(--surface-2) center/cover; position: relative; }
+.slide .sx { position: absolute; inset: auto 4px 4px 4px; display: flex; justify-content: space-between; }
+.slide .sx button { width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; }
+.swipe { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 16px; background: #000; }
+.swipe > div { flex: 0 0 100%; aspect-ratio: 3/4; scroll-snap-align: center; background: #111 center/cover; }
+.ai { background: var(--lavender); border-radius: var(--r-lg); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.ai .out { background: var(--surface); border-radius: var(--r-md); padding: 14px; white-space: pre-wrap; font-size: 15px; max-height: 340px; overflow: auto; }
+
+/* cover editor */
+.ced { display: grid; grid-template-columns: minmax(0, 400px) 1fr; grid-template-areas: 'stage rc' 'lc rc'; gap: 16px 24px; align-items: start; }
+.ced .cstage { grid-area: stage; } .ced .lc { grid-area: lc; } .ced .rc { grid-area: rc; }
+@media (max-width: 860px) { .ced { grid-template-columns: 1fr; } }
+.ced > * { min-width: 0; }
+@media (max-width: 860px) {
+  .ced { display: block; }
+  .ced > * + * { margin-top: 16px; }
+  .ced .cstage { position: sticky; top: -22px; z-index: 3; width: min(46vw, 200px); margin: 0 auto; box-shadow: var(--shadow-pop); }
+}
+.cstage { position: relative; border-radius: 16px; overflow: hidden; background: #111; }
+.cstage canvas { width: 100%; display: block; }
+.cstage .guide { position: absolute; left: 0; right: 0; border-top: 1.5px dashed rgba(255,255,255,.75); border-bottom: 1.5px dashed rgba(255,255,255,.75); pointer-events: none; }
+.cstage .guide span { position: absolute; right: 6px; top: 4px; font-size: 10px; color: #fff; background: rgba(0,0,0,.5); border-radius: 5px; padding: 1px 5px; }
+.lines { display: flex; flex-direction: column; gap: 10px; }
+.lnr { display: grid; grid-template-columns: 1fr 112px 36px; gap: 8px; align-items: center; }
+.lnr .input { min-height: 42px; padding: 9px 12px; }
+.lnr textarea.input { min-height: 42px; }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
+.swatch.on { box-shadow: 0 0 0 2px var(--ink); }
+.presets { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.banner { background: var(--butter); border-radius: var(--r-md); padding: 12px 16px; font-size: 14px; }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s ease; } @keyframes up { from { transform: translateY(24px); opacity: .5; } } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import { html, render, useState, useEffect, useRef, useMemo } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
+
+/* ---------- helpers ---------- */
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const today = () => iso(new Date());
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const dow = (s) => (parse(s).getDay() + 6) % 7; // 0 = Monday
+const weekStart = (s) => addDays(s, -dow(s));
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS_LONG = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDay = (s) => { if (!s) return ''; const t = today(); if (s === t) return 'Today'; if (s === addDays(t, 1)) return 'Tomorrow'; if (s === addDays(t, -1)) return 'Yesterday'; const d = parse(s); return DAYS[dow(s)] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; };
+const TINTS = ['butter', 'cyan', 'lavender', 'sage', 'peach', 'rose'];
+const STAGES = [
+  { id: 'idea', name: 'Idea', tint: 'plain' }, { id: 'script', name: 'Script', tint: 'lavender' }, { id: 'shoot', name: 'Shoot', tint: 'butter' },
+  { id: 'edit', name: 'Edit', tint: 'cyan' }, { id: 'ready', name: 'Ready', tint: 'peach' }, { id: 'posted', name: 'Posted', tint: 'sage' },
+];
+const stageIdx = (id) => Math.max(0, STAGES.findIndex((s) => s.id === id));
+const FORMATS = [{ id: 'reels', name: 'Reels' }, { id: 'carousel', name: 'Carousel' }, { id: 'photo', name: 'Photo' }];
+// A step is done once the post has moved past the stage that step belongs to.
+const STEPS = [
+  { key: 'scriptDate', stage: 'script', label: 'Write script' },
+  { key: 'shootDate', stage: 'shoot', label: 'Shoot' },
+  { key: 'editDate', stage: 'edit', label: 'Edit' },
+  { key: 'date', stage: 'ready', label: 'Post' },
+];
+
+const DEFAULT_SETTINGS = {
+  pillars: [
+    { id: 'shot', name: 'The Shot vs The Setup', day: 0, format: 'carousel', tint: 'cyan', hint: 'Edition carousel. Fast shot and BTS montage as the cover slide.' },
+    { id: 'life', name: 'Life, As I See It', day: 2, format: 'reels', tint: 'lavender', hint: '4:3 cinematic storytelling about life, character and point of view.' },
+    { id: 'setup', name: 'My Working Setup', day: 4, format: 'carousel', tint: 'butter', hint: 'Gear, desk, workflow and long-term use. Useful and personal.' },
+    { id: 'oneshot', name: 'One Shot A Day', day: null, format: 'reels', tint: 'sage', hint: 'One shot a day for a week, as Reels.' },
+  ],
+  profile: { username: 'vandenizar', name: 'Denizar', bio: 'Fashion videographer\nDocumenting the process', avatarId: null },
+  cover: { color: '#f4ecd8', presented: 'VANDENIZAR' },
+  lang: 'id',
+  links: [],
+};
+
+/* ---------- store ---------- */
+const S = { posts: {}, threads: {}, settings: null, ready: false, offline: false, slow: false };
+const listeners = new Set();
+const emit = () => listeners.forEach((f) => f());
+let db = null, assets = null, sample = null, downloads = null;
+const pending = {}; // path -> {data, timer, chain}
+
+function useStore() { const [, set] = useState(0); useEffect(() => { const f = () => set((n) => n + 1); listeners.add(f); return () => listeners.delete(f); }, []); return S; }
+const settings = () => ({ ...DEFAULT_SETTINGS, ...(S.settings || {}), cover: { ...DEFAULT_SETTINGS.cover, ...((S.settings || {}).cover || {}) }, profile: { ...DEFAULT_SETTINGS.profile, ...((S.settings || {}).profile || {}) } });
+const pillars = () => settings().pillars || [];
+const pillarOf = (id) => pillars().find((p) => p.id === id) || { id: '', name: 'No pillar', tint: 'plain', format: 'reels' };
+const livePosts = () => Object.values(S.posts).filter((p) => !p.deletedAt);
+const liveThreads = () => Object.values(S.threads).filter((t) => !t.deletedAt);
+const assetSrc = (id) => (id ? (window.__mockBlob && window.__mockBlob[id]) || '/_blob/' + id : null);
+const coverSrc = (p) => assetSrc((p.cover && p.cover.renderId) || (p.slides && p.slides[0]) || (p.cover && p.cover.photoId));
+
+// Writes: local state changes now; the store gets one coalesced set per document, one at a time.
+function queueWrite(coll, id, data, delay = 500) {
+  const path = coll + '/' + id;
+  const pd = pending[path] || (pending[path] = { chain: Promise.resolve() });
+  pd.data = data; clearTimeout(pd.timer);
+  pd.timer = setTimeout(() => flush(path), delay);
+}
+function flush(path) {
+  const pd = pending[path]; if (!pd || !pd.data) return;
+  const data = pd.data; pd.data = null;
+  pd.chain = pd.chain.then(async () => {
+    if (!db) return;
+    try { await db.doc(path).set(JSON.parse(JSON.stringify(data))); }
+    catch (e) { if (e && e.code === 'unavailable') { await new Promise((r) => setTimeout(r, 800 + Math.random() * 800)); try { await db.doc(path).set(data); return; } catch (e2) { e = e2; } } toast(e && e.code === 'quota_exceeded' ? 'Storage is full. Delete old posts in Settings, Trash.' : 'Could not save. Check your connection.'); }
+  }).finally(() => { if (!pd.data) delete pending[path]; });
+}
+window.addEventListener('pagehide', () => Object.keys(pending).forEach(flush));
+
+function savePost(id, patch, delay) {
+  const cur = S.posts[id]; if (!cur) return;
+  const next = { ...cur, ...patch, updatedAt: Date.now() };
+  S.posts = { ...S.posts, [id]: next }; emit(); queueWrite('posts', id, next, delay);
+}
+function newPost(p = {}) {
+  const pl = pillarOf(p.pillar);
+  const post = { id: uid(), title: '', pillar: p.pillar || null, format: p.format || pl.format || 'reels', stage: 'idea', date: null, scriptDate: null, shootDate: null, editDate: null,
+    hook: '', script: '', caption: '', notes: '', cover: null, slides: [], postedAt: null, createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, ...p };
+  S.posts = { ...S.posts, [post.id]: post }; emit(); queueWrite('posts', post.id, post, 0); return post;
+}
+function saveThread(id, patch) { const cur = S.threads[id]; const next = { ...(cur || { id, createdAt: Date.now(), postedAt: null, deletedAt: null, date: null, text: '' }), ...patch, updatedAt: Date.now() }; S.threads = { ...S.threads, [id]: next }; emit(); queueWrite('threads', id, next); }
+function saveSettings(patch) { const next = { ...settings(), ...patch }; S.settings = next; emit(); queueWrite('settings', 'main', next); }
+function setStage(p, stage) { savePost(p.id, { stage, postedAt: stage === 'posted' ? (p.postedAt || Date.now()) : null }, 0); }
+function deletePost(p) { savePost(p.id, { deletedAt: Date.now() }, 0); toast('Post moved to Trash', { label: 'Undo', run: () => savePost(p.id, { deletedAt: null }, 0) }); }
+
+function subscribe() {
+  const timer = setTimeout(() => { S.slow = true; emit(); }, 10000);
+  let got = 0; const done = (snap) => { if (!snap.metadata || !snap.metadata.fromCache) { if (++got >= 3) { clearTimeout(timer); S.slow = false; } } S.ready = true; emit(); };
+  const keepLocal = (coll, id) => pending[coll + '/' + id];
+  db.collection('posts').onSnapshot((snap) => { const m = {}; snap.docs.forEach((d) => { m[d.id] = keepLocal('posts', d.id) ? S.posts[d.id] : { ...d.data(), id: d.id }; }); Object.keys(S.posts).forEach((id) => { if (!m[id] && keepLocal('posts', id)) m[id] = S.posts[id]; }); S.posts = m; done(snap); }, () => { S.offline = true; emit(); });
+  db.collection('threads').onSnapshot((snap) => { const m = {}; snap.docs.forEach((d) => { m[d.id] = keepLocal('threads', d.id) ? S.threads[d.id] : { ...d.data(), id: d.id }; }); Object.keys(S.threads).forEach((id) => { if (!m[id] && keepLocal('threads', id)) m[id] = S.threads[id]; }); S.threads = m; done(snap); }, () => {});
+  db.doc('settings/main').onSnapshot((snap) => { if (!keepLocal('settings', 'main')) S.settings = snap.exists ? snap.data() : null; done(snap); }, () => {});
+}
+
+async function boot() {
+  const c = window.claude;
+  if (!c || !c.use) { S.offline = true; S.ready = true; emit(); return; }
+  c.use('db').then((d) => { db = d; if (d) subscribe(); else { S.offline = true; S.ready = true; emit(); } });
+  c.use('assets').then((a) => { assets = a; emit(); });
+  c.use('sample').then((s) => { sample = s; emit(); });
+  c.use('downloads').then((d) => { downloads = d; emit(); });
+}
+
+/* ---------- ui helpers ---------- */
+let toastTimer;
+function toast(msg, action) { S.toast = { msg, action }; emit(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; emit(); }, action ? 5000 : 2600); }
+let overlayFn = null; const overlays = [];
+function openOverlay(fn) { overlays.push(fn); emit(); }
+function closeOverlay() { overlays.pop(); emit(); }
+function openMenu(e, items) { const r = e.currentTarget.getBoundingClientRect(); S.menu = { x: Math.min(r.left, innerWidth - 220), y: Math.min(r.bottom + 6, innerHeight - 60 - items.length * 44), items }; emit(); }
+
+const I = {
+  home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  board: 'M4 4h5v16H4zM10 4h5v10h-5zM16 4h4v7h-4z',
+  cal: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  thread: 'M12 3a9 9 0 1 0 5.3 16.3L21 21l-1.2-4A9 9 0 0 0 12 3z',
+  gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  plus: 'M12 5v14M5 12h14', x: 'M6 6l12 12M18 6 6 18', check: 'M5 12.5l4.5 4.5L19 7.5', right: 'M9 6l6 6-6 6', left: 'M15 6l-6 6 6 6',
+  more: 'M5 12h.01M12 12h.01M19 12h.01', clock: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01',
+  spark: 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z', reel: 'M4 4h16v16H4zM4 9h16M9 4l3 5M15 4l3 5M10 12.5v5l4.5-2.5z', layers: 'M12 3 3 8l9 5 9-5zM3 13l9 5 9-5',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', up: 'M12 19V5M6 11l6-6 6 6', down: 'M12 5v14M6 13l6 6 6-6', download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  swap: 'M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7', menu: 'M4 7h16M4 12h16M4 17h16', copy: 'M9 9h11v11H9zM5 15H4V4h11v1', arrowR: 'M5 12h14M13 6l6 6-6 6',
+};
+const Icon = ({ n, s = 20, w = 1.7 }) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=${w} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${I[n]} /></svg>`;
+const Dot = ({ tint }) => html`<span class=${'dot t-' + (tint || 'plain')}></span>`;
+const StagePill = ({ id }) => { const s = STAGES[stageIdx(id)]; return html`<span class=${'pill t-' + s.tint}>${s.name}</span>`; };
+
+/* ---------- routing ---------- */
+const VIEWS = ['today', 'pipeline', 'calendar', 'feed', 'threads', 'settings'];
+function useRoute() {
+  const read = () => { const h = (location.hash || '').slice(1); if (h.startsWith('post-')) return { view: 'post', id: h.slice(5) }; return { view: VIEWS.includes(h) ? h : 'today' }; };
+  const [r, setR] = useState(read());
+  useEffect(() => { const f = () => { setR(read()); window.scrollTo(0, 0); }; addEventListener('hashchange', f); return () => removeEventListener('hashchange', f); }, []);
+  return r;
+}
+const go = (h) => { location.hash = h; };
+const openPost = (id) => go('post-' + id);
+
+/* ---------- derived ---------- */
+function stepsOf(p) {
+  if (p.deletedAt || p.stage === 'posted') return [];
+  return STEPS.filter((s) => p[s.key] && stageIdx(p.stage) <= stageIdx(s.stage)).map((s) => ({ ...s, post: p, date: p[s.key] }));
+}
+const nextDateFor = (pillarId) => {
+  const pl = pillarOf(pillarId); const t = today(); const taken = new Set(livePosts().filter((p) => p.pillar === pillarId).map((p) => p.date));
+  if (pl.day == null) return t;
+  for (let i = 0; i < 70; i++) { const d = addDays(t, i); if (dow(d) === pl.day && !taken.has(d)) return d; }
+  return t;
+};
+// Back-plan steps from the posting date: script 4 days before, shoot 3, edit 1.
+const backPlan = (date) => date ? { scriptDate: addDays(date, -4) < today() ? today() : addDays(date, -4), shootDate: addDays(date, -3) < today() ? today() : addDays(date, -3), editDate: addDays(date, -1) < today() ? today() : addDays(date, -1) } : {};
+
+/* ---------- Claude ---------- */
+const STYLE_GUARD = `Writing rules (follow strictly):
+- Sound like a real person talking, short sentences, spoken rhythm. Never stiff or formal.
+- No "bukan X, tapi Y" / "not X, but Y" framing. No "Not X. Not Y. Just Z."
+- Few em dashes: use commas or periods.
+- No suspense lines ("here's the kicker", "ternyata..."), no stakes inflation, no motivational or inspirational tone, no forced creator persona.
+- Be specific. No unnamed experts or reports.
+- Avoid: delve, tapestry, landscape, leverage, seamless, elevate, unlock, robust, navigate, and their Indonesian equivalents.
+- No closing lines that tie back to the question or pad the ending. No "pertama... kedua... ketiga..." lists dressed as prose.
+- Straight quotes, plain hyphens.`;
+const ABOUT = `The creator: Denizar, 28, in-house videographer at a fashion brand plus freelance, Bekasi, Indonesia. Personal brand: fashion videographer documenting his process, cozy cinematic workspace. Shoots on Sony A7C II and DJI Pocket, edits in DaVinci Resolve. Rarely leaves home; usual locations are his room (kosan), a coffee shop and the gym.`;
+function postContext(p) {
+  const pl = pillarOf(p.pillar);
+  return `${ABOUT}\n\nPost: "${p.title || 'untitled'}"\nPillar: ${pl.name}${pl.hint ? ' (' + pl.hint + ')' : ''}\nFormat: ${p.format}\n${p.hook ? 'Hook so far: ' + p.hook + '\n' : ''}${p.notes ? 'His notes: ' + p.notes + '\n' : ''}${p.script ? 'Script so far:\n' + p.script + '\n' : ''}`;
+}
+const langLine = () => settings().lang === 'en' ? 'Write in natural English.' : 'Write in casual Indonesian (gw/lu is fine for voice-over, keep it natural, mix English terms only where people really say them).';
+
+/* ---------- cover rendering ---------- */
+const FONTS = {
+  caps: { font: (px) => `500 ${px}px "Bodoni Moda"`, upper: true, hs: 0.8, lh: 0.92, ls: 0.01 },
+  italic: { font: (px) => `italic 500 ${px}px "Playfair Display"`, upper: false, hs: 1, lh: 0.98, ls: 0 },
+  script: { font: (px) => `400 ${px}px "Pinyon Script"`, upper: false, hs: 1, lh: 1.12, ls: 0 },
+  bold: { font: (px) => `400 ${px}px "Anton"`, upper: true, hs: 1, lh: 1.0, ls: 0.01 },
+  label: { font: (px) => `700 ${px}px Manrope`, upper: true, hs: 1, lh: 1.35, ls: 0.16 },
+  small: { font: (px) => `500 ${px}px "Bodoni Moda"`, upper: true, hs: 1, lh: 1.3, ls: 0.05 },
+};
+const STYLE_NAMES = { caps: 'Serif caps', italic: 'Italic', script: 'Script', bold: 'Bold sans', label: 'Label', small: 'Small text' };
+const PRESETS = {
+  movie: { name: 'Movie poster', y: 0.66, lines: [
+    { text: 'HOW I SHOOT', style: 'caps', size: 72 }, { text: 'Work From Home', style: 'script', size: 190 }, { text: 'EDITION', style: 'caps', size: 110 },
+    { text: 'ONE DESK, ONE LIGHT, A FULL CAMPAIGN\nSHOT WITHOUT LEAVING THE ROOM', style: 'small', size: 22 }, { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: '{presented}', style: 'label', size: 24 } ] },
+  story: { name: 'Little story', y: 0.64, lines: [
+    { text: 'LITTLE STORY', style: 'caps', size: 120 }, { text: 'of a quiet evening', style: 'italic', size: 60 }, { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: '{presented}', style: 'italic', size: 40 } ] },
+  script: { name: 'Script title', y: 0.72, lines: [{ text: 'the Wanderer', style: 'script', size: 170 }, { text: 'IN A CITY THAT NEVER SLOWS DOWN', style: 'small', size: 20 }] },
+  bold: { name: 'Bold', y: 0.3, lines: [{ text: "I'M A", style: 'bold', size: 80 }, { text: '9 TO 5', style: 'bold', size: 160 }, { text: 'VIDEOGRAPHER', style: 'bold', size: 80 }] },
+  minimal: { name: 'Minimal', y: 0.82, lines: [{ text: 'MY WORKING SETUP', style: 'caps', size: 78 }, { text: '{presented}', style: 'label', size: 18 }] },
+};
+const COLORS = ['#f4ecd8', '#ffffff', '#f2c75c', '#e9b98c', '#151513'];
+const coverSize = (fmt) => fmt === 'reels' ? [1080, 1920] : [1080, 1440];
+const gridCrop = (fmt) => fmt === 'reels' ? { top: 240 / 1920, h: 1440 / 1920 } : { top: 0, h: 1 };
+function defaultCover(p) {
+  const pr = PRESETS.movie; const pres = settings().cover.presented;
+  return { preset: 'movie', y: pr.y, color: settings().cover.color, shadow: true, grade: 0.35, zoom: 1, px: 0, py: 0, photoId: null, renderId: null,
+    lines: pr.lines.map((l, i) => ({ ...l, text: i === 1 && p.title ? p.title : l.text.replace('{presented}', pres) })) };
+}
+let fontsReady = null;
+const loadFonts = () => fontsReady || (fontsReady = Promise.all(['500 60px "Bodoni Moda"', 'italic 500 60px "Playfair Display"', '400 60px "Pinyon Script"', '400 60px Anton', '700 30px Manrope'].map((f) => document.fonts.load(f).catch(() => {}))));
+function drawCover(cv, cfg, img, fmt) {
+  const [W, H] = coverSize(fmt); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
+  if (img) {
+    const iw = img.videoWidth || img.naturalWidth || img.width, ih = img.videoHeight || img.naturalHeight || img.height;
+    const sc = Math.max(W / iw, H / ih) * (cfg.zoom || 1); const dw = iw * sc, dh = ih * sc;
+    const dx = (W - dw) / 2 + (cfg.px || 0) * (dw - W) / 2, dy = (H - dh) / 2 + (cfg.py || 0) * (dh - H) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+  if (cfg.grade > 0) { const g = ctx.createLinearGradient(0, H * 0.3, 0, H); g.addColorStop(0, 'rgba(10,8,6,0)'); g.addColorStop(1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  const margin = 80, maxW = W - margin * 2;
+  const crop = gridCrop(fmt); const safeTop = crop.top * H + 60, safeBot = (crop.top + crop.h) * H - 60;
+  // measure lines
+  const rows = [];
+  (cfg.lines || []).forEach((ln) => {
+    const f = FONTS[ln.style] || FONTS.caps; const parts = String(ln.text || '').split('\n');
+    parts.forEach((t) => {
+      let px = ln.size || 60; const txt = f.upper ? t.toUpperCase() : t;
+      let w; for (let k = 0; k < 30; k++) { ctx.font = f.font(px); try { ctx.letterSpacing = (f.ls * px) + 'px'; } catch (e) {} w = ctx.measureText(txt).width * f.hs; if (w <= maxW || px < 12) break; px *= 0.94; }
+      rows.push({ txt, px, w, f, h: px * f.lh });
+    });
+    if (rows.length) rows[rows.length - 1].gapAfter = (ln.size || 60) * 0.14;
+  });
+  const total = rows.reduce((a, r) => a + r.h + (r.gapAfter || 0), 0);
+  let y = Math.min(Math.max(H * (cfg.y ?? 0.65) - total / 2, safeTop), Math.max(safeTop, safeBot - total));
+  ctx.fillStyle = cfg.color || '#f4ecd8'; ctx.textBaseline = 'alphabetic';
+  if (cfg.shadow) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 2; }
+  rows.forEach((r) => {
+    ctx.font = r.f.font(r.px); try { ctx.letterSpacing = (r.f.ls * r.px) + 'px'; } catch (e) {}
+    const base = y + r.h * 0.8; const x = (W - r.w) / 2;
+    ctx.save(); ctx.translate(x, base); ctx.scale(r.f.hs, 1); ctx.fillText(r.txt, 0, 0); ctx.restore();
+    y += r.h + (r.gapAfter || 0);
+  });
+  ctx.shadowColor = 'transparent';
+}
+const loadImg = (src) => new Promise((res, rej) => { if (!src) return res(null); const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('img')); im.src = src; });
+
+/* ---------- components ---------- */
+function App() {
+  const s = useStore(); const r = useRoute();
+  const tab = r.view === 'post' ? null : r.view;
+  const nav = [['today', 'home', 'Today'], ['pipeline', 'board', 'Pipeline'], ['calendar', 'cal', 'Calendar'], ['feed', 'grid', 'Feed'], ['threads', 'thread', 'Threads'], ['settings', 'gear', 'Settings']];
+  const dockNav = [['today', 'home', 'Today'], ['pipeline', 'board', 'Pipeline'], ['calendar', 'cal', 'Calendar'], ['feed', 'grid', 'Feed'], ['more', 'menu', 'More']];
+  const moreMenu = (e) => openMenu(e, [{ label: 'Threads', icon: 'thread', run: () => go('threads') }, { label: 'Settings', icon: 'gear', run: () => go('settings') }]);
+  let body;
+  if (r.view === 'post') body = html`<${PostPage} id=${r.id} />`;
+  else if (r.view === 'pipeline') body = html`<${Pipeline} />`;
+  else if (r.view === 'calendar') body = html`<${CalendarPage} />`;
+  else if (r.view === 'feed') body = html`<${FeedPage} />`;
+  else if (r.view === 'threads') body = html`<${ThreadsPage} />`;
+  else if (r.view === 'settings') body = html`<${SettingsPage} />`;
+  else body = html`<${Today} />`;
+  return html`
+    <div class="shell">
+      <aside class="side">
+        <div class="brand"><b>vandenizar</b><span>studio</span></div>
+        <button class="addbtn" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} />`)}><${Icon} n="plus" />New post</button>
+        <nav class="nav">${nav.map(([v, ic, l]) => html`<button class=${tab === v ? 'on' : ''} onClick=${() => go(v)}><${Icon} n=${ic} />${l}</button>`)}</nav>
+        <div class="foot"><span class=${'dotok' + (s.offline ? ' dotbad' : '')}></span>${s.offline ? 'Not saving' : s.slow ? 'Reconnecting' : 'Saved'}</div>
+      </aside>
+      <main class="main">
+        ${s.offline && html`<div class="banner" style="max-width:1120px;margin:0 auto 18px">Open this page in Claude while signed in to save. Changes here are not kept.</div>`}
+        ${s.ready ? body : html`<div class="empty">Loading your posts…</div>`}
+      </main>
+      <nav class="dock">${dockNav.map(([v, ic, l]) => html`<button class=${tab === v || (v === 'more' && (tab === 'threads' || tab === 'settings')) ? 'on' : ''} onClick=${(e) => v === 'more' ? moreMenu(e) : go(v)}><span class="ico"><${Icon} n=${ic} /></span>${l}</button>`)}</nav>
+      ${r.view !== 'post' && html`<button class="fab" aria-label="New post" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} />`)}><${Icon} n="plus" s=${24} /></button>`}
+      ${overlays.map((fn) => html`<div class="scrim" onClick=${(e) => { if (e.target === e.currentTarget) closeOverlay(); }}>${fn(closeOverlay)}</div>`)}
+      ${s.menu && html`<div style="position:fixed;inset:0;z-index:69" onClick=${() => { s.menu = null; emit(); }}></div><div class="menu" style=${`left:${s.menu.x}px;top:${s.menu.y}px`}>${s.menu.items.map((it) => html`<button onClick=${() => { s.menu = null; emit(); it.run(); }}>${it.icon && html`<${Icon} n=${it.icon} s=${18} />`}${it.label}</button>`)}</div>`}
+      ${s.toast && html`<div class="toast" role="status">${s.toast.msg}${s.toast.action && html`<button onClick=${() => { s.toast.action.run(); s.toast = null; emit(); }}>${s.toast.action.label}</button>`}</div>`}
+    </div>`;
+}
+
+function NewPost({ close, date, pillar }) {
+  const pls = pillars();
+  const [title, setTitle] = useState('');
+  const [pid, setPid] = useState(pillar || (pls[0] && pls[0].id) || null);
+  const [d, setD] = useState(date || nextDateFor(pillar || (pls[0] && pls[0].id)));
+  const [touched, setTouched] = useState(!!date);
+  const pick = (id) => { setPid(id); if (!touched) setD(nextDateFor(id)); };
+  const create = (open) => {
+    const p = newPost({ title: title.trim(), pillar: pid, format: pillarOf(pid).format, date: d || null, ...backPlan(d) });
+    close(); if (open) openPost(p.id); else toast('Post added for ' + fmtDay(d).toLowerCase(), { label: 'Open', run: () => openPost(p.id) });
+  };
+  return html`<div class="sheet">
+    <div class="sheet-h"><h2>New post</h2><button class="icon-btn" onClick=${close} aria-label="Close"><${Icon} n="x" /></button></div>
+    <input class="input" id="np-title" placeholder="What's the post about?" value=${title} onInput=${(e) => setTitle(e.currentTarget.value)} onKeyDown=${(e) => e.key === 'Enter' && create(false)} autoFocus />
+    <div class="field"><span class="lbl">Pillar</span><div class="row gap-6 wrap">${pls.map((p) => html`<button class=${'chip' + (pid === p.id ? ' on' : '')} onClick=${() => pick(p.id)}><${Dot} tint=${p.tint} />${p.name}</button>`)}</div></div>
+    <div class="field"><label for="np-date">Posting date</label><input type="date" class="input" id="np-date" value=${d || ''} onInput=${(e) => { setD(e.currentTarget.value); setTouched(true); }} /><span class="small muted">Script, shoot and edit dates are planned back from this. You can change them in the post.</span></div>
+    <div class="row gap-8"><button class="btn grow" onClick=${() => create(false)}>Add</button><button class="btn primary grow" onClick=${() => create(true)}>Add and open</button></div>
+  </div>`;
+}
+
+/* ----- Today ----- */
+function Today() {
+  useStore(); const t = today(); const ws = weekStart(t);
+  const posts = livePosts();
+  const week = posts.filter((p) => p.date && p.date >= ws && p.date <= addDays(ws, 6));
+  const steps = posts.flatMap(stepsOf);
+  const due = steps.filter((s) => s.date === t);
+  const late = steps.filter((s) => s.date < t);
+  const ideas = posts.filter((p) => p.stage === 'idea').length;
+  const posted = week.filter((p) => p.stage === 'posted').length;
+  const upcoming = steps.filter((s) => s.date > t && s.date <= addDays(t, 7)).sort((a, b) => a.date.localeCompare(b.date));
+  const hr = new Date().getHours(); const greet = hr < 11 ? 'Good morning' : hr < 15 ? 'Good afternoon' : hr < 19 ? 'Good evening' : 'Good night';
+  const replan = () => { const prev = late.map((s) => [s.post.id, s.key, s.date]); late.forEach((s) => savePost(s.post.id, { [s.key]: t }, 0)); toast(late.length + ' late step' + (late.length > 1 ? 's' : '') + ' moved to today', { label: 'Undo', run: () => prev.forEach(([id, k, d]) => savePost(id, { [k]: d }, 0)) }); };
+  const advance = (s) => { const nx = STAGES[stageIdx(s.stage) + 1]; setStage(s.post, nx ? nx.id : 'posted'); toast(s.label + ' done'); };
+  return html`<div class="page">
+    <div><div class="hello">${greet}, ${settings().profile.name || 'Denizar'}</div><div class="date-eyebrow">${DAYS_LONG[dow(t)]}, ${parse(t).getDate()} ${MONTHS[parse(t).getMonth()]} ${parse(t).getFullYear()}</div><h1 class="big">Make the post.</h1></div>
+    <div class="bento">
+      <button class="tile t-butter" onClick=${() => go('calendar')}><span class="ti"><${Icon} n="cal" /></span><span class="tl">This week</span><span class="tv tnum">${posted}<span class="muted" style="font-size:.5em"> of ${week.length} posted</span></span></button>
+      <button class="tile t-cyan" onClick=${() => document.getElementById('due') && document.getElementById('due').scrollIntoView({ behavior: 'smooth' })}><span class="ti"><${Icon} n="check" /></span><span class="tl">Due today</span><span class="tv tnum">${due.length}</span></button>
+      <button class="tile t-lavender" onClick=${() => go('pipeline')}><span class="ti"><${Icon} n="spark" /></span><span class="tl">Ideas</span><span class="tv tnum">${ideas}</span></button>
+    </div>
+    <div class="two">
+      <div class="card" id="due">
+        <div class="col gap-12">
+          ${late.length > 0 && html`<div class="late"><span class="grow">${late.length} late step${late.length > 1 ? 's' : ''}</span><button class="btn sm primary" onClick=${replan}>Move to today</button></div>`}
+          <h3>Today · ${due.length + late.length}</h3>
+          ${due.length + late.length === 0 ? html`<div class="empty" style="padding:18px">Nothing due today. Plan a post in a slot, or write an idea down.</div>` : html`<div class="list">${[...late, ...due].map((s) => html`
+            <div class="item">
+              <button class="check" aria-label=${'Mark ' + s.label + ' done'} onClick=${() => advance(s)}></button>
+              <button class="grow col" style="text-align:left" onClick=${() => openPost(s.post.id)}><span class="it">${s.label}: ${s.post.title || 'Untitled post'}</span><span class="is">${pillarOf(s.post.pillar).name}${s.date < t ? html` · <span style="color:var(--bad)">was due ${fmtDay(s.date)}</span>` : ''}</span></button>
+              ${coverSrc(s.post) && html`<span class="thumb" style=${`background-image:url(${coverSrc(s.post)})`}></span>`}
+            </div>`)}</div>`}
+          ${upcoming.length > 0 && html`<h3 style="margin-top:10px">Next 7 days</h3><div class="list">${upcoming.slice(0, 8).map((s) => html`<button class="item" onClick=${() => openPost(s.post.id)}><${Dot} tint=${pillarOf(s.post.pillar).tint} /><span class="grow ellipsis">${s.label}: ${s.post.title || 'Untitled post'}</span><span class="muted small">${fmtDay(s.date)}</span></button>`)}</div>`}
+        </div>
+      </div>
+      <div class="col gap-16">
+        <div class="row between"><h2>This week</h2><span class="muted small">${posted} of ${week.length} posted</span></div>
+        <div class="slots">${pillars().filter((p) => p.day != null).map((pl) => { const d = addDays(ws, pl.day); const p = week.find((x) => x.pillar === pl.id) || posts.find((x) => x.pillar === pl.id && x.date === d); const src = p && coverSrc(p);
+          return html`<button class=${'slot t-' + pl.tint + (src ? ' has' : '')} onClick=${() => p ? openPost(p.id) : openOverlay((c) => html`<${NewPost} close=${c} pillar=${pl.id} date=${d < t ? t : d} />`)}>
+            ${src && html`<span class="bgimg" style=${`background-image:url(${src})`}></span>`}
+            <span class="sh"><span class="ellipsis">${pl.name}</span><span>${DAYS[pl.day]}</span></span>
+            <span class="st">${p ? (p.title || 'Untitled post') : 'Plan a post'}</span>
+            ${p ? html`<span style="margin-top:auto"><${StagePill} id=${p.stage} /></span>` : html`<span class="plus"><${Icon} n="plus" /></span>`}
+          </button>`; })}</div>
+        ${pillars().some((p) => p.day == null) && html`<div class="row gap-8 wrap">${pillars().filter((p) => p.day == null).map((pl) => html`<button class="chip" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} pillar=${pl.id} />`)}><${Dot} tint=${pl.tint} />${pl.name}<${Icon} n="plus" s=${16} /></button>`)}</div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ----- Pipeline ----- */
+function Pipeline() {
+  useStore(); const [pf, setPf] = useState('all'); const [over, setOver] = useState(null);
+  const posts = livePosts().filter((p) => pf === 'all' || p.pillar === pf).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const drag = useRef(null);
+  return html`<div class="page">
+    <div class="row between wrap gap-12"><h1 class="pt">Pipeline</h1><button class="btn primary" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} />`)}><${Icon} n="plus" s=${18} />New post</button></div>
+    <div class="row gap-6 wrap"><button class=${'chip' + (pf === 'all' ? ' on' : '')} onClick=${() => setPf('all')}>All <span class="n">${livePosts().length}</span></button>${pillars().map((p) => html`<button class=${'chip' + (pf === p.id ? ' on' : '')} onClick=${() => setPf(p.id)}><${Dot} tint=${p.tint} />${p.name}</button>`)}</div>
+    <div class="board">${STAGES.map((st, i) => { const list = posts.filter((p) => p.stage === st.id);
+      return html`<div class=${'colm' + (over === st.id ? ' drop' : '')} onDragOver=${(e) => { e.preventDefault(); setOver(st.id); }} onDragLeave=${() => setOver(null)} onDrop=${(e) => { e.preventDefault(); setOver(null); const p = S.posts[drag.current]; if (p && p.stage !== st.id) setStage(p, st.id); }}>
+        <div class="ch"><span class=${'dot t-' + st.tint}></span>${st.name}<span class="muted small" style="margin-left:auto">${list.length}</span></div>
+        ${list.map((p) => { const src = coverSrc(p); return html`<div class="kcard" draggable="true" onDragStart=${() => { drag.current = p.id; }} onClick=${() => openPost(p.id)} role="button" tabindex="0" onKeyDown=${(e) => e.key === 'Enter' && openPost(p.id)}>
+          <span class=${'thumb t-' + pillarOf(p.pillar).tint} style=${src ? `background-image:url(${src})` : ''}></span>
+          <span class="col gap-4 grow"><span class="kt">${p.title || 'Untitled post'}</span><span class="ks">${pillarOf(p.pillar).name}</span><span class="ks">${p.date ? fmtDay(p.date) : 'No date'}</span></span>
+          ${i < STAGES.length - 1 && html`<button class="icon-btn nx" aria-label=${'Move to ' + STAGES[i + 1].name} title=${'Move to ' + STAGES[i + 1].name} onClick=${(e) => { e.stopPropagation(); setStage(p, STAGES[i + 1].id); }}><${Icon} n="right" s=${18} /></button>`}
+        </div>`; })}
+        ${st.id === 'idea' && html`<button class="btn sm ghost" onClick=${() => openOverlay((c) => html`<${QuickIdea} close=${c} />`)}><${Icon} n="plus" s=${16} />Idea</button>`}
+      </div>`; })}</div>
+  </div>`;
+}
+function QuickIdea({ close }) {
+  const [t, setT] = useState(''); const [pid, setPid] = useState(null);
+  const add = () => { if (!t.trim()) return; newPost({ title: t.trim(), pillar: pid, format: pillarOf(pid).format }); close(); toast('Idea saved'); };
+  return html`<div class="sheet"><div class="sheet-h"><h2>New idea</h2><button class="icon-btn" onClick=${close} aria-label="Close"><${Icon} n="x" /></button></div>
+    <input class="input" id="qi" placeholder="Write it down before it's gone" value=${t} onInput=${(e) => setT(e.currentTarget.value)} onKeyDown=${(e) => e.key === 'Enter' && add()} autoFocus />
+    <div class="row gap-6 wrap">${pillars().map((p) => html`<button class=${'chip' + (pid === p.id ? ' on' : '')} onClick=${() => setPid(pid === p.id ? null : p.id)}><${Dot} tint=${p.tint} />${p.name}</button>`)}</div>
+    <button class="btn primary" onClick=${add}>Save idea</button></div>`;
+}
+
+/* ----- Calendar ----- */
+function CalendarPage() {
+  useStore(); const t = today();
+  const [month, setMonth] = useState(t.slice(0, 7)); const [sel, setSel] = useState(t);
+  const first = month + '-01'; const start = weekStart(first);
+  const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+  const posts = livePosts(); const byDate = {}; posts.forEach((p) => { if (p.date) (byDate[p.date] = byDate[p.date] || []).push(p); });
+  const threadsBy = {}; liveThreads().forEach((th) => { if (th.date) threadsBy[th.date] = (threadsBy[th.date] || 0) + 1; });
+  const shift = (n) => { const d = parse(first); d.setMonth(d.getMonth() + n); setMonth(iso(d).slice(0, 7)); };
+  const mName = MONTHS[parse(first).getMonth()] + ' ' + parse(first).getFullYear();
+  const selPosts = byDate[sel] || []; const selSlots = pillars().filter((p) => p.day === dow(sel) && !selPosts.some((x) => x.pillar === p.id));
+  const undated = posts.filter((p) => !p.date && p.stage !== 'posted');
+  return html`<div class="page">
+    <div class="row between wrap gap-12"><h1 class="pt">${mName}</h1><div class="row gap-6"><button class="icon-btn" aria-label="Previous month" onClick=${() => shift(-1)}><${Icon} n="left" /></button><button class="btn sm" onClick=${() => { setMonth(t.slice(0, 7)); setSel(t); }}>Today</button><button class="icon-btn" aria-label="Next month" onClick=${() => shift(1)}><${Icon} n="right" /></button></div></div>
+    <div class="cal">${DAYS.map((d) => html`<div class="dow">${d}</div>`)}
+      ${days.map((d) => { const list = byDate[d] || []; const slots = pillars().filter((p) => p.day === dow(d) && !list.some((x) => x.pillar === p.id));
+        return html`<button class=${'day' + (d.slice(0, 7) !== month ? ' out' : '') + (d === t ? ' today' : '') + (d === sel ? ' sel' : '')} onClick=${() => setSel(d)}>
+          <span class="dn">${parse(d).getDate()}</span>
+          ${list.map((p) => html`<span class=${'ev ellipsis t-' + pillarOf(p.pillar).tint} style=${p.stage === 'posted' ? 'opacity:.6;text-decoration:line-through' : ''}>${p.title || 'Untitled'}</span>`)}
+          ${d >= t && slots.map((p) => html`<span class="sl ellipsis">+ ${p.name}</span>`)}
+          ${threadsBy[d] ? html`<span class="sl">${threadsBy[d]} thread${threadsBy[d] > 1 ? 's' : ''}</span>` : ''}
+        </button>`; })}
+    </div>
+    <div class="card col gap-12">
+      <div class="row between"><h2>${fmtDay(sel)}</h2><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} date=${sel} />`)}><${Icon} n="plus" s=${16} />Post</button></div>
+      ${selPosts.length === 0 && selSlots.length === 0 ? html`<span class="muted">Nothing on this day.</span>` : ''}
+      <div class="list">${selPosts.map((p) => html`<button class="item" onClick=${() => openPost(p.id)}><${Dot} tint=${pillarOf(p.pillar).tint} /><span class="grow col"><span class="it">${p.title || 'Untitled post'}</span><span class="is">${pillarOf(p.pillar).name}</span></span><${StagePill} id=${p.stage} /></button>`)}
+      ${selSlots.map((pl) => html`<button class="item" onClick=${() => openOverlay((c) => html`<${NewPost} close=${c} date=${sel} pillar=${pl.id} />`)}><${Dot} tint=${pl.tint} /><span class="grow muted">${pl.name} slot · plan a post</span><${Icon} n="plus" s=${18} /></button>`)}</div>
+    </div>
+    ${undated.length > 0 && html`<div class="col gap-8"><h3>No date yet · ${undated.length}</h3><div class="row gap-6 wrap">${undated.map((p) => html`<button class="chip" onClick=${() => openPost(p.id)}><${Dot} tint=${pillarOf(p.pillar).tint} />${p.title || 'Untitled post'}</button>`)}</div></div>`}
+  </div>`;
+}
+
+/* ----- Feed preview ----- */
+function FeedPage() {
+  useStore(); const [tab, setTab] = useState('grid'); const [swap, setSwap] = useState(false); const [picked, setPicked] = useState(null); const [showPosted, setShowPosted] = useState(true);
+  const pr = settings().profile; const t = today();
+  let posts = livePosts().filter((p) => p.date).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt - a.createdAt));
+  if (!showPosted) posts = posts.filter((p) => p.stage !== 'posted');
+  const shown = tab === 'reels' ? posts.filter((p) => p.format === 'reels') : posts;
+  const undated = livePosts().filter((p) => !p.date).length;
+  const tap = (p) => {
+    if (!swap) return openPost(p.id);
+    if (!picked) return setPicked(p.id);
+    if (picked === p.id) return setPicked(null);
+    const a = S.posts[picked]; const da = a.date, db2 = p.date;
+    savePost(a.id, { date: db2 }, 0); savePost(p.id, { date: da }, 0); setPicked(null);
+    toast('Swapped posting dates', { label: 'Undo', run: () => { savePost(a.id, { date: da }, 0); savePost(p.id, { date: db2 }, 0); } });
+  };
+  const avatar = assetSrc(pr.avatarId);
+  return html`<div class="page">
+    <div class="row between wrap gap-12"><h1 class="pt">Feed preview</h1>
+      <div class="row gap-6 wrap"><button class=${'chip' + (swap ? ' on' : '')} onClick=${() => { setSwap(!swap); setPicked(null); }}><${Icon} n="swap" s=${16} />${swap ? 'Done rearranging' : 'Rearrange'}</button><button class=${'chip' + (!showPosted ? ' on' : '')} onClick=${() => setShowPosted(!showPosted)}>Upcoming only</button></div></div>
+    ${swap && html`<div class="banner">Tap two posts to swap their posting dates.</div>`}
+    <div class="phone">
+      <div class="ph">
+        <div class="uname">${pr.username}</div>
+        <div class="stats"><span class="av" style=${avatar ? `background-image:url(${avatar})` : ''}></span><div class="row grow" style="justify-content:space-around"><span class="st"><b>${livePosts().filter((p) => p.stage === 'posted').length}</b>posts</span><span class="st"><b>—</b>followers</span><span class="st"><b>—</b>following</span></div></div>
+        <div class="bio"><b>${pr.name}</b><br />${pr.bio}</div>
+      </div>
+      <div class="tabs"><button class=${tab === 'grid' ? 'on' : ''} onClick=${() => setTab('grid')} aria-label="Posts grid"><${Icon} n="grid" /></button><button class=${tab === 'reels' ? 'on' : ''} onClick=${() => setTab('reels')} aria-label="Reels"><${Icon} n="reel" /></button></div>
+      <div class=${'igrid' + (tab === 'reels' ? ' reels' : '')}>${shown.map((p) => { const src = coverSrc(p); const fmt = p.format; const crop = tab === 'grid' && fmt === 'reels';
+        return html`<button class=${'cell' + (picked === p.id ? ' picked' : '') + (src ? '' : ' t-' + pillarOf(p.pillar).tint)} style=${src ? `background-image:url(${src});background-position:center ${crop ? '50%' : 'center'}` : ''} onClick=${() => tap(p)} aria-label=${p.title || 'Untitled post'}>
+          ${!src && html`<span class="ph-t">${p.title || 'Untitled'}</span>`}
+          ${p.stage !== 'posted' && html`<span class="sched">${p.date === t ? 'Today' : fmtDay(p.date)}</span>`}
+          ${tab === 'grid' && html`<span class="badge">${fmt === 'reels' ? html`<${Icon} n="reel" s=${18} w=${2} />` : fmt === 'carousel' ? html`<${Icon} n="layers" s=${18} w=${2} />` : ''}</span>`}
+        </button>`; })}
+      </div>
+      ${shown.length === 0 && html`<div style="padding:30px;text-align:center;color:#888;font-size:14px">No dated posts yet. Give a post a posting date and it shows here.</div>`}
+    </div>
+    ${undated > 0 && html`<p class="muted small" style="text-align:center">${undated} post${undated > 1 ? 's' : ''} without a posting date ${undated > 1 ? 'are' : 'is'} not shown.</p>`}
+  </div>`;
+}
+
+/* ----- Post page ----- */
+function TitleInput({ value, onInput }) {
+  const r = useRef(null);
+  const fit = () => { const el = r.current; if (!el || !el.isConnected) return; el.style.height = 'auto'; if (el.scrollHeight) el.style.height = el.scrollHeight + 'px'; };
+  useEffect(() => { fit(); const id = requestAnimationFrame(fit); return () => cancelAnimationFrame(id); });
+  return html`<textarea class="title-input" id="p-title" rows="1" placeholder="Post title" aria-label="Post title" ref=${r} value=${value} onInput=${(e) => onInput(e.currentTarget.value.replace(/\n/g, ' '))}></textarea>`;
+}
+function PostPage({ id }) {
+  useStore(); const p = S.posts[id]; const fileRef = useRef(null);
+  if (!p) return html`<div class="page narrow"><div class="empty">This post doesn't exist or was deleted.<button class="btn" onClick=${() => go('pipeline')}>Back to pipeline</button></div></div>`;
+  const set = (patch, delay) => savePost(p.id, patch, delay);
+  const pl = pillarOf(p.pillar);
+  const src = coverSrc(p);
+  const uploadSlides = async (files) => {
+    if (!assets) return toast('Uploads need the page opened in Claude.');
+    const ids = [...(p.slides || [])];
+    for (const f of files) { try { const r = await assets.upload(f); ids.push(r.id); } catch (e) { toast('Could not upload ' + f.name); } }
+    set({ slides: ids }, 0);
+  };
+  const moveSlide = (i, d) => { const a = [...p.slides]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; set({ slides: a }, 0); };
+  return html`<div class="page narrow">
+    <div class="row between"><button class="btn sm ghost" onClick=${() => history.length > 1 ? history.back() : go('pipeline')}><${Icon} n="left" s=${18} />Back</button>
+      <button class="icon-btn" aria-label="More actions" onClick=${(e) => openMenu(e, [{ label: 'Duplicate', icon: 'copy', run: () => { const n = newPost({ ...p, id: uid(), title: p.title + ' (copy)', stage: 'idea', date: null, postedAt: null, createdAt: Date.now() }); openPost(n.id); } }, { label: 'Delete post', icon: 'trash', run: () => { deletePost(p); go('pipeline'); } }])}><${Icon} n="more" /></button></div>
+    <${TitleInput} value=${p.title} onInput=${(v) => set({ title: v })} />
+    <div class="row gap-8 wrap">
+      <button class=${'pill t-' + pl.tint} onClick=${(e) => openMenu(e, pillars().map((x) => ({ label: x.name, run: () => set({ pillar: x.id, format: p.format || x.format }, 0) })))}>${pl.name}<${Icon} n="down" s=${13} /></button>
+      <button class="pill t-plain" onClick=${(e) => openMenu(e, FORMATS.map((f) => ({ label: f.name, run: () => set({ format: f.id }, 0) })))}>${(FORMATS.find((f) => f.id === p.format) || FORMATS[0]).name}<${Icon} n="down" s=${13} /></button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="Stage">${STAGES.map((s) => html`<button role="radio" aria-checked=${p.stage === s.id} class=${p.stage === s.id ? 'on' : ''} onClick=${() => setStage(p, s.id)}>${s.name}</button>`)}</div>
+
+    <div class="card col gap-16">
+      <div class="grid2">
+        <div class="field"><label for="p-date">Posting date</label><input type="date" class="input" id="p-date" value=${p.date || ''} onInput=${(e) => set({ date: e.currentTarget.value || null }, 0)} /></div>
+        <div class="field"><label for="p-sd">Script by</label><input type="date" class="input" id="p-sd" value=${p.scriptDate || ''} onInput=${(e) => set({ scriptDate: e.currentTarget.value || null }, 0)} /></div>
+        <div class="field"><label for="p-sh">Shoot on</label><input type="date" class="input" id="p-sh" value=${p.shootDate || ''} onInput=${(e) => set({ shootDate: e.currentTarget.value || null }, 0)} /></div>
+        <div class="field"><label for="p-ed">Edit by</label><input type="date" class="input" id="p-ed" value=${p.editDate || ''} onInput=${(e) => set({ editDate: e.currentTarget.value || null }, 0)} /></div>
+      </div>
+      ${p.date && html`<button class="btn sm ghost" style="align-self:flex-start" onClick=${() => set(backPlan(p.date), 0)}><${Icon} n="cal" s=${16} />Plan steps back from the posting date</button>`}
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h3>Cover</h3><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)}><${Icon} n="image" s=${16} />${p.cover ? 'Edit cover' : 'Make a cover'}</button></div>
+      <div class="row gap-16" style="align-items:flex-start">
+        <button class="cover-prev" style=${`aspect-ratio:${p.format === 'reels' ? '9/16' : '3/4'}`} onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)} aria-label="Edit cover">${src ? html`<img src=${src} alt="Cover" style="width:100%;height:100%;object-fit:cover" />` : html`<span class="col center muted small" style="height:100%;justify-content:center;align-items:center;padding:10px">No cover yet</span>`}</button>
+        <div class="col gap-8 small muted grow"><span>${p.format === 'reels' ? 'Reels cover 1080 × 1920. The profile grid shows the middle 3:4.' : 'Feed post 1080 × 1440 (3:4), same as the profile grid.'}</span>${p.cover && p.cover.renderId && downloads && html`<button class="btn sm" style="align-self:flex-start" onClick=${() => saveCoverFile(p)}><${Icon} n="download" s=${16} />Save image</button>`}</div>
+      </div>
+    </div>
+
+    ${p.format === 'carousel' && html`<div class="sec">
+      <div class="sec-h"><h3>Slides · ${(p.slides || []).length}</h3><button class="btn sm" onClick=${() => fileRef.current && fileRef.current.click()}><${Icon} n="plus" s=${16} />Add slides</button></div>
+      <input type="file" id="slides-in" accept="image/*" multiple hidden ref=${fileRef} onChange=${(e) => { uploadSlides([...e.currentTarget.files]); e.currentTarget.value = ''; }} />
+      ${(p.slides || []).length > 0 ? html`
+        <div class="swipe">${p.cover && p.cover.renderId && html`<div style=${`background-image:url(${assetSrc(p.cover.renderId)})`}></div>`}${p.slides.map((s) => html`<div style=${`background-image:url(${assetSrc(s)})`}></div>`)}</div>
+        <div class="slides">${p.slides.map((s, i) => html`<div class="slide" style=${`background-image:url(${assetSrc(s)})`}><div class="sx"><button aria-label="Move left" onClick=${() => moveSlide(i, -1)}><${Icon} n="left" s=${14} /></button><button aria-label="Remove slide" onClick=${() => set({ slides: p.slides.filter((_, j) => j !== i) }, 0)}><${Icon} n="x" s=${14} /></button><button aria-label="Move right" onClick=${() => moveSlide(i, 1)}><${Icon} n="right" s=${14} /></button></div></div>`)}</div>
+        <span class="small muted">Swipe the preview. The cover goes first.</span>` : html`<span class="muted small">Export the slides from your editor and add them here to preview the swipe.</span>`}
+    </div>`}
+
+    <div class="field"><label for="p-hook">Hook</label><input class="input" id="p-hook" value=${p.hook} placeholder="The first line or first 2 seconds" onInput=${(e) => set({ hook: e.currentTarget.value })} /></div>
+    <div class="field"><label for="p-script">Script</label><textarea class="input" id="p-script" rows="9" value=${p.script} placeholder="Voice-over, shot list or slide text" onInput=${(e) => set({ script: e.currentTarget.value })}></textarea></div>
+    <div class="field"><label for="p-cap">Caption <span class="faint">· ${(p.caption || '').length} / 2200</span></label><textarea class="input" id="p-cap" rows="5" value=${p.caption} onInput=${(e) => set({ caption: e.currentTarget.value })}></textarea>
+      ${p.caption && html`<button class="btn sm ghost" style="align-self:flex-start" onClick=${() => navigator.clipboard.writeText(p.caption).then(() => toast('Caption copied'), () => toast('Copy did not work. Select the text instead.'))}><${Icon} n="copy" s=${16} />Copy caption</button>`}</div>
+    <${WriteWithClaude} p=${p} />
+    <div class="field"><label for="p-notes">Notes and references</label><textarea class="input" id="p-notes" rows="4" value=${p.notes} placeholder="Ideas, shot references, links" onInput=${(e) => set({ notes: e.currentTarget.value })}></textarea></div>
+  </div>`;
+}
+async function saveCoverFile(p) {
+  try { const r = await fetch(assetSrc(p.cover.renderId)); const b = await r.blob(); await downloads.save({ filename: (p.title || 'cover').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.jpg', data: b }); }
+  catch (e) { if (e && e.code !== 'declined') toast('Could not save the image.'); }
+}
+
+function WriteWithClaude({ p }) {
+  const [busy, setBusy] = useState(null); const [out, setOut] = useState(''); const [target, setTarget] = useState(null); const [about, setAbout] = useState('');
+  const ctl = useRef(null);
+  if (!sample) return html`<div class="ai"><b>Write with Claude</b><span class="small">Open this page in Claude to write hooks, scripts and captions here.</span></div>`;
+  const run = async (kind) => {
+    if (ctl.current) ctl.current.abort();
+    const ac = new AbortController(); ctl.current = ac; setBusy(kind); setOut(''); setTarget(kind);
+    const extra = about.trim() ? `\nWhat he wants this post to say: ${about.trim()}\n` : '';
+    const asks = {
+      hook: `Give 5 hook options for this post (the first line or the first 2 seconds on screen). Each under 12 words, each a different angle. Number them 1-5, nothing else.`,
+      script: `Write the ${p.format === 'carousel' ? 'slide-by-slide text for the carousel (Slide 1, Slide 2, ... with one or two short lines each, 6-9 slides)' : 'voice-over script for a 30-60 second reel, with simple shot notes in [brackets]'}. Storytelling structure: start in the middle of a real moment, show a small change or realization, end on a quiet concrete image. Keep it personal and specific to his life. ${p.hook ? 'Start from this hook: ' + p.hook : ''}`,
+      caption: `Write one Instagram caption: 2-4 short lines, personal, specific, then a blank line and 3-5 relevant hashtags. No emoji spam.`,
+    };
+    try {
+      const res = await sample(`${postContext(p)}${extra}\n${asks[kind]}\n${langLine()}\n\n${STYLE_GUARD}`, { signal: ac.signal, onText: ({ text }) => setOut(text), cache: false });
+      setOut(res.text);
+    } catch (e) { if (e && e.name !== 'AbortError') setOut(e && e.code === 'rate_limited' ? 'Claude is busy. Try again in a minute.' : e && e.code === 'not_granted' ? 'Claude is not allowed on this page.' : 'Something went wrong. Try again.'); }
+    setBusy(null);
+  };
+  const use = (mode) => { const field = target === 'hook' ? 'hook' : target; if (target === 'hook') { const first = (out.match(/^\s*1[.)]\s*(.+)$/m) || [])[1]; return savePost(p.id, { hook: (first || out).trim() }, 0); } savePost(p.id, { [field]: mode === 'append' && p[field] ? p[field] + '\n\n' + out : out }, 0); toast(field[0].toUpperCase() + field.slice(1) + ' updated'); };
+  return html`<div class="ai">
+    <div class="row gap-8"><${Icon} n="spark" /><b>Write with Claude</b></div>
+    <input class="input" id="ai-about" placeholder="What's it really about? One or two lines helps a lot." value=${about} onInput=${(e) => setAbout(e.currentTarget.value)} />
+    <div class="row gap-6 wrap">
+      <button class="btn sm" disabled=${!!busy} onClick=${() => run('hook')}>${busy === 'hook' ? 'Writing…' : '5 hooks'}</button>
+      <button class="btn sm" disabled=${!!busy} onClick=${() => run('script')}>${busy === 'script' ? 'Writing…' : p.format === 'carousel' ? 'Slide text' : 'Script'}</button>
+      <button class="btn sm" disabled=${!!busy} onClick=${() => run('caption')}>${busy === 'caption' ? 'Writing…' : 'Caption'}</button>
+      ${busy && html`<button class="btn sm ghost" onClick=${() => ctl.current && ctl.current.abort()}>Stop</button>`}
+    </div>
+    ${out && html`<div class="out">${out}</div>`}
+    ${out && !busy && html`<div class="row gap-6 wrap"><button class="btn sm primary" onClick=${() => use('replace')}>${target === 'hook' ? 'Use hook 1' : 'Use this'}</button>${target !== 'hook' && html`<button class="btn sm" onClick=${() => use('append')}>Add below mine</button>`}<button class="btn sm ghost" onClick=${() => navigator.clipboard.writeText(out).then(() => toast('Copied'), () => {})}>Copy</button></div>`}
+  </div>`;
+}
+
+/* ----- Cover editor ----- */
+function CoverEditor({ close, postId }) {
+  const p = S.posts[postId];
+  const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(p.cover || defaultCover(p))));
+  const [img, setImg] = useState(null); const [video, setVideo] = useState(null); const [vt, setVt] = useState(0);
+  const [busy, setBusy] = useState(false); const [guide, setGuide] = useState(true); const [ideas, setIdeas] = useState(null);
+  const cv = useRef(null); const vref = useRef(null); const fmt = p.format;
+  const [W, H] = coverSize(fmt); const crop = gridCrop(fmt);
+  useEffect(() => { loadImg(assetSrc(cfg.photoId)).then(setImg).catch(() => {}); }, []);
+  useEffect(() => { let on = true; loadFonts().then(() => { if (on && cv.current) drawCover(cv.current, cfg, img, fmt); }); return () => { on = false; }; }, [cfg, img]);
+  const upd = (patch) => setCfg((c) => ({ ...c, ...patch }));
+  const setLine = (i, patch) => setCfg((c) => ({ ...c, lines: c.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
+  const applyPreset = (k) => { const pr = PRESETS[k]; const pres = settings().cover.presented; upd({ preset: k, y: pr.y, lines: pr.lines.map((l) => ({ ...l, text: l.text.replace('{presented}', pres) })) }); };
+  const onFile = (f) => {
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    if (f.type.startsWith('video/')) { setVideo(url); setImg(null); upd({ photoId: null }); }
+    else { setVideo(null); loadImg(url).then((im) => { setImg(im); im._file = f; }); upd({ photoId: null }); }
+  };
+  const grabFrame = () => { const v = vref.current; if (!v) return; const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); c.toBlob((b) => { const u = URL.createObjectURL(b); loadImg(u).then((im) => { im._file = b; setImg(im); setVideo(null); }); }, 'image/jpeg', 0.92); };
+  const save = async () => {
+    if (!assets) return toast('Saving covers needs the page opened in Claude.');
+    setBusy(true);
+    try {
+      let photoId = cfg.photoId;
+      if (img && img._file && !photoId) { const r = await assets.upload(img._file); photoId = r.id; }
+      await loadFonts(); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt);
+      const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.9));
+      const rr = await assets.upload(blob);
+      const old = p.cover && p.cover.renderId;
+      savePost(p.id, { cover: { ...cfg, photoId, renderId: rr.id } }, 0);
+      if (old && old !== rr.id) assets.delete(old).catch(() => {});
+      close(); toast('Cover saved');
+    } catch (e) { toast('Could not save the cover. Try a smaller photo.'); }
+    setBusy(false);
+  };
+  const askIdeas = async () => {
+    if (!sample) return;
+    setIdeas('loading');
+    try {
+      const v = await sample.json(`${postContext(p)}\nWrite cover text for this post in a cinematic movie-poster style: a stacked, centered title like "HOW TO DO YOUR / Cover Image / LIKE A MOVIE", or "LITTLE STORY / of a little girl". Give 3 options. Each option is an array of lines; each line has "text" and "style", where style is one of: caps (thin serif capitals), script (elegant script for the one key phrase), italic, bold (condensed bold sans), small (a one or two line tagline in small caps), label (tiny spaced capitals like PRESENTED BY). Keep the main title short (2-5 words). English. Return JSON: {"options": [[{"text":"","style":""}]]}.`, { modelTier: 'quick' });
+      setIdeas((v && v.options) || []);
+    } catch (e) { setIdeas(null); toast('Claude could not answer. Try again.'); }
+  };
+  const SIZES = { caps: 110, script: 200, italic: 90, bold: 150, small: 24, label: 16 };
+  const useIdea = (lines) => { const pres = settings().cover.presented; upd({ lines: [...lines.map((l) => ({ text: l.text, style: FONTS[l.style] ? l.style : 'caps', size: SIZES[l.style] || 80 })), { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: pres, style: 'label', size: 24 }] }); setIdeas(null); };
+  return html`<div class="sheet wide">
+    <div class="sheet-h"><h2>Cover</h2><div class="row gap-8"><button class="btn sm ghost" onClick=${close}>Cancel</button><button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save cover'}</button></div></div>
+    <div class="ced">
+      <div class="cstage" style=${`aspect-ratio:${W}/${H}`}>
+        <canvas ref=${cv} width=${W} height=${H}></canvas>
+        ${guide && fmt === 'reels' && html`<div class="guide" style=${`top:${crop.top * 100}%;height:${crop.h * 100}%`}><span>Grid shows this part</span></div>`}
+      </div>
+      <div class="col gap-12 lc">
+        ${video && html`<div class="col gap-8"><video ref=${vref} src=${video} muted playsinline preload="auto" style="width:100%;border-radius:12px" onLoadedMetadata=${(e) => setVt(0)}></video>
+          <input type="range" min="0" max="1000" value=${vt} aria-label="Pick a frame" onInput=${(e) => { const v = vref.current; setVt(+e.currentTarget.value); if (v && v.duration) v.currentTime = v.duration * (+e.currentTarget.value / 1000); }} />
+          <button class="btn primary" onClick=${grabFrame}>Use this frame</button></div>`}
+        <div class="row gap-8 wrap">
+          <label class="btn sm" for="cv-file"><${Icon} n="image" s=${16} />Photo or video</label>
+          <input type="file" id="cv-file" accept="image/*,video/*" hidden onChange=${(e) => { onFile(e.currentTarget.files[0]); e.currentTarget.value = ''; }} />
+          ${fmt === 'reels' && html`<button class=${'chip' + (guide ? ' on' : '')} onClick=${() => setGuide(!guide)}>Grid guide</button>`}
+        </div>
+        ${img && html`<div class="grid2">
+          <div class="field"><label for="cz">Zoom</label><input type="range" id="cz" min="1" max="2.5" step="0.01" value=${cfg.zoom || 1} onInput=${(e) => upd({ zoom: +e.currentTarget.value })} /></div>
+          <div class="field"><label for="cg">Darken bottom</label><input type="range" id="cg" min="0" max="0.8" step="0.01" value=${cfg.grade} onInput=${(e) => upd({ grade: +e.currentTarget.value })} /></div>
+          <div class="field"><label for="cpx">Photo left / right</label><input type="range" id="cpx" min="-1" max="1" step="0.01" value=${cfg.px || 0} onInput=${(e) => upd({ px: +e.currentTarget.value })} /></div>
+          <div class="field"><label for="cpy">Photo up / down</label><input type="range" id="cpy" min="-1" max="1" step="0.01" value=${cfg.py || 0} onInput=${(e) => upd({ py: +e.currentTarget.value })} /></div>
+        </div>`}
+      </div>
+      <div class="col gap-16 rc">
+        <div class="field"><span class="lbl">Layout</span><div class="presets">${Object.entries(PRESETS).map(([k, pr]) => html`<button class=${'chip' + (cfg.preset === k ? ' on' : '')} onClick=${() => applyPreset(k)}>${pr.name}</button>`)}</div></div>
+        ${sample && html`<div class="col gap-8">
+          <button class="btn sm" style="align-self:flex-start" disabled=${ideas === 'loading'} onClick=${askIdeas}><${Icon} n="spark" s=${16} />${ideas === 'loading' ? 'Thinking…' : 'Cover text ideas'}</button>
+          ${Array.isArray(ideas) && ideas.map((op) => html`<button class="card" style="padding:12px 14px;text-align:left;border-radius:14px" onClick=${() => useIdea(op)}>${op.map((l) => html`<div style=${`font-family:${l.style === 'script' ? 'Pinyon Script' : l.style === 'italic' ? 'Playfair Display' : l.style === 'bold' ? 'Anton' : 'Bodoni Moda'};font-style:${l.style === 'italic' ? 'italic' : 'normal'};font-size:${l.style === 'small' || l.style === 'label' ? 11 : 18}px;text-transform:${['caps', 'bold', 'small', 'label'].includes(l.style) ? 'uppercase' : 'none'}`}>${l.text}</div>`)}</button>`)}
+        </div>`}
+        <div class="field"><span class="lbl">Text lines</span>
+          <div class="lines">${cfg.lines.map((l, i) => html`<div class="col gap-6">
+            <div class="lnr">
+              <textarea class="input" rows=${String(l.text).includes('\n') ? 2 : 1} aria-label=${'Line ' + (i + 1)} value=${l.text} onInput=${(e) => setLine(i, { text: e.currentTarget.value })}></textarea>
+              <select class="select input" aria-label=${'Style of line ' + (i + 1)} value=${l.style} onChange=${(e) => setLine(i, { style: e.currentTarget.value })}>${Object.entries(STYLE_NAMES).map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select>
+              <button class="icon-btn" aria-label=${'Remove line ' + (i + 1)} onClick=${() => upd({ lines: cfg.lines.filter((_, j) => j !== i) })}><${Icon} n="x" s=${17} /></button>
+            </div>
+            <input type="range" min="12" max="220" value=${l.size} aria-label=${'Size of line ' + (i + 1)} onInput=${(e) => setLine(i, { size: +e.currentTarget.value })} />
+          </div>`)}</div>
+          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => upd({ lines: [...cfg.lines, { text: 'NEW LINE', style: 'caps', size: 70 }] })}><${Icon} n="plus" s=${16} />Add line</button>
+        </div>
+        <div class="field"><label for="cy">Text position</label><input type="range" id="cy" min="0.15" max="0.9" step="0.01" value=${cfg.y} onInput=${(e) => upd({ y: +e.currentTarget.value })} /></div>
+        <div class="field"><span class="lbl">Text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (cfg.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => upd({ color: c })}></button>`)}<button class=${'chip' + (cfg.shadow ? ' on' : '')} onClick=${() => upd({ shadow: !cfg.shadow })}>Soft shadow</button></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ----- Threads ----- */
+function ThreadsPage() {
+  useStore(); const [text, setText] = useState(''); const [d, setD] = useState(today()); const [busy, setBusy] = useState(false); const [drafts, setDrafts] = useState([]);
+  const list = liveThreads().sort((a, b) => (a.postedAt ? 1 : 0) - (b.postedAt ? 1 : 0) || (a.date || '9999').localeCompare(b.date || '9999'));
+  const add = (t = text, date = d) => { if (!t.trim()) return; const id = uid(); saveThread(id, { text: t.trim(), date }); if (t === text) setText(''); };
+  const draft = async () => {
+    if (!sample) return; setBusy(true);
+    try { const recent = livePosts().slice(-5).map((p) => '- ' + (p.title || '')).join('\n');
+      const v = await sample.json(`${ABOUT}\nHis Threads pillars: life as a fashion videographer, work-from-home desk setup, desk gear he uses (some affiliate). Recent Instagram posts:\n${recent}\nWrite 5 separate Threads posts, each 1-3 short lines, casual, specific to his days, no hashtags. ${langLine()}\n${STYLE_GUARD}\nReturn JSON: {"posts": ["..."]}`, { modelTier: 'quick' });
+      setDrafts((v && v.posts) || []);
+    } catch (e) { toast('Claude could not answer. Try again.'); }
+    setBusy(false);
+  };
+  return html`<div class="page narrow">
+    <h1 class="pt">Threads</h1>
+    <div class="card col gap-12">
+      <textarea class="input" id="th-text" rows="3" placeholder="Write a thread" value=${text} onInput=${(e) => setText(e.currentTarget.value)}></textarea>
+      <div class="row gap-8 wrap"><input type="date" class="input" style="width:auto" aria-label="Date" value=${d} onInput=${(e) => setD(e.currentTarget.value)} /><button class="btn primary" onClick=${() => add()}>Add</button>${sample && html`<button class="btn" disabled=${busy} onClick=${draft}><${Icon} n="spark" s=${16} />${busy ? 'Writing…' : 'Draft 5 with Claude'}</button>`}</div>
+      ${drafts.length > 0 && html`<div class="list">${drafts.map((t, i) => html`<div class="item"><span class="grow" style="white-space:pre-wrap">${t}</span><button class="btn sm" onClick=${() => { add(t, d); setDrafts(drafts.filter((_, j) => j !== i)); }}>Keep</button></div>`)}</div>`}
+    </div>
+    <div class="list">${list.length === 0 ? html`<div class="empty">No threads yet.</div>` : list.map((th) => html`<div class="item">
+      <button class=${'check' + (th.postedAt ? ' done' : '')} aria-label=${th.postedAt ? 'Mark not posted' : 'Mark posted'} onClick=${() => saveThread(th.id, { postedAt: th.postedAt ? null : Date.now() })}>${th.postedAt && html`<${Icon} n="check" s=${16} w=${2.4} />`}</button>
+      <div class="grow col gap-4"><span style=${'white-space:pre-wrap;' + (th.postedAt ? 'color:var(--muted)' : '')}>${th.text}</span><span class="is muted small">${th.date ? fmtDay(th.date) : 'No date'}</span></div>
+      <button class="icon-btn" aria-label="Copy" onClick=${() => navigator.clipboard.writeText(th.text).then(() => toast('Copied'), () => {})}><${Icon} n="copy" s=${18} /></button>
+      <button class="icon-btn" aria-label="Delete" onClick=${() => { saveThread(th.id, { deletedAt: Date.now() }); toast('Thread deleted', { label: 'Undo', run: () => saveThread(th.id, { deletedAt: null }) }); }}><${Icon} n="trash" s=${18} /></button>
+    </div>`)}</div>
+  </div>`;
+}
+
+/* ----- Settings ----- */
+function SettingsPage() {
+  useStore(); const st = settings(); const pls = st.pillars;
+  const setP = (i, patch) => saveSettings({ pillars: pls.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
+  const trash = Object.values(S.posts).filter((p) => p.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+  const uploadAvatar = async (f) => { if (!assets || !f) return; try { const r = await assets.upload(f); saveSettings({ profile: { ...st.profile, avatarId: r.id } }); } catch (e) { toast('Could not upload the photo.'); } };
+  return html`<div class="page narrow">
+    <h1 class="pt">Settings</h1>
+    <div class="card col gap-16">
+      <h2>Pillars and days</h2>
+      ${pls.map((p, i) => html`<div class="col gap-8" style="padding-bottom:14px;border-bottom:1px solid var(--line)">
+        <div class="row gap-8"><span class=${'dot t-' + p.tint} style="width:14px;height:14px"></span><input class="input grow" aria-label="Pillar name" value=${p.name} onInput=${(e) => setP(i, { name: e.currentTarget.value })} /><button class="icon-btn" aria-label=${'Remove ' + p.name} onClick=${() => { const prev = pls; saveSettings({ pillars: pls.filter((_, j) => j !== i) }); toast(p.name + ' removed', { label: 'Undo', run: () => saveSettings({ pillars: prev }) }); }}><${Icon} n="trash" s=${18} /></button></div>
+        <div class="grid2">
+          <select class="select input" aria-label="Day" value=${p.day == null ? '' : p.day} onChange=${(e) => setP(i, { day: e.currentTarget.value === '' ? null : +e.currentTarget.value })}><option value="">Flexible, no fixed day</option>${DAYS_LONG.map((d, k) => html`<option value=${k}>${d}</option>`)}</select>
+          <select class="select input" aria-label="Format" value=${p.format} onChange=${(e) => setP(i, { format: e.currentTarget.value })}>${FORMATS.map((f) => html`<option value=${f.id}>${f.name}</option>`)}</select>
+        </div>
+        <input class="input" aria-label="What this pillar is" placeholder="What this pillar is (Claude reads this)" value=${p.hint || ''} onInput=${(e) => setP(i, { hint: e.currentTarget.value })} />
+        <div class="row gap-6">${TINTS.map((t) => html`<button class=${'swatch t-' + t + (p.tint === t ? ' on' : '')} aria-label=${'Color ' + t} onClick=${() => setP(i, { tint: t })}></button>`)}</div>
+      </div>`)}
+      <button class="btn sm" style="align-self:flex-start" onClick=${() => saveSettings({ pillars: [...pls, { id: uid(), name: 'New pillar', day: null, format: 'reels', tint: TINTS[pls.length % TINTS.length], hint: '' }] })}><${Icon} n="plus" s=${16} />Add pillar</button>
+    </div>
+    <div class="card col gap-14" style="gap:14px">
+      <h2>Feed profile</h2>
+      <div class="row gap-12"><span class="av" style=${`width:64px;height:64px;border-radius:50%;background:var(--surface-2) center/cover;${st.profile.avatarId ? `background-image:url(${assetSrc(st.profile.avatarId)})` : ''}`}></span>${assets && html`<label class="btn sm" for="av-in">Change photo</label><input type="file" id="av-in" accept="image/*" hidden onChange=${(e) => uploadAvatar(e.currentTarget.files[0])} />`}</div>
+      <div class="grid2"><div class="field"><label for="s-un">Username</label><input class="input" id="s-un" value=${st.profile.username} onInput=${(e) => saveSettings({ profile: { ...st.profile, username: e.currentTarget.value } })} /></div>
+      <div class="field"><label for="s-nm">Name</label><input class="input" id="s-nm" value=${st.profile.name} onInput=${(e) => saveSettings({ profile: { ...st.profile, name: e.currentTarget.value } })} /></div></div>
+      <div class="field"><label for="s-bio">Bio</label><textarea class="input" id="s-bio" rows="3" value=${st.profile.bio} onInput=${(e) => saveSettings({ profile: { ...st.profile, bio: e.currentTarget.value } })}></textarea></div>
+    </div>
+    <div class="card col" style="gap:14px">
+      <h2>Cover and writing</h2>
+      <div class="field"><label for="s-pres">Name on covers</label><input class="input" id="s-pres" value=${st.cover.presented} onInput=${(e) => saveSettings({ cover: { ...st.cover, presented: e.currentTarget.value } })} /></div>
+      <div class="field"><span class="lbl">Default text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (st.cover.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => saveSettings({ cover: { ...st.cover, color: c } })}></button>`)}</div></div>
+      <div class="field"><span class="lbl">Claude writes in</span><div class="seg"><button class=${st.lang === 'id' ? 'on' : ''} onClick=${() => saveSettings({ lang: 'id' })}>Indonesian</button><button class=${st.lang === 'en' ? 'on' : ''} onClick=${() => saveSettings({ lang: 'en' })}>English</button></div></div>
+    </div>
+    <div class="card col" style="gap:12px">
+      <h2>Links</h2>
+      ${(st.links || []).map((l, i) => html`<div class="row gap-8"><a class="grow ellipsis" href=${l.url} target="_blank" rel="noopener">${l.label || l.url}</a><button class="icon-btn" aria-label="Remove link" onClick=${() => saveSettings({ links: st.links.filter((_, j) => j !== i) })}><${Icon} n="x" s=${17} /></button></div>`)}
+      <form class="row gap-8" onSubmit=${(e) => { e.preventDefault(); const f = e.currentTarget; const url = f.url.value.trim(); if (!url) return; saveSettings({ links: [...(st.links || []), { label: f.label.value.trim(), url }] }); f.reset(); }}>
+        <input class="input" name="label" id="l-label" placeholder="Label" style="max-width:150px" /><input class="input grow" name="url" id="l-url" placeholder="https://" /><button class="btn" type="submit">Add</button></form>
+    </div>
+    <div class="card col" style="gap:12px">
+      <h2>Trash</h2>
+      ${trash.length === 0 ? html`<span class="muted">Empty.</span>` : html`<div class="list">${trash.map((p) => html`<div class="item"><span class="grow ellipsis">${p.title || 'Untitled post'}</span><button class="btn sm" onClick=${() => savePost(p.id, { deletedAt: null }, 0)}>Restore</button></div>`)}</div>`}
+    </div>
+  </div>`;
+}
+
+render(html`<${App} />`, document.getElementById('app'));
+boot();
+</script>
+</body>
+</html>
