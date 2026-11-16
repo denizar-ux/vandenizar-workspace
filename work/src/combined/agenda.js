@@ -1,8 +1,9 @@
 // One agenda for a day: work tasks, events, content steps, posts, Threads and project follow-ups.
 import { get } from '../lib/db.js';
 import { today, fmtDay, fmtMinutes } from '../lib/date.js';
+import { CONTENT_ON } from './flags.js';
 import {
-  liveTasks, isOpen, isPast, projectBilling, eventsOn, liveProjects, sortTasks,
+  liveTasks, isOpen, isInbox, isPast, projectBilling, eventsOn, liveProjects, sortTasks,
 } from '../lib/model.js';
 import { tasksOn, overdueTasks, threadsOn, overdueThreads, igItems, cSettings, slotById, formatName, firstLine } from '../content/model.js';
 import { areas, areaOfTask, CONTENT_AREA } from './areas.js';
@@ -72,8 +73,9 @@ function followItem(p, clientName) {
 
 export const inFilter = (area, filter) => filter === 'all' || (filter === 'work' ? area.id !== CONTENT_AREA.id : area.id === filter);
 
-export function buildAgenda({ date, filter = 'all' }) {
+export function buildAgenda({ date, filter = 'all', content = CONTENT_ON }) {
   const allDay = [], scheduled = [], anytime = [], late = [];
+  const inbox = [];
   const anyWork = [], anyContent = [], anyFollow = [], lateWork = [], lateContent = [];
 
   // Work tasks, each in exactly one bucket.
@@ -93,25 +95,30 @@ export function buildAgenda({ date, filter = 'all' }) {
 
   for (const e of eventsOn(date)) (e.allDay ? allDay : scheduled).push(eventItem(e));
 
-  // Content. A post due today is one `post` row, so its post step is not repeated as a ctask.
-  const dueToday = igItems().filter((it) => it.date === date && it.stage !== 'done');
-  const dueIds = new Set(dueToday.map((it) => it.id));
-  for (const it of dueToday) scheduled.push(postItem(it));
-  for (const d of tasksOn(date)) {
-    if (d.done || (d.task.key === 'post' && dueIds.has(d.it.id))) continue;
-    anyContent.push(ctaskItem(d));
+  if (content) {
+    // Content. A post due today is one `post` row, so its post step is not repeated as a ctask.
+    const dueToday = igItems().filter((it) => it.date === date && it.stage !== 'done');
+    const dueIds = new Set(dueToday.map((it) => it.id));
+    for (const it of dueToday) scheduled.push(postItem(it));
+    for (const d of tasksOn(date)) {
+      if (d.done || (d.task.key === 'post' && dueIds.has(d.it.id))) continue;
+      anyContent.push(ctaskItem(d));
+    }
+    for (const it of threadsOn(date)) {
+      if (it.postedAt) continue;
+      (it.time ? scheduled : anyContent).push(threadItem(it));
+    }
+    for (const d of overdueTasks(date)) lateContent.push({ ...ctaskItem(d), sub: 'Was ' + fmtDay(d.date) });
+    for (const it of overdueThreads(date)) lateContent.push({ ...threadItem(it), sub: 'Threads · was ' + fmtDay(it.date) });
   }
-  for (const it of threadsOn(date)) {
-    if (it.postedAt) continue;
-    (it.time ? scheduled : anyContent).push(threadItem(it));
-  }
-  for (const d of overdueTasks(date)) lateContent.push({ ...ctaskItem(d), sub: 'Was ' + fmtDay(d.date) });
-  for (const it of overdueThreads(date)) lateContent.push({ ...threadItem(it), sub: 'Threads · was ' + fmtDay(it.date) });
 
   for (const p of liveProjects()) {
     if (p.archived || p.stage !== 'client_review' || !p.followUpDate || p.followUpDate > date) continue;
     anyFollow.push(followItem(p, p.clientId ? get('clients', p.clientId)?.name || '' : ''));
   }
+
+  // Tasks with no date at all wait in the inbox; Today offers them a quick date.
+  for (const t of sortTasks(liveTasks().filter(isInbox), 'deadline')) inbox.push(taskItem(t, date, ''));
 
   scheduled.sort(byTime);
   anytime.push(...anyWork, ...anyContent, ...anyFollow);
@@ -121,5 +128,5 @@ export function buildAgenda({ date, filter = 'all' }) {
   for (const i of [...allDay, ...scheduled, ...anytime, ...late]) counts[i.area.id] = (counts[i.area.id] || 0) + 1;
 
   const keep = (i) => inFilter(i.area, filter);
-  return { allDay: allDay.filter(keep), scheduled: scheduled.filter(keep), anytime: anytime.filter(keep), late: late.filter(keep), counts };
+  return { allDay: allDay.filter(keep), scheduled: scheduled.filter(keep), anytime: anytime.filter(keep), late: late.filter(keep), inbox: inbox.filter(keep), counts };
 }

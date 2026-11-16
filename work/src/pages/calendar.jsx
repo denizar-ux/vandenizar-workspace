@@ -11,6 +11,7 @@ import { today, addDays, addMonths, startOfMonth, daysInMonth, startOfWeek, fmtM
 import * as M from '../lib/model.js';
 import * as C from '../content/model.js';
 import { areaOfTask, CONTENT_AREA } from '../combined/areas.js';
+import { CONTENT_ON } from '../combined/flags.js';
 import { dragHandlers } from '../lib/dnd.js';
 import { openEventSheet } from './events.jsx';
 import { openQuickAdd } from '../App.jsx';
@@ -61,11 +62,11 @@ export function dayItems(d) {
     if (p.shootDate === d) allDay.push({ kind: 'shoot', id: 'sh:' + p.id, title: 'Shoot: ' + p.name, p, tone: 'sage' });
     if (p.followUpDate === d && p.stage === 'client_review') allDay.push({ kind: 'follow', id: 'fu:' + p.id, title: 'Follow up: ' + p.name, p, tone: 'lavender' });
   }
-  for (const x of C.tasksOn(d)) {
+  for (const x of (CONTENT_ON ? C.tasksOn(d) : [])) {
     if (x.done) continue;
     allDay.push({ kind: 'ctask', id: 'ct:' + x.it.id + ':' + x.task.key, title: (CTASK_LABEL[x.task.key] || x.task.label) + ': ' + (x.it.title || 'Untitled post'), cit: x.it, ctask: x.task, tone: CONTENT_TONE });
   }
-  for (const th of C.threadsOn(d)) {
+  for (const th of (CONTENT_ON ? C.threadsOn(d) : [])) {
     const text = C.firstLine(th.text) || 'Thread';
     const s0 = toMin(th.time);
     if (s0 == null) { if (!th.postedAt) allDay.push({ kind: 'thread', id: 'th:' + th.id, title: 'Thread: ' + text, cit: th, tone: CONTENT_TONE }); }

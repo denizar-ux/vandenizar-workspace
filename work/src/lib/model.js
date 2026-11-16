@@ -67,6 +67,14 @@ export function addCategory(name, color = 'plain') {
   saveCats([...items, c]);
   return c;
 }
+// Adds a category with a fixed id when it is missing (used for Konten). Never changes an existing one.
+export function ensureCategory(id, name, color = 'plain') {
+  const items = catItems();
+  if (items.some((c) => c.id === id)) return categoryOf(id);
+  const c = { id, name, color, archived: false, order: Math.max(0, ...items.map((x) => x.order || 0)) + 1 };
+  saveCats([...items, c]);
+  return c;
+}
 export function updateCategory(id, ch) { saveCats(catItems().map((c) => (c.id === id ? { ...c, ...ch } : c))); }
 export const categoryProjectCount = (id) => liveProjects().filter((p) => projectCategoryId(p) === id).length;
 

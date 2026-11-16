@@ -1,11 +1,12 @@
 // Areas group everything on Today: each work category plus Content. Progress helpers for project cards.
 import { categories, categoryOf, projectCategoryId, settings, liveTasks, isApproved } from '../lib/model.js';
 import { get } from '../lib/db.js';
+import { CONTENT_ON } from './flags.js';
 
 export const CONTENT_AREA = { id: 'content', name: 'Content', color: 'peach' };
 
 const toArea = (c) => ({ id: c.id, name: c.name, color: c.color });
-export const areas = () => [...categories().map(toArea), CONTENT_AREA];
+export const areas = () => [...categories().map(toArea), ...(CONTENT_ON ? [CONTENT_AREA] : [])];
 
 export function areaOfTask(task) {
   const project = task && task.projectId ? get('pmProjects', task.projectId) : null;

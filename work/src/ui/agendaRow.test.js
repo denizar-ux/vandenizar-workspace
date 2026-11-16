@@ -14,7 +14,7 @@ describe('checkItem', () => {
     const p = C.createPost({ title: 'Film day' });
     C.setStage(p.id, 'film');
     C.setStageDate(p.id, 'filmDate', t0);
-    const item = buildAgenda({ date: t0, filter: 'all' }).anytime.find((i) => i.kind === 'ctask');
+    const item = buildAgenda({ date: t0, filter: 'all', content: true }).anytime.find((i) => i.kind === 'ctask');
     expect(item).toBeTruthy();
     checkItem(item);
     expect(get('cItems', p.id).stage).toBe('edit');
@@ -25,11 +25,11 @@ describe('checkItem', () => {
     const p = C.createPost({ title: 'Due post' });
     C.setStage(p.id, 'ready');
     C.setStageDate(p.id, 'date', t0);
-    const post = buildAgenda({ date: t0, filter: 'all' }).scheduled.find((i) => i.kind === 'post');
+    const post = buildAgenda({ date: t0, filter: 'all', content: true }).scheduled.find((i) => i.kind === 'post');
     checkItem(post);
     expect(get('cItems', p.id).stage).toBe('done');
     const th = C.addThread('hello thread', t0, '09:00');
-    const item = buildAgenda({ date: t0, filter: 'all' }).scheduled.find((i) => i.kind === 'thread');
+    const item = buildAgenda({ date: t0, filter: 'all', content: true }).scheduled.find((i) => i.kind === 'thread');
     checkItem(item);
     expect(get('cItems', th.id).postedAt).toBeTruthy();
   });

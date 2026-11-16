@@ -5,15 +5,14 @@ import { areas, areaOfTask, projectProgress, segments, CONTENT_AREA } from './ar
 beforeEach(() => resetForTests());
 
 describe('areas', () => {
-  it('ends with Content and skips archived categories', () => {
+  it('lists categories only while the old Content module is off, and skips archived ones', () => {
     put('meta', { id: 'pmCategories', items: [
       { id: 'a', name: 'A', color: 'sage', archived: false, order: 1 },
       { id: 'b', name: 'B', color: 'rose', archived: true, order: 2 },
       { id: 'c', name: 'C', color: 'cyan', archived: false, order: 3 },
     ] });
     const list = areas();
-    expect(list.map((a) => a.id)).toEqual(['a', 'c', 'content']);
-    expect(list[list.length - 1]).toEqual(CONTENT_AREA);
+    expect(list.map((a) => a.id)).toEqual(['a', 'c']);
   });
 
   it('gives a task without a project the default category', () => {

@@ -14,6 +14,8 @@ import { hasSample } from '../lib/sample.js';
 import { buildAgenda } from '../combined/agenda.js';
 import { runReplan } from '../ui/replanToast.js';
 import { areas, areaOfTask, CONTENT_AREA } from '../combined/areas.js';
+import { CONTENT_ON } from '../combined/flags.js';
+import { toast } from '../ui/overlay.jsx';
 
 const FILTER_KEY = 'vzw:todayFilter';
 const loadFilter = () => { try { return localStorage.getItem(FILTER_KEY) || 'all'; } catch { return 'all'; } };
@@ -41,7 +43,7 @@ export function TodayPage() {
     { id: 'today-scheduled', title: 'Scheduled', items: agenda.scheduled },
     { id: 'today-anytime', title: 'Anytime today', items: agenda.anytime },
   ].filter((g) => g.items.length);
-  const empty = !groups.length && !agenda.late.length;
+  const empty = !groups.length && !agenda.late.length && !agenda.inbox.length;
 
   const replan = () => runReplan(filter, t0);
 
@@ -91,11 +93,12 @@ export function TodayPage() {
               {g.items.map((i) => <AgendaRow key={i.key} item={i} />)}
             </div>
           ))}
+          <InboxGroup items={agenda.inbox} />
           {empty && <EmptyDay />}
         </section>
         <div class="stack today-side">
           <Upcoming />
-          <ThisWeekSlots />
+          {CONTENT_ON && <ThisWeekSlots />}
         </div>
       </div>
     </div>
@@ -133,14 +136,14 @@ function SummaryCards({ everything }) {
 
 function nextDated(t0) {
   const c = [];
-  const nt = C.nextTaskAfter(t0);
+  const nt = CONTENT_ON ? C.nextTaskAfter(t0) : null;
   if (nt) c.push({ date: nt.date, text: (nt.task.label) + ': ' + nt.it.title });
   for (const t of M.liveTasks().filter(M.isOpen)) {
     const d = t.workDate && t.workDate > t0 ? t.workDate : t.deadlineDate && t.deadlineDate > t0 ? t.deadlineDate : null;
     if (d) c.push({ date: d, text: t.title });
   }
   for (const e of all('pmEvents')) if (!e.deletedAt && e.date > t0) c.push({ date: e.date, text: e.title });
-  for (const it of C.liveItems()) if (it.kind === 'thread' && !it.postedAt && it.date && it.date > t0) c.push({ date: it.date, text: C.firstLine(it.text) });
+  if (CONTENT_ON) for (const it of C.liveItems()) if (it.kind === 'thread' && !it.postedAt && it.date && it.date > t0) c.push({ date: it.date, text: C.firstLine(it.text) });
   c.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   return c[0];
 }
@@ -164,7 +167,7 @@ function Upcoming() {
       const area = areaOfTask(isTask ? get('pmTasks', x.id) : { projectId: x.id });
       return { key: 'd:' + x.id, date: x.date, title: x.title, path: x.path, area };
     }),
-    ...C.igItems().filter((i) => i.stage !== 'done' && i.date && i.date >= t0 && i.date <= last)
+    ...(CONTENT_ON ? C.igItems() : []).filter((i) => i.stage !== 'done' && i.date && i.date >= t0 && i.date <= last)
       .map((i) => ({ key: 'p:' + i.id, date: i.date, title: 'Post: ' + i.title, path: '/post/' + i.id, area: CONTENT_AREA })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).slice(0, 8);
   return (
@@ -200,3 +203,36 @@ export function ThisWeekSlots() {
 }
 
 export { navigate };
+
+// Tasks with no date yet. One tap gives them a day, so the inbox does not pile up out of sight.
+const dow = (iso) => new Date(iso + 'T00:00:00Z').getUTCDay();
+function InboxGroup({ items }) {
+  const [all, setAll] = useState(false);
+  if (!items.length) return null;
+  const t0 = today(), t1 = addDays(t0, 1);
+  const weekEnd = addDays(t0, (7 - dow(t0)) % 7); // Sunday
+  const showWeek = weekEnd > t1;
+  const shown = all ? items : items.slice(0, 5);
+  const give = (i, date, label) => { M.rescheduleWork(i.ref.id, date, null); toast(label, { action: { label: 'Undo', run: () => M.rescheduleWork(i.ref.id, null, null) } }); };
+  return (
+    <div id="today-inbox" class="agenda-group">
+      <div class="group-label">Belum dijadwalin<span class="count">{items.length}</span></div>
+      {shown.map((i) => (
+        <div key={i.key} class="prow agenda-row ar-inbox">
+          <div class="prow-main ar-main">
+            <button type="button" class="ar-body" onClick={() => navigate('/tasks/' + i.ref.id)}>
+              <span class="prow-title">{i.title}</span>
+              {i.sub && <span class="prow-sub">{i.sub}</span>}
+            </button>
+            <span class="ar-actions">
+              <button type="button" class="chip-btn" onClick={() => give(i, t0, 'Masuk Today')}>Today</button>
+              <button type="button" class="chip-btn" onClick={() => give(i, t1, 'Dipindah ke besok')}>Besok</button>
+              {showWeek && <button type="button" class="chip-btn" onClick={() => give(i, weekEnd, 'Dijadwalin minggu ini')}>Minggu ini</button>}
+            </span>
+          </div>
+        </div>
+      ))}
+      {items.length > 5 && <button type="button" class="btn sm soft" onClick={() => setAll(!all)}>{all ? 'Tampilin lebih sedikit' : 'Lihat semua ' + items.length}</button>}
+    </div>
+  );
+}

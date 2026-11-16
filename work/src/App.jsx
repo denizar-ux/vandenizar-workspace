@@ -11,6 +11,7 @@ import { today, addDays, relDay } from './lib/date.js';
 import { fmtMoney } from './lib/money.js';
 import { useUpdateAvailable, applyUpdate } from './lib/update.js';
 import { openEventSheet } from './pages/events.jsx';
+import { openKontenSheet } from './pages/konten.jsx';
 import { TodayPage } from './pages/today.jsx';
 import { TaskDetail } from './pages/tasks.jsx';
 import { WorkPage } from './pages/work.jsx';
@@ -107,7 +108,6 @@ function SaveBanner() {
 const SIDE = [
   { id: 'today', label: 'Today', icon: 'home', path: '/' },
   { id: 'work', label: 'Work', icon: 'folder', path: '/work/projects' },
-  { id: 'content', label: 'Content', icon: 'image', path: '/content/ig' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', path: '/calendar' },
   { id: 'more', label: 'More', icon: 'menu', path: '/more' },
 ];
@@ -176,8 +176,7 @@ const ADD_ITEMS = [
   { id: 'task', label: 'Task', icon: 'square', run: () => openQuickAdd() },
   { id: 'event', label: 'Event', icon: 'calendar', run: () => openEventSheet(null, {}) },
   { id: 'project', label: 'Project', icon: 'folder', run: () => openProjectSheet() },
-  { id: 'post', label: 'IG post', icon: 'image', run: () => newPost() },
-  { id: 'thread', label: 'Thread', icon: 'chat', run: () => newThread() },
+  { id: 'konten', label: 'Konten', icon: 'image', run: () => openKontenSheet() },
 ];
 const LAST_ADD = 'vzw:lastAdd';
 const lastAdd = () => { try { return localStorage.getItem(LAST_ADD) || ''; } catch { return ''; } };
@@ -213,7 +212,7 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
   const [steps, setSteps] = useState([]);
   const [stepDraft, setStepDraft] = useState('');
   const [notes, setNotes] = useState('');
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(!!projectId);
   const project = pid && get('pmProjects', pid);
   const pick = (m) => { setMode(m); if (m === 'today') setWorkDate(t0); else if (m === 'tomorrow') setWorkDate(t1); else if (m === 'pick' && (workDate === t0 || workDate === t1)) setWorkDate(addDays(t0, 2)); };
   const scheduled = mode !== 'none';
@@ -227,7 +226,7 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
     close();
     toast(wd ? 'Added for ' + relDay(wd).toLowerCase() + (workTime ? ' ' + workTime : '') : 'Added to Inbox', { action: { label: 'Open', run: () => navigate('/tasks/' + t.id) } });
   };
-  const tiles = [{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'pick', label: 'Pick date' }, { id: 'none', label: 'No schedule', icon: 'clock' }];
+  const tiles = [{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Besok' }, { id: 'pick', label: 'Pick date' }, { id: 'none', label: 'No schedule', icon: 'clock' }];
   return (
     <>
       <SheetHead title="Add task" onClose={close} />
@@ -235,6 +234,17 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
       <SheetBody>
         <div class="form">
           <input class="qa-title" id="qa-title" value={title} placeholder="What needs doing?" aria-label="Task title" onInput={(e) => setTitle(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } }} autoFocus enterKeyHint="done" />
+          <div class="qa-tiles" role="radiogroup" aria-label="Work schedule">
+            {tiles.map((o) => <button type="button" role="radio" aria-checked={mode === o.id} class={'qa-tile' + (mode === o.id ? ' on' : '')} onClick={() => pick(o.id)}><Icon name={o.icon || 'calendar'} size={18} />{o.label}</button>)}
+          </div>
+          {scheduled && (
+            <Field label="Work schedule">
+              <div class="dt-pair"><DateInput id="qa-wd" value={workDate} clearable={false} onChange={(v) => { setWorkDate(v); setMode(v === t0 ? 'today' : v === t1 ? 'tomorrow' : 'pick'); }} /><TimeInput id="qa-wt" value={workTime} onChange={setWorkTime} /></div>
+            </Field>
+          )}
+          <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
+            <summary>More<Icon name="chevronDown" size={16} /></summary>
+            <div class="form" style={{ marginTop: 10 }}>
           <Field label="Project (optional)">
             <button type="button" class="qa-project" onClick={() => pickProject({ onPick: (p) => setPid(p ? p.id : null) })}>
               {project ? <span class={'cat-dot t-' + M.projectCategory(project).color} aria-hidden="true" /> : <Icon name="folder" size={17} />}
@@ -248,14 +258,6 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
               </div>
             </Field>
           )}
-          <div class="qa-tiles" role="radiogroup" aria-label="Work schedule">
-            {tiles.map((o) => <button type="button" role="radio" aria-checked={mode === o.id} class={'qa-tile' + (mode === o.id ? ' on' : '')} onClick={() => pick(o.id)}><Icon name={o.icon || 'calendar'} size={18} />{o.label}</button>)}
-          </div>
-          {scheduled && (
-            <Field label="Work schedule">
-              <div class="dt-pair"><DateInput id="qa-wd" value={workDate} clearable={false} onChange={(v) => { setWorkDate(v); setMode(v === t0 ? 'today' : v === t1 ? 'tomorrow' : 'pick'); }} /><TimeInput id="qa-wt" value={workTime} onChange={setWorkTime} /></div>
-            </Field>
-          )}
           <Field label="Estimate" htmlFor="qa-est">
             <div class="select-wrap"><select id="qa-est" class="input select" value={est || ''} onChange={(e) => setEst(e.currentTarget.value)}><option value="">No estimate</option>{ESTIMATES.map((m) => <option value={m}>{estLabel(m)}</option>)}</select><Icon name="chevronDown" size={16} class="select-caret" /></div>
           </Field>
@@ -266,17 +268,16 @@ function QuickAdd({ close, when = 'today', date, time, projectId = null }) {
               <div class="qa-step add"><Icon name="plus" size={15} /><input id="qa-step" value={stepDraft} placeholder="Add subtask" aria-label="Add subtask" onInput={(e) => setStepDraft(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addStep(); } }} /></div>
             </div>
           </Field>
-          <details class="more-details" open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
-            <summary>Notes<Icon name="chevronDown" size={16} /></summary>
-            <div style={{ marginTop: 10 }}><TextArea id="qa-notes" value={notes} onInput={setNotes} minRows={2} placeholder="Context, links, what done looks like" /></div>
+          <Field label="Notes (optional)"><TextArea id="qa-notes" value={notes} onInput={setNotes} minRows={2} placeholder="Context, links, what done looks like" /></Field>
+              <div class="qa-more">
+                <button class="btn outline" onClick={() => { close(); openProjectSheet(); }}><Icon name="plus" size={15} />Project</button>
+                <button class="btn outline" onClick={() => { close(); openClientSheet(); }}><Icon name="plus" size={15} />Client</button>
+                <button class="btn outline" onClick={() => { close(); createInvoiceAndOpen({}); }}><Icon name="plus" size={15} />Invoice</button>
+              </div>
+            </div>
           </details>
-          <div class="qa-hint">Just write it first. Details can follow.</div>
+          <div class="qa-hint">Tulis dulu, detailnya nanti.</div>
           <div class="qa-actions"><button class="btn soft grow" onClick={close}>Cancel</button><button class="btn primary grow" onClick={add}>Add task</button></div>
-          <div class="qa-more">
-            <button class="btn outline" onClick={() => { close(); openProjectSheet(); }}><Icon name="plus" size={15} />Project</button>
-            <button class="btn outline" onClick={() => { close(); openClientSheet(); }}><Icon name="plus" size={15} />Client</button>
-            <button class="btn outline" onClick={() => { close(); createInvoiceAndOpen({}); }}><Icon name="plus" size={15} />Invoice</button>
-          </div>
         </div>
       </SheetBody>
     </>

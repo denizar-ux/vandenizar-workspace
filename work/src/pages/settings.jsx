@@ -54,7 +54,6 @@ async function downloadBlob(name, text, type, okText) {
 const SECTIONS = [
   { id: 'general', label: 'General', icon: 'sun', tone: 'lavender' },
   { id: 'categories', label: 'Categories', icon: 'tag', tone: 'peach' },
-  { id: 'content', label: 'Content', icon: 'image', tone: 'peach' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', tone: 'butter' },
   { id: 'freelance', label: 'Business & invoices', icon: 'file', tone: 'rose' },
   { id: 'data', label: 'Backup & data', icon: 'archive', tone: 'plain' },

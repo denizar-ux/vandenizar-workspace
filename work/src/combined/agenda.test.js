@@ -22,7 +22,7 @@ describe('buildAgenda', () => {
     task({ id: 't1', title: 'Edit reel', workDate: D, workTime: '14:00' });
     thread({ id: 'th1', date: D, time: '09:30' });
     post({ id: 'p1', date: D });
-    const a = buildAgenda({ date: D });
+    const a = buildAgenda({ date: D, content: true });
     expect(a.scheduled.map((i) => i.kind)).toEqual(['thread', 'task', 'post']);
     expect(a.scheduled[2].time).toBe('19:00');
   });
@@ -59,7 +59,7 @@ describe('buildAgenda', () => {
     post({ id: 'p1', date: D });
     thread({ id: 'th1', time: '10:00' });
     let a;
-    expect(() => { a = buildAgenda({ date: D }); }).not.toThrow();
+    expect(() => { a = buildAgenda({ date: D, content: true }); }).not.toThrow();
     expect(a.scheduled.some((i) => i.kind === 'thread')).toBe(false);
     expect(a.scheduled.filter((i) => i.kind === 'post')).toHaveLength(1);
     expect(a.anytime.filter((i) => i.kind === 'ctask')).toHaveLength(0);
@@ -67,7 +67,7 @@ describe('buildAgenda', () => {
 
   it('lists script/film/edit steps and no duplicate for a due post', () => {
     post({ id: 'p1', stage: 'script', scriptDate: D, filmDate: '2026-11-11', date: D });
-    const a = buildAgenda({ date: D });
+    const a = buildAgenda({ date: D, content: true });
     expect(a.anytime.map((i) => i.key)).toEqual(['ctask:p1:script']);
     expect(a.scheduled.map((i) => i.key)).toEqual(['post:p1']);
   });
@@ -76,13 +76,13 @@ describe('buildAgenda', () => {
     task({ id: 't1', workDate: D });
     post({ id: 'p1', date: D });
     thread({ id: 'th1', date: D });
-    const all = buildAgenda({ date: D });
-    const c = buildAgenda({ date: D, filter: 'content' });
+    const all = buildAgenda({ date: D, content: true });
+    const c = buildAgenda({ date: D, filter: 'content', content: true });
     const flat = (a) => [...a.allDay, ...a.scheduled, ...a.anytime, ...a.late];
     expect(flat(c).every((i) => i.area.id === 'content')).toBe(true);
     expect(c.counts.content).toBe(flat(c).length);
     expect(c.counts).toEqual(all.counts);
-    const w = buildAgenda({ date: D, filter: 'work' });
+    const w = buildAgenda({ date: D, filter: 'work', content: true });
     expect(flat(w).map((i) => i.kind)).toEqual(['task']);
   });
 
@@ -128,8 +128,23 @@ describe('untitled posts', () => {
   it('say Untitled post instead of an empty name', () => {
     post({ id: 'p1', title: '', date: D });
     post({ id: 'p2', title: '', stage: 'script', scriptDate: D });
-    const a = buildAgenda({ date: D });
+    const a = buildAgenda({ date: D, content: true });
     expect(a.scheduled.find((i) => i.kind === 'post').title).toBe('Post: Untitled post');
     expect(a.anytime.find((i) => i.kind === 'ctask').title).toBe('Script: Untitled post');
+  });
+
+  it('content stays out of the agenda while the old Content module is off', () => {
+    post({ id: 'p1', date: D });
+    thread({ id: 'th1', date: D });
+    const a = buildAgenda({ date: D });
+    expect([...a.allDay, ...a.scheduled, ...a.anytime, ...a.late]).toHaveLength(0);
+  });
+
+  it('lists undated tasks as inbox, not in the day', () => {
+    task({ id: 't1', workDate: null, deadlineDate: null });
+    task({ id: 't2', workDate: D });
+    const a = buildAgenda({ date: D });
+    expect(a.inbox.map((i) => i.key)).toEqual(['task:t1']);
+    expect(a.scheduled.concat(a.anytime).map((i) => i.key)).toEqual(['task:t2']);
   });
 });
