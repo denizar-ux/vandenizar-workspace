@@ -370,7 +370,8 @@ let toastTimer;
 function toast(msg, action) { S.toast = { msg, action }; emit(); clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; emit(); }, action ? 5000 : 2600); }
 let overlayFn = null; const overlays = [];
 function openOverlay(fn) { overlays.push(fn); emit(); }
-function closeOverlay() { overlays.pop(); emit(); }
+let closeGuard = null; // a sheet can finish async work (like saving slides) before it closes
+function closeOverlay() { if (closeGuard && overlays.length) { const g = closeGuard; closeGuard = null; Promise.resolve(g()).finally(() => { overlays.pop(); emit(); }); return; } overlays.pop(); emit(); }
 function openMenu(e, items) { const r = e.currentTarget.getBoundingClientRect(); S.menu = { x: Math.min(r.left, innerWidth - 220), y: Math.min(r.bottom + 6, innerHeight - 60 - items.length * 44), items }; emit(); }
 
 const I = {
@@ -490,21 +491,22 @@ function defaultCover(p) { return { preset: 'practical', ratio: ratioOf(p.format
 const blocksOf = (cfg) => (cfg.blocks && cfg.blocks.length ? cfg.blocks : [{ y: cfg.y ?? 0.6, align: cfg.align || 'center', w: 1 }]);
 const loadFonts = (lines) => Promise.all([...new Set((lines || []).flatMap((l) => { const n = normLine(l); return [n.font, FONT_LIB[n.font] && FONT_LIB[n.font][2]].filter(Boolean); }))].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {})));
 const segsOf = (t) => String(t).split(/(\*[^*]+\*)/).filter(Boolean).map((s) => (s.startsWith('*') && s.endsWith('*') && s.length > 2 ? { t: s.slice(1, -1), it: true } : { t: s, it: false }));
-function drawCover(cv, cfg, img, fmtArg) {
+function drawCover(cv, cfg, img, fmtArg, opts = {}) {
   const fmt = cfg.ratio || fmtArg; const [W, H] = coverSize(fmt); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
-  if (img) {
+  const clear = !!opts.transparent;
+  if (!clear) { ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H); }
+  if (img && !clear) {
     const iw = img.videoWidth || img.naturalWidth || img.width, ih = img.videoHeight || img.naturalHeight || img.height;
     const sc = Math.max(W / iw, H / ih) * (cfg.zoom || 1); const dw = iw * sc, dh = ih * sc;
     ctx.drawImage(img, (W - dw) / 2 + (cfg.px || 0) * (dw - W) / 2, (H - dh) / 2 + (cfg.py || 0) * (dh - H) / 2, dw, dh);
   }
   const blocks = blocksOf(cfg);
-  if (cfg.grade > 0) {
+  if (cfg.grade > 0 && !clear) {
     if (blocks.some((b) => b.y >= 0.45)) { const g = ctx.createLinearGradient(0, H * 0.35, 0, H); g.addColorStop(0, 'rgba(10,8,6,0)'); g.addColorStop(1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
     if (blocks.some((b) => b.y < 0.45)) { const g = ctx.createLinearGradient(0, 0, 0, H * 0.6); g.addColorStop(0, `rgba(10,8,6,${cfg.grade * 0.85})`); g.addColorStop(1, 'rgba(10,8,6,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
   }
   const margin = 76;
-  const crop = gridCrop(fmt); const safeTop = crop.top * H + 48, safeBot = (crop.top + crop.h) * H - 48;
+  const crop = gridCrop(fmt); const safeTop = crop.top * H + 48 + (opts.padTop || 0), safeBot = (crop.top + crop.h) * H - 48 - (opts.padBot || 0);
   const setFont = (key, px, ls) => { ctx.font = `${px}px "${fam(key)}"`; try { ctx.letterSpacing = (ls || 0) * px + 'px'; } catch (e) {} };
   ctx.fillStyle = cfg.color || '#f4ecd8'; ctx.textBaseline = 'alphabetic';
   if (cfg.shadow) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 2; }
@@ -799,15 +801,20 @@ function PostPage({ id }) {
       ${p.date && html`<button class="btn sm ghost" style="align-self:flex-start" onClick=${() => set(backPlan(p.date), 0)}><${Icon} n="cal" s=${16} />Plan steps back from the posting date</button>`}
     </div>
 
-    <div class="sec">
+    ${p.format === 'carousel' ? html`<div class="sec">
+      <div class="sec-h"><h3>Cover</h3><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CarouselBuilder} close=${c} postId=${p.id} />`)}><${Icon} n="layers" s=${16} />${p.deck ? 'Edit carousel' : 'Build carousel'}</button></div>
+      <div class="row gap-16" style="align-items:flex-start">
+        <button class="cover-prev" style=${`aspect-ratio:${coverSize((p.deck && p.deck.ratio) || '4:5').join('/')}`} onClick=${() => openOverlay((c) => html`<${CarouselBuilder} close=${c} postId=${p.id} />`)} aria-label="Edit carousel">${src ? html`<img src=${src} alt="Slide 1" style="width:100%;height:100%;object-fit:cover" />` : html`<span class="col muted small" style="height:100%;justify-content:center;align-items:center;padding:10px">No slides yet</span>`}</button>
+        <span class="small muted grow">In a carousel, slide 1 is the cover. Pick "Cover layout" on slide 1 to use Magazine, Film poster and the other cover layouts.</span>
+      </div>
+    </div>` : html`    <div class="sec">
       <div class="sec-h"><h3>Cover</h3><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)}><${Icon} n="image" s=${16} />${p.cover ? 'Edit cover' : 'Make a cover'}</button></div>
       <div class="row gap-16" style="align-items:flex-start">
         <button class="cover-prev" style=${`aspect-ratio:${coverSize((p.cover && p.cover.ratio) || p.format).join('/')}`} onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)} aria-label="Edit cover">${src ? html`<img src=${src} alt="Cover" style="width:100%;height:100%;object-fit:cover" />` : html`<span class="col center muted small" style="height:100%;justify-content:center;align-items:center;padding:10px">No cover yet</span>`}</button>
         <div class="col gap-8 small muted grow"><span>${RATIOS[ratioOf((p.cover && p.cover.ratio) || p.format)].name}, ${coverSize((p.cover && p.cover.ratio) || p.format).join(' × ')}. ${p.format === 'reels' ? 'Shows in the grid and the Reels tab.' : 'Shows in the grid only.'}</span>
           ${p.cover && p.cover.ratio && fitRatio(p.cover.ratio, p.format) !== p.cover.ratio && html`<span style="color:var(--warn)">This cover is ${RATIOS[p.cover.ratio].name}, which doesn't fit a ${p.format} post. Open the cover and save it again.</span>`}${p.cover && p.cover.renderId && downloads && html`<button class="btn sm" style="align-self:flex-start" onClick=${() => saveCoverFile(p)}><${Icon} n="download" s=${16} />Save image</button>`}</div>
       </div>
-    </div>
-
+    </div>`}
     ${p.format === 'carousel' && html`<div class="sec">
       <div class="sec-h wrap gap-8"><h3>Slides · ${(p.slides || []).length + (p.cover && p.cover.renderId ? 1 : 0)}</h3><div class="row gap-6"><button class="btn sm" onClick=${() => fileRef.current && fileRef.current.click()}><${Icon} n="plus" s=${16} />Add images</button><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CarouselBuilder} close=${c} postId=${p.id} />`)}><${Icon} n="layers" s=${16} />${p.deck ? 'Edit carousel' : 'Build carousel'}</button></div></div>
       <input type="file" id="slides-in" accept="image/*" multiple hidden ref=${fileRef} onChange=${(e) => { uploadSlides([...e.currentTarget.files]); e.currentTarget.value = ''; }} />
@@ -978,16 +985,18 @@ function defaultDeck(p) {
 }
 const imgCache = {};
 const getImg = (id) => (id ? (imgCache[id] || (imgCache[id] = loadImg(assetSrc(id)).catch(() => null))) : Promise.resolve(null));
-function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
+function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1, opts = {}) {
+  if (s.style === 'cover') return drawCoverSlide(cv, deck, s, im1, opts);
+  const clear = !!opts.transparent;
   const [W0, H0] = coverSize(deck.ratio || '4:5'); cv.width = Math.round(W0 * scaleDown); cv.height = Math.round(H0 * scaleDown);
   const ctx = cv.getContext('2d'); ctx.setTransform(scaleDown, 0, 0, scaleDown, 0, 0); const W = W0, H = H0;
   const sty = CAROUSEL_STYLES[s.style] || CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, i, n); const R = sty[role];
   const showH = headerOn(deck), showF = footerOn(deck);
-  ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
+  if (!clear) { ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H); }
   const fill = (img, x, y, w, h) => { if (!img) return; const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; const sc = Math.max(w / iw, h / ih) * (s.zoom || 1); const dw = iw * sc, dh = ih * sc; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.drawImage(img, x + (w - dw) / 2 + (s.px || 0) * (dw - w) / 2, y + (h - dh) / 2 + (s.py || 0) * (dh - h) / 2, dw, dh); ctx.restore(); };
-  if (im2) { fill(im1, 0, 0, W, H / 2 - 3); fill(im2, 0, H / 2 + 3, W, H / 2 - 3); } else fill(im1, 0, 0, W, H);
+  if (!clear) { if (im2) { fill(im1, 0, 0, W, H / 2 - 3); fill(im2, 0, H / 2 + 3, W, H / 2 - 3); } else fill(im1, 0, 0, W, H); }
   const pos = s.pos || R.pos; const align = s.align || R.align; const g = deck.grade != null ? deck.grade : (CAROUSEL_STYLES[deck.style] || sty).grade;
-  if (g > 0) {
+  if (g > 0 && !clear) {
     const grad = (top) => { const gr = ctx.createLinearGradient(0, top ? 0 : H * 0.4, 0, top ? H * 0.6 : H); gr.addColorStop(top ? 0 : 1, `rgba(10,8,6,${g})`); gr.addColorStop(top ? 1 : 0, 'rgba(10,8,6,0)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); };
     if (pos === 'top' || showH) grad(true); if (pos === 'bottom' || R.bodyAt === 'bottom' || showF) grad(false);
     if (pos === 'middle') { ctx.fillStyle = `rgba(10,8,6,${g * 0.45})`; ctx.fillRect(0, 0, W, H); }
@@ -1035,16 +1044,32 @@ function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
   const main = [{ text: s.kicker, spec: R.kicker }, { text: s.title, spec: R.title }];
   if (R.bodyAt === 'bottom') { place(layout(main, boxW), pos, align, boxW); place(layout([{ text: s.body, spec: R.body }], boxW), 'bottom', R.align === 'left' && pos === 'top' ? 'left' : 'center', boxW); }
   else place(layout([...main, { text: s.body, spec: R.body }], boxW), pos, align, boxW);
-  // Header row (Diary) and footer (Shot guide) repeat on every slide.
-  const small = (t, x, y, al, font, size, ls) => { if (!t) return; setFont(font, size, ls); const w = ctx.measureText(t).width; ctx.fillText(t, al === 'left' ? x : al === 'right' ? x - w : x - w / 2, y); };
-  if (showH && deck.header) { small(deck.header.left, m, top + 10, 'left', 'avenir-regular', 24, 0.02); small(deck.header.center, W / 2, top + 10, 'center', 'avenir-bold', 26, 0); small(deck.header.right, W - m, top + 10, 'right', 'avenir-regular', 24, 0.02); }
-  if (showF && deck.footer) { small(deck.footer.left, m, bot - 10, 'left', 'avenir-bold', 26, 0); small(deck.footer.right, W - m, bot - 40, 'right', 'avenir-bold', 22, 0.04); small(deck.footer.sub, W - m, bot - 10, 'right', 'avenir-regular', 18, 0); }
+  drawChrome(ctx, deck, W, H);
   ctx.shadowColor = 'transparent';
+}
+// Header row and footer repeat on every slide, whatever theme the slide uses.
+function drawChrome(ctx, deck, W, H) {
+  const m = 76, top = 70, bot = H - 70;
+  ctx.fillStyle = deck.color || '#fff';
+  const small = (t, x, y, al, font, size, ls) => { if (!t) return; ctx.font = `${size}px "${fam(font)}"`; try { ctx.letterSpacing = (ls || 0) * size + 'px'; } catch (e) {} const w = ctx.measureText(t).width; ctx.fillText(t, al === 'left' ? x : al === 'right' ? x - w : x - w / 2, y); };
+  if (headerOn(deck) && deck.header) { small(deck.header.left, m, top + 10, 'left', 'avenir-regular', 24, 0.02); small(deck.header.center, W / 2, top + 10, 'center', 'avenir-bold', 26, 0); small(deck.header.right, W - m, top + 10, 'right', 'avenir-regular', 24, 0.02); }
+  if (footerOn(deck) && deck.footer) { small(deck.footer.left, m, bot - 10, 'left', 'avenir-bold', 26, 0); small(deck.footer.right, W - m, bot - 40, 'right', 'avenir-bold', 22, 0.04); small(deck.footer.sub, W - m, bot - 10, 'right', 'avenir-regular', 18, 0); }
+}
+// A slide can use any cover layout (Magazine, Film poster, ...). Slide 1 of a carousel is its cover.
+function drawCoverSlide(cv, deck, s, im1, opts = {}) {
+  const cfg = { ...(s.cover || {}), ratio: deck.ratio || '4:5', photoId: s.photoId };
+  drawCover(cv, cfg, im1, deck.ratio, { ...opts, padTop: headerOn(deck) ? 60 : 0, padBot: footerOn(deck) ? 90 : 0 });
+  const [W, H] = coverSize(deck.ratio || '4:5'); const ctx = cv.getContext('2d');
+  if (deck.shadow !== false) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 2; }
+  drawChrome(ctx, deck, W, H); ctx.shadowColor = 'transparent';
 }
 const headerOn = (d) => (d.headerOn != null ? d.headerOn : !!(CAROUSEL_STYLES[d.style] || {}).header);
 const footerOn = (d) => (d.footerOn != null ? d.footerOn : !!(CAROUSEL_STYLES[d.style] || {}).footer);
-const deckFonts = (deck) => { const ks = new Set(['avenir-regular', 'avenir-bold']); new Set([deck.style, ...deck.slides.map((x) => x.style).filter(Boolean)]).forEach((stk) => { const sty = CAROUSEL_STYLES[stk] || CAROUSEL_STYLES.journal; ['hook', 'content', 'cta'].forEach((r) => ['kicker', 'title', 'body'].forEach((k) => { const sp = sty[r][k]; if (sp) { ks.add(sp.font); if (sp.accent) ks.add(sp.accent); const it = FONT_LIB[sp.font] && FONT_LIB[sp.font][2]; if (it) ks.add(it); } })); }); return Promise.all([...ks].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {}))); };
+const deckFonts = (deck) => { const ks = new Set(['avenir-regular', 'avenir-bold']); new Set([deck.style, ...deck.slides.map((x) => x.style).filter(Boolean)]).forEach((stk) => { const sty = CAROUSEL_STYLES[stk] || CAROUSEL_STYLES.journal; ['hook', 'content', 'cta'].forEach((r) => ['kicker', 'title', 'body'].forEach((k) => { const sp = sty[r][k]; if (sp) { ks.add(sp.font); if (sp.accent) ks.add(sp.accent); const it = FONT_LIB[sp.font] && FONT_LIB[sp.font][2]; if (it) ks.add(it); } })); }); return Promise.all([...ks].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {})).concat(deck.slides.filter((x) => x.style === 'cover' && x.cover).map((x) => loadFonts(x.cover.lines)))); };
 
+const PH = /\[[^\]]+\]/;
+const slideIssues = (deck) => deck.slides.map((x, i) => ({ i, ph: [x.kicker, x.title, x.body].some((t) => PH.test(t || '')) || (x.style === 'cover' && (x.cover && x.cover.lines || []).some((l) => PH.test(l.text || ''))), nophoto: !x.photoId }));
+const hashDeck = (d) => { const t = JSON.stringify(d); let h = 0; for (let k = 0; k < t.length; k++) h = (h * 31 + t.charCodeAt(k)) | 0; return String(h); };
 function SlideCanvas({ deck, s, i, n, scale, onClick, sel }) {
   const ref = useRef(null);
   useEffect(() => { let on = true; Promise.all([deckFonts(deck), getImg(s.photoId), getImg(s.photo2Id)]).then(([, a, b]) => { if (on && ref.current) drawSlide(ref.current, deck, s, i, n, a, b, scale); }); return () => { on = false; }; }, [deck, s, i, n]);
@@ -1054,9 +1079,12 @@ function SlideCanvas({ deck, s, i, n, scale, onClick, sel }) {
 function CarouselBuilder({ close, postId }) {
   const p = S.posts[postId];
   const [deck, setDeck] = useState(() => JSON.parse(JSON.stringify(p.deck || defaultDeck(p))));
-  const [sel, setSel] = useState(0); const [busy, setBusy] = useState(null);
-  const first = useRef(true);
+  const [sel, setSel] = useState(0); const [busy, setBusy] = useState(null); const [warn, setWarn] = useState(null);
+  const first = useRef(true); const deckRef = useRef(deck); deckRef.current = deck;
   useEffect(() => { if (first.current) { first.current = false; return; } savePost(p.id, { deck }, 800); }, [deck]);
+  // Closing the builder renders the slides into the post, so the feed and Today always show the latest version.
+  useEffect(() => { closeGuard = async () => { if (hashDeck(deckRef.current) !== S.posts[p.id].deckHash && assets) { toast('Saving slides…'); await saveToPost(true); } }; return () => { closeGuard = null; }; }, []);
+  const issues = slideIssues(deck); const phSlides = issues.filter((x) => x.ph).map((x) => x.i + 1); const noPhoto = issues.filter((x) => x.nophoto).map((x) => x.i + 1);
   const n = deck.slides.length; const s = deck.slides[Math.min(sel, n - 1)] || deck.slides[0];
   const up = (patch) => setDeck((d) => ({ ...d, ...patch }));
   const upS = (patch) => setDeck((d) => ({ ...d, slides: d.slides.map((x, j) => (j === sel ? { ...x, ...patch } : x)) }));
@@ -1069,33 +1097,44 @@ function CarouselBuilder({ close, postId }) {
     setBusy(null); if (ids.length) toast(ids.length + ' photo' + (ids.length > 1 ? 's' : '') + ' placed');
   };
   const one = async (f, key) => { if (!f) return; setBusy(key); try { const id = await upload(f); if (id) upS({ [key]: id }); } catch (e) { toast('Could not upload the photo.'); } setBusy(null); };
-  const renderAll = async (type) => { await deckFonts(deck); const out = []; for (let i = 0; i < n; i++) { const sl = deck.slides[i]; const [a, b] = await Promise.all([getImg(sl.photoId), getImg(sl.photo2Id)]); const cv = document.createElement('canvas'); drawSlide(cv, deck, sl, i, n, a, b, 1); out.push(await new Promise((r) => cv.toBlob(r, type, 0.92))); } return out; };
-  const saveToPost = async () => {
+  const renderAll = async (type, opts) => { const d = deckRef.current; const nn = d.slides.length; await deckFonts(d); const out = []; for (let i = 0; i < nn; i++) { const sl = d.slides[i]; const [a, b] = await Promise.all([getImg(sl.photoId), getImg(sl.photo2Id)]); const cv = document.createElement('canvas'); drawSlide(cv, d, sl, i, nn, a, b, 1, opts); out.push(await new Promise((r) => cv.toBlob(r, type, 0.92))); } return out; };
+  const saveToPost = async (quiet) => {
     if (!assets) return toast('Saving needs the page opened in Claude.');
-    setBusy('save');
+    setBusy('save'); const d = deckRef.current;
     try {
       const blobs = await renderAll('image/jpeg'); const ids = []; for (const b of blobs) ids.push((await assets.upload(b)).id);
-      const cur = S.posts[p.id]; const prev = { cover: cur.cover, slides: cur.slides };
-      savePost(p.id, { deck, format: 'carousel', cover: { ...(cur.cover || {}), renderId: ids[0], ratio: deck.ratio, fromDeck: true }, slides: ids.slice(1) }, 0);
-      toast(n + ' slides saved to the post', { label: 'Undo', run: () => savePost(p.id, prev, 0) });
+      const cur = S.posts[p.id]; const old = cur.cover && cur.cover.fromDeck ? [cur.cover.renderId, ...(cur.slides || [])] : [];
+      savePost(p.id, { deck: d, deckHash: hashDeck(d), format: 'carousel', cover: { ...(cur.cover || {}), renderId: ids[0], ratio: d.ratio, fromDeck: true }, slides: ids.slice(1) }, 0);
+      old.filter((x) => x && !ids.includes(x)).forEach((x) => assets.delete(x).catch(() => {}));
+      toast(quiet ? 'Slides saved to the post' : d.slides.length + ' slides saved to the post');
     } catch (e) { toast('Could not save the slides. Check your connection.'); }
     setBusy(null);
   };
-  const exportAll = async () => {
+  const exportAll = async (mode) => {
     if (!downloads) return toast('Downloading needs the page opened in Claude.');
-    setBusy('export');
-    try { const blobs = await renderAll('image/jpeg'); const base = (p.title || 'carousel').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase(); for (let i = 0; i < blobs.length; i++) await downloads.save({ filename: `${base}-${String(i + 1).padStart(2, '0')}.jpg`, data: blobs[i] }); }
+    setBusy('export'); setWarn(null);
+    const type = mode === 'jpg' ? 'image/jpeg' : 'image/png'; const ext = mode === 'jpg' ? 'jpg' : mode === 'clear' ? 'text.png' : 'png';
+    try { const blobs = await renderAll(type, { transparent: mode === 'clear' }); const base = (p.title || 'carousel').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase(); for (let i = 0; i < blobs.length; i++) await downloads.save({ filename: `${base}-${String(i + 1).padStart(2, '0')}.${ext}`, data: blobs[i] }); }
     catch (e) { if (!e || e.code !== 'declined') toast('Export stopped.'); }
     setBusy(null);
   };
+  // Check before export: unfilled [placeholders] and empty photos.
+  const tryExport = (mode) => { if (phSlides.length || (mode !== 'clear' && noPhoto.length)) return setWarn(mode); exportAll(mode); };
+  const editCover = (idx) => { const sl = deck.slides[idx]; openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} slide=${sl} deckRatio=${deck.ratio} onSave=${(cfg, photoId) => setDeck((d) => ({ ...d, slides: d.slides.map((x, j) => (j === idx ? { ...x, style: 'cover', cover: cfg, photoId } : x)) }))} />`); };
+  const sepCover = p.cover && !p.cover.fromDeck && p.cover.lines && !deck.slides.some((x) => x.style === 'cover');
   const sty = CAROUSEL_STYLES[s.style] || CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const baseSty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, sel, n); const R = sty[role];
   return html`<div class="sheet wide">
     <div class="sheet-h wrap gap-8"><h2>Carousel</h2><div class="row gap-6 wrap">
       <button class="btn sm ghost" onClick=${close}>Close</button>
-      ${downloads && html`<button class="btn sm" disabled=${!!busy} onClick=${exportAll}><${Icon} n="download" s=${16} />${busy === 'export' ? 'Exporting…' : 'Export all'}</button>`}
-      <button class="btn sm primary" disabled=${!!busy} onClick=${saveToPost}>${busy === 'save' ? 'Saving…' : 'Save to post'}</button></div></div>
+      ${downloads && html`<button class="btn sm" disabled=${!!busy} onClick=${(e) => openMenu(e, [{ label: 'All slides, JPG', icon: 'download', run: () => tryExport('jpg') }, { label: 'All slides, PNG', icon: 'download', run: () => tryExport('png') }, { label: 'Text only, see-through PNG', icon: 'download', run: () => tryExport('clear') }])}><${Icon} n="download" s=${16} />${busy === 'export' ? 'Exporting…' : 'Export all'}</button>`}
+      <button class="btn sm primary" disabled=${!!busy} onClick=${() => saveToPost(false)}>${busy === 'save' ? 'Saving…' : 'Save to post'}</button></div></div>
+    ${warn && html`<div class="late" style="flex-wrap:wrap">
+      <span class="grow" style="font-weight:550">${phSlides.length ? `Slide ${phSlides.join(', ')} still ${phSlides.length > 1 ? 'have' : 'has'} [placeholders]. ` : ''}${warn !== 'clear' && noPhoto.length ? `Slide ${noPhoto.join(', ')} ${noPhoto.length > 1 ? 'have' : 'has'} no photo.` : ''}</span>
+      <button class="btn sm" onClick=${() => { setWarn(null); setSel((phSlides[0] || noPhoto[0] || 1) - 1); }}>Fix first</button><button class="btn sm primary" onClick=${() => exportAll(warn)}>Export anyway</button></div>`}
+    ${!warn && (phSlides.length > 0 || noPhoto.length > 0) && html`<div class="banner small">${phSlides.length ? html`<b>Fill in:</b> slide ${phSlides.join(', ')} ${phSlides.length > 1 ? 'have' : 'has'} [placeholders]. ` : ''}${noPhoto.length ? html`<b>No photo:</b> slide ${noPhoto.join(', ')}.` : ''}</div>`}
+    ${sepCover && html`<div class="banner small row gap-8 wrap"><span class="grow">This post also has a cover made in the cover editor. In a carousel, slide 1 is the cover.</span><button class="btn sm" onClick=${() => { setDeck((d) => ({ ...d, slides: [newSlide({ role: 'hook', style: 'cover', cover: { ...p.cover, renderId: null }, photoId: p.cover.photoId }), ...d.slides] })); setSel(0); }}>Use it as slide 1</button></div>`}
     <div class="field"><span class="lbl">Main style</span><div class="presets">${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (deck.style === k ? ' on' : '')} onClick=${() => up({ style: k, grade: null })}>${v.name}</button>`)}</div></div>
-    <div class="cstrip">${deck.slides.map((x, i) => html`<div class="cthumb"><${SlideCanvas} deck=${deck} s=${x} i=${i} n=${n} scale=${0.18} sel=${i === sel} onClick=${() => setSel(i)} /><span>${i + 1}</span></div>`)}
+    <div class="cstrip">${deck.slides.map((x, i) => html`<div class="cthumb"><${SlideCanvas} deck=${deck} s=${x} i=${i} n=${n} scale=${0.18} sel=${i === sel} onClick=${() => setSel(i)} /><span style=${issues[i] && issues[i].ph ? 'background:var(--bad)' : ''}>${i + 1}${issues[i] && issues[i].ph ? ' [ ]' : ''}</span></div>`)}
       <button class="cadd" aria-label="Add slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, newSlide()); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="plus" /></button></div>
     <div class="ced">
       <div class="cstage" style=${`aspect-ratio:${coverSize(deck.ratio).join('/')}`}><${SlideCanvas} deck=${deck} s=${s} i=${sel} n=${n} scale=${0.6} /></div>
@@ -1119,9 +1158,11 @@ function CarouselBuilder({ close, postId }) {
           <button class="icon-btn" aria-label="Move slide right" onClick=${() => move(1)}><${Icon} n="right" s=${18} /></button>
           <button class="icon-btn" aria-label="Duplicate slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, { ...s, id: uid() }); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="copy" s=${18} /></button>
           <button class="icon-btn" aria-label="Delete slide" disabled=${n <= 1} onClick=${() => { setDeck((d) => ({ ...d, slides: d.slides.filter((_, j) => j !== sel) })); setSel(Math.max(0, sel - 1)); }}><${Icon} n="trash" s=${18} /></button></div></div>
-        <div class="field"><span class="lbl">Theme for this slide</span><div class="presets"><button class=${'chip' + (!s.style ? ' on' : '')} onClick=${() => upS({ style: null, pos: null, align: null })}>Same as main</button>${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (s.style === k ? ' on' : '')} onClick=${() => upS({ style: k, pos: null, align: null })}>${v.name}</button>`)}</div></div>
+        <div class="field"><span class="lbl">Theme for this slide</span><div class="presets"><button class=${'chip' + (!s.style ? ' on' : '')} onClick=${() => upS({ style: null, pos: null, align: null })}>Same as main</button>${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (s.style === k ? ' on' : '')} onClick=${() => upS({ style: k, pos: null, align: null })}>${v.name}</button>`)}<button class=${'chip' + (s.style === 'cover' ? ' on' : '')} onClick=${() => { if (s.style !== 'cover') upS({ style: 'cover', cover: s.cover || { ...defaultCover(p), lines: presetLines('practical', p).map((l, k) => (k === 1 && s.title ? { ...l, text: s.title } : l)) } }); editCover(sel); }}>Cover layout</button></div></div>
+        ${s.style === 'cover' && html`<div class="col gap-8"><button class="btn primary" onClick=${() => editCover(sel)}><${Icon} n="image" s=${16} />Edit cover layout</button><span class="small muted">Uses the cover editor: Magazine, Film poster and the other layouts, at this carousel's size.</span></div>`}
         <div class="seg">${[['hook', 'Hook'], ['content', 'Content'], ['cta', 'CTA']].map(([k, l]) => html`<button class=${role === k ? 'on' : ''} onClick=${() => upS({ role: k })}>${l}</button>`)}</div>
         ${s.photo && html`<div class="banner small">Photo idea: ${s.photo}</div>`}
+        ${s.style !== 'cover' && html`<div class="col gap-12">
         ${R.kicker && html`<div class="field"><label for="cb-k">Small label</label><input class="input" id="cb-k" value=${s.kicker} onInput=${(e) => upS({ kicker: e.currentTarget.value })} /></div>`}
         <div class="field"><label for="cb-t">Title</label><textarea class="input" id="cb-t" rows="2" value=${s.title} onInput=${(e) => upS({ title: e.currentTarget.value })}></textarea><span class="small muted">*Stars* set a word in the accent font.</span></div>
         <div class="field"><label for="cb-b">Text</label><textarea class="input" id="cb-b" rows="3" value=${s.body} onInput=${(e) => upS({ body: e.currentTarget.value })}></textarea></div>
@@ -1140,15 +1181,16 @@ function CarouselBuilder({ close, postId }) {
           <label class="lbl">Photo left / right<input type="range" min="-1" max="1" step="0.01" value=${s.px || 0} onInput=${(e) => upS({ px: +e.currentTarget.value })} /></label>
           <label class="lbl">Photo up / down<input type="range" min="-1" max="1" step="0.01" value=${s.py || 0} onInput=${(e) => upS({ py: +e.currentTarget.value })} /></label>
         </div>
+        </div>`}
       </div>
     </div>
   </div>`;
 }
 
 /* ----- Cover editor ----- */
-function CoverEditor({ close, postId }) {
-  const p = S.posts[postId];
-  const [cfg, setCfg] = useState(() => { const c = JSON.parse(JSON.stringify(p.cover || defaultCover(p))); c.lines = (c.lines || []).map(normLine); c.blocks = blocksOf(c); c.ratio = fitRatio(c.ratio || ratioOf(p.format), p.format); return c; });
+function CoverEditor({ close, postId, slide, deckRatio, onSave }) {
+  const p = S.posts[postId]; const slideMode = !!slide;
+  const [cfg, setCfg] = useState(() => { const c = JSON.parse(JSON.stringify(slideMode ? (slide.cover ? { ...slide.cover, photoId: slide.photoId } : { ...defaultCover(p), photoId: slide.photoId }) : (p.cover || defaultCover(p)))); c.lines = (c.lines || []).map(normLine); c.blocks = blocksOf(c); c.ratio = slideMode ? deckRatio : fitRatio(c.ratio || ratioOf(p.format), p.format); return c; });
   const [img, setImg] = useState(null); const [video, setVideo] = useState(null); const [vt, setVt] = useState(0);
   const [busy, setBusy] = useState(false); const [guide, setGuide] = useState(true); const [ideas, setIdeas] = useState(null);
   const cv = useRef(null); const vref = useRef(null); const fmt = cfg.ratio;
@@ -1159,12 +1201,12 @@ function CoverEditor({ close, postId }) {
   const setLine = (i, patch) => setCfg((c) => ({ ...c, lines: c.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
   const applyPreset = (k) => { const pr = PRESETS[k]; upd({ preset: k, blocks: presetBlocks(k), lines: presetLines(k, p), ...(pr.grade != null ? { grade: pr.grade } : {}) }); };
   const setBlock = (i, patch) => setCfg((c) => ({ ...c, blocks: c.blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
-  const render = async (type) => { await loadFonts(cfg.lines); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt); return new Promise((r) => out.toBlob(r, type, 0.92)); };
+  const render = async (type, opts) => { await loadFonts(cfg.lines); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt, opts); return new Promise((r) => out.toBlob(r, type, 0.92)); };
   const fname = (ext) => (p.title || 'cover').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '-' + fmt.replace(':', 'x') + '.' + ext;
-  const exportAs = async (type) => {
+  const exportAs = async (type, transparent) => {
     if (!downloads) return toast('Downloading needs the page opened in Claude.');
     setBusyX('export');
-    try { const blob = await render(type); await downloads.save({ filename: fname(type === 'image/png' ? 'png' : 'jpg'), data: blob }); }
+    try { const blob = await render(type, { transparent }); await downloads.save({ filename: fname(transparent ? 'text.png' : type === 'image/png' ? 'png' : 'jpg'), data: blob }); }
     catch (e) { if (!e || e.code !== 'declined') toast('Could not export the image.'); }
     setBusyX(null);
   };
@@ -1185,6 +1227,11 @@ function CoverEditor({ close, postId }) {
   const save = async () => {
     if (!assets) return toast('Saving covers needs the page opened in Claude.');
     setBusy(true);
+    if (slideMode) {
+      try { let photoId = cfg.photoId; if (img && img._file && !photoId) photoId = (await assets.upload(await shrink(img._file))).id; const { renderId, ...rest } = cfg; onSave({ ...rest, photoId }, photoId); close(); }
+      catch (e) { toast('Could not save. Try a smaller photo.'); }
+      setBusy(false); return;
+    }
     try {
       let photoId = cfg.photoId;
       if (img && img._file && !photoId) { const r = await assets.upload(await shrink(img._file)); photoId = r.id; }
@@ -1209,11 +1256,10 @@ function CoverEditor({ close, postId }) {
   const lineOf = (l) => ({ ...(ROLE[l.role] || ROLE.title), text: String(l.text || '') });
   const useIdea = (lines) => { upd({ lines: lines.map(lineOf) }); setIdeas(null); };
   return html`<div class="sheet wide">
-    <div class="sheet-h wrap gap-8"><h2>Cover</h2><div class="row gap-6 wrap">
+    <div class="sheet-h wrap gap-8"><h2>${slideMode ? 'Cover layout' : 'Cover'}</h2><div class="row gap-6 wrap">
       <button class="btn sm ghost" onClick=${close}>Close</button>
-      ${downloads && html`<button class="btn sm" disabled=${!!busyX} onClick=${(e) => openMenu(e, [{ label: 'JPG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/jpeg') }, { label: 'PNG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/png') }])}><${Icon} n="download" s=${16} />${busyX === 'export' ? 'Exporting…' : 'Export'}</button>`}
-      ${S.posts[p.id].format === 'carousel' && html`<button class="btn sm" disabled=${!!busyX} onClick=${saveSlide}><${Icon} n="layers" s=${16} />${busyX === 'slide' ? 'Adding…' : 'Add as slide'}</button>`}
-      <button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save cover'}</button></div></div>
+      ${downloads && html`<button class="btn sm" disabled=${!!busyX} onClick=${(e) => openMenu(e, [{ label: 'JPG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/jpeg') }, { label: 'PNG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/png') }, { label: 'PNG, text only, see-through', icon: 'download', run: () => exportAs('image/png', true) }])}><${Icon} n="download" s=${16} />${busyX === 'export' ? 'Exporting…' : 'Export'}</button>`}
+      <button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : slideMode ? 'Use on slide' : 'Save cover'}</button></div></div>
     <div class="ced">
       <div class="cstage" style=${`aspect-ratio:${W}/${H}`}>
         <canvas ref=${cv} width=${W} height=${H}></canvas>
@@ -1228,10 +1274,10 @@ function CoverEditor({ close, postId }) {
           <input type="file" id="cv-file" accept="image/*,video/*" hidden onChange=${(e) => { onFile(e.currentTarget.files[0]); e.currentTarget.value = ''; }} />
           ${fmt === 'reels' && html`<button class=${'chip' + (guide ? ' on' : '')} onClick=${() => setGuide(!guide)}>Grid guide</button>`}
         </div>
-        <div class="field"><span class="lbl">Post type</span><div class="seg">${FORMATS.map((f) => html`<button class=${S.posts[p.id].format === f.id ? 'on' : ''} onClick=${() => { savePost(p.id, { format: f.id }, 0); upd({ ratio: fitRatio(cfg.ratio, f.id) }); }}>${f.name}</button>`)}</div>
+        ${!slideMode && html`<div class="field"><span class="lbl">Post type</span><div class="seg">${FORMATS.map((f) => html`<button class=${S.posts[p.id].format === f.id ? 'on' : ''} onClick=${() => { savePost(p.id, { format: f.id }, 0); upd({ ratio: fitRatio(cfg.ratio, f.id) }); }}>${f.name}</button>`)}</div>
           <span class="small muted">${S.posts[p.id].format === 'reels' ? 'Reels show in the grid and the Reels tab, so the cover is 9:16.' : 'Carousels and photos show in the grid only, not the Reels tab.'}</span></div>
         ${ratiosFor(S.posts[p.id].format).length > 1 && html`<div class="field"><span class="lbl">Size</span><div class="seg">${ratiosFor(S.posts[p.id].format).map((k) => html`<button class=${fmt === k ? 'on' : ''} onClick=${() => upd({ ratio: k })}>${RATIOS[k].name}</button>`)}</div>
-          <span class="small muted">${fmt === 'reels' ? 'The profile grid shows the middle 3:4.' : fmt === '3:4' ? 'Same shape as the profile grid.' : fmt === '4:5' ? 'Classic feed size. The grid trims a little off the sides.' : 'The grid trims the sides to 3:4.'}${S.posts[p.id].format === 'carousel' ? ' Keep every slide in one size.' : ''}</span></div>`}
+          <span class="small muted">${fmt === 'reels' ? 'The profile grid shows the middle 3:4.' : fmt === '3:4' ? 'Same shape as the profile grid.' : fmt === '4:5' ? 'Classic feed size. The grid trims a little off the sides.' : 'The grid trims the sides to 3:4.'}${S.posts[p.id].format === 'carousel' ? ' Keep every slide in one size.' : ''}</span></div>`}`}
         ${img && html`<div class="grid2">
           <div class="field"><label for="cz">Zoom</label><input type="range" id="cz" min="1" max="2.5" step="0.01" value=${cfg.zoom || 1} onInput=${(e) => upd({ zoom: +e.currentTarget.value })} /></div>
           <div class="field"><label for="cg">Darken behind text</label><input type="range" id="cg" min="0" max="0.8" step="0.01" value=${cfg.grade} onInput=${(e) => upd({ grade: +e.currentTarget.value })} /></div>
