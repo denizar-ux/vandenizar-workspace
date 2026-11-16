@@ -981,14 +981,15 @@ const getImg = (id) => (id ? (imgCache[id] || (imgCache[id] = loadImg(assetSrc(i
 function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
   const [W0, H0] = coverSize(deck.ratio || '4:5'); cv.width = Math.round(W0 * scaleDown); cv.height = Math.round(H0 * scaleDown);
   const ctx = cv.getContext('2d'); ctx.setTransform(scaleDown, 0, 0, scaleDown, 0, 0); const W = W0, H = H0;
-  const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, i, n); const R = sty[role];
+  const sty = CAROUSEL_STYLES[s.style] || CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, i, n); const R = sty[role];
+  const showH = headerOn(deck), showF = footerOn(deck);
   ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
   const fill = (img, x, y, w, h) => { if (!img) return; const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; const sc = Math.max(w / iw, h / ih) * (s.zoom || 1); const dw = iw * sc, dh = ih * sc; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.drawImage(img, x + (w - dw) / 2 + (s.px || 0) * (dw - w) / 2, y + (h - dh) / 2 + (s.py || 0) * (dh - h) / 2, dw, dh); ctx.restore(); };
   if (im2) { fill(im1, 0, 0, W, H / 2 - 3); fill(im2, 0, H / 2 + 3, W, H / 2 - 3); } else fill(im1, 0, 0, W, H);
-  const pos = s.pos || R.pos; const align = s.align || R.align; const g = deck.grade != null ? deck.grade : sty.grade;
+  const pos = s.pos || R.pos; const align = s.align || R.align; const g = deck.grade != null ? deck.grade : (CAROUSEL_STYLES[deck.style] || sty).grade;
   if (g > 0) {
     const grad = (top) => { const gr = ctx.createLinearGradient(0, top ? 0 : H * 0.4, 0, top ? H * 0.6 : H); gr.addColorStop(top ? 0 : 1, `rgba(10,8,6,${g})`); gr.addColorStop(top ? 1 : 0, 'rgba(10,8,6,0)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); };
-    if (pos === 'top' || sty.header) grad(true); if (pos === 'bottom' || R.bodyAt === 'bottom' || sty.footer) grad(false);
+    if (pos === 'top' || showH) grad(true); if (pos === 'bottom' || R.bodyAt === 'bottom' || showF) grad(false);
     if (pos === 'middle') { ctx.fillStyle = `rgba(10,8,6,${g * 0.45})`; ctx.fillRect(0, 0, W, H); }
   }
   ctx.fillStyle = deck.color || '#fff'; ctx.textBaseline = 'alphabetic';
@@ -1021,7 +1022,7 @@ function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
   };
   const place = (lay, anchor, al, boxW) => {
     if (!lay.rows.length) return;
-    let y = anchor === 'top' ? top + (sty.header ? 70 : 20) : anchor === 'bottom' ? bot - (sty.footer ? 110 : 20) - lay.h : (H - lay.h) / 2;
+    let y = anchor === 'top' ? top + (showH ? 70 : 20) : anchor === 'bottom' ? bot - (showF ? 110 : 20) - lay.h : (H - lay.h) / 2;
     const boxX = al === 'left' ? m : al === 'right' ? W - m - boxW : (W - boxW) / 2;
     lay.rows.forEach((r) => {
       const inner = R.inner || al; const x0 = inner === 'left' ? boxX : inner === 'right' ? boxX + boxW - r.w : boxX + (boxW - r.w) / 2;
@@ -1036,11 +1037,13 @@ function drawSlide(cv, deck, s, i, n, im1, im2, scaleDown = 1) {
   else place(layout([...main, { text: s.body, spec: R.body }], boxW), pos, align, boxW);
   // Header row (Diary) and footer (Shot guide) repeat on every slide.
   const small = (t, x, y, al, font, size, ls) => { if (!t) return; setFont(font, size, ls); const w = ctx.measureText(t).width; ctx.fillText(t, al === 'left' ? x : al === 'right' ? x - w : x - w / 2, y); };
-  if (sty.header && deck.header) { small(deck.header.left, m, top + 10, 'left', 'avenir-regular', 24, 0.02); small(deck.header.center, W / 2, top + 10, 'center', 'avenir-bold', 26, 0); small(deck.header.right, W - m, top + 10, 'right', 'avenir-regular', 24, 0.02); }
-  if (sty.footer && deck.footer) { small(deck.footer.left, m, bot - 10, 'left', 'avenir-bold', 26, 0); small(deck.footer.right, W - m, bot - 40, 'right', 'avenir-bold', 22, 0.04); small(deck.footer.sub, W - m, bot - 10, 'right', 'avenir-regular', 18, 0); }
+  if (showH && deck.header) { small(deck.header.left, m, top + 10, 'left', 'avenir-regular', 24, 0.02); small(deck.header.center, W / 2, top + 10, 'center', 'avenir-bold', 26, 0); small(deck.header.right, W - m, top + 10, 'right', 'avenir-regular', 24, 0.02); }
+  if (showF && deck.footer) { small(deck.footer.left, m, bot - 10, 'left', 'avenir-bold', 26, 0); small(deck.footer.right, W - m, bot - 40, 'right', 'avenir-bold', 22, 0.04); small(deck.footer.sub, W - m, bot - 10, 'right', 'avenir-regular', 18, 0); }
   ctx.shadowColor = 'transparent';
 }
-const deckFonts = (deck) => { const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const ks = new Set(['avenir-regular', 'avenir-bold']); ['hook', 'content', 'cta'].forEach((r) => ['kicker', 'title', 'body'].forEach((k) => { const sp = sty[r][k]; if (sp) { ks.add(sp.font); if (sp.accent) ks.add(sp.accent); const it = FONT_LIB[sp.font] && FONT_LIB[sp.font][2]; if (it) ks.add(it); } })); return Promise.all([...ks].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {}))); };
+const headerOn = (d) => (d.headerOn != null ? d.headerOn : !!(CAROUSEL_STYLES[d.style] || {}).header);
+const footerOn = (d) => (d.footerOn != null ? d.footerOn : !!(CAROUSEL_STYLES[d.style] || {}).footer);
+const deckFonts = (deck) => { const ks = new Set(['avenir-regular', 'avenir-bold']); new Set([deck.style, ...deck.slides.map((x) => x.style).filter(Boolean)]).forEach((stk) => { const sty = CAROUSEL_STYLES[stk] || CAROUSEL_STYLES.journal; ['hook', 'content', 'cta'].forEach((r) => ['kicker', 'title', 'body'].forEach((k) => { const sp = sty[r][k]; if (sp) { ks.add(sp.font); if (sp.accent) ks.add(sp.accent); const it = FONT_LIB[sp.font] && FONT_LIB[sp.font][2]; if (it) ks.add(it); } })); }); return Promise.all([...ks].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {}))); };
 
 function SlideCanvas({ deck, s, i, n, scale, onClick, sel }) {
   const ref = useRef(null);
@@ -1085,13 +1088,13 @@ function CarouselBuilder({ close, postId }) {
     catch (e) { if (!e || e.code !== 'declined') toast('Export stopped.'); }
     setBusy(null);
   };
-  const sty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, sel, n); const R = sty[role];
+  const sty = CAROUSEL_STYLES[s.style] || CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const baseSty = CAROUSEL_STYLES[deck.style] || CAROUSEL_STYLES.journal; const role = roleOf(s, sel, n); const R = sty[role];
   return html`<div class="sheet wide">
     <div class="sheet-h wrap gap-8"><h2>Carousel</h2><div class="row gap-6 wrap">
       <button class="btn sm ghost" onClick=${close}>Close</button>
       ${downloads && html`<button class="btn sm" disabled=${!!busy} onClick=${exportAll}><${Icon} n="download" s=${16} />${busy === 'export' ? 'Exporting…' : 'Export all'}</button>`}
       <button class="btn sm primary" disabled=${!!busy} onClick=${saveToPost}>${busy === 'save' ? 'Saving…' : 'Save to post'}</button></div></div>
-    <div class="field"><span class="lbl">Style</span><div class="presets">${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (deck.style === k ? ' on' : '')} onClick=${() => up({ style: k, grade: null })}>${v.name}</button>`)}</div></div>
+    <div class="field"><span class="lbl">Main style</span><div class="presets">${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (deck.style === k ? ' on' : '')} onClick=${() => up({ style: k, grade: null })}>${v.name}</button>`)}</div></div>
     <div class="cstrip">${deck.slides.map((x, i) => html`<div class="cthumb"><${SlideCanvas} deck=${deck} s=${x} i=${i} n=${n} scale=${0.18} sel=${i === sel} onClick=${() => setSel(i)} /><span>${i + 1}</span></div>`)}
       <button class="cadd" aria-label="Add slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, newSlide()); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="plus" /></button></div>
     <div class="ced">
@@ -1104,9 +1107,11 @@ function CarouselBuilder({ close, postId }) {
         </div>
         <div class="field"><span class="lbl">Size</span><div class="seg">${['4:5', '3:4', '1:1'].map((k) => html`<button class=${deck.ratio === k ? 'on' : ''} onClick=${() => up({ ratio: k })}>${RATIOS[k].name}</button>`)}</div></div>
         <div class="field"><span class="lbl">Text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (deck.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => up({ color: c })}></button>`)}<button class=${'chip' + (deck.shadow !== false ? ' on' : '')} onClick=${() => up({ shadow: deck.shadow === false })}>Soft shadow</button></div></div>
-        <label class="lbl">Darken photos<input type="range" min="0" max="0.8" step="0.01" value=${deck.grade != null ? deck.grade : sty.grade} onInput=${(e) => up({ grade: +e.currentTarget.value })} /></label>
-        ${sty.header && html`<div class="field"><span class="lbl">Header on every slide</span><div class="grid3"><input class="input" aria-label="Header left" value=${deck.header.left} onInput=${(e) => up({ header: { ...deck.header, left: e.currentTarget.value } })} /><input class="input" aria-label="Header middle" value=${deck.header.center} onInput=${(e) => up({ header: { ...deck.header, center: e.currentTarget.value } })} /><input class="input" aria-label="Header right" value=${deck.header.right} onInput=${(e) => up({ header: { ...deck.header, right: e.currentTarget.value } })} /></div></div>`}
-        ${sty.footer && html`<div class="field"><span class="lbl">Footer on every slide</span><input class="input" aria-label="Footer left" value=${deck.footer.left} onInput=${(e) => up({ footer: { ...deck.footer, left: e.currentTarget.value } })} /><div class="grid2"><input class="input" aria-label="Footer right" value=${deck.footer.right} onInput=${(e) => up({ footer: { ...deck.footer, right: e.currentTarget.value } })} /><input class="input" aria-label="Footer small line" value=${deck.footer.sub} onInput=${(e) => up({ footer: { ...deck.footer, sub: e.currentTarget.value } })} /></div></div>`}
+        <label class="lbl">Darken photos<input type="range" min="0" max="0.8" step="0.01" value=${deck.grade != null ? deck.grade : baseSty.grade} onInput=${(e) => up({ grade: +e.currentTarget.value })} /></label>
+        <div class="row gap-6 wrap"><button class=${'chip' + (headerOn(deck) ? ' on' : '')} onClick=${() => up({ headerOn: !headerOn(deck) })}>Header on every slide</button><button class=${'chip' + (footerOn(deck) ? ' on' : '')} onClick=${() => up({ footerOn: !footerOn(deck) })}>Footer on every slide</button></div>
+        ${headerOn(deck) && html`<div class="field"><span class="lbl">Header</span><div class="grid3"><input class="input" aria-label="Header left" value=${deck.header.left} onInput=${(e) => up({ header: { ...deck.header, left: e.currentTarget.value } })} /><input class="input" aria-label="Header middle" value=${deck.header.center} onInput=${(e) => up({ header: { ...deck.header, center: e.currentTarget.value } })} /><input class="input" aria-label="Header right" value=${deck.header.right} onInput=${(e) => up({ header: { ...deck.header, right: e.currentTarget.value } })} /></div></div>`}
+        ${footerOn(deck) && html`<div class="field"><span class="lbl">Footer</span><input class="input" aria-label="Footer left" value=${deck.footer.left} onInput=${(e) => up({ footer: { ...deck.footer, left: e.currentTarget.value } })} /><div class="grid2"><input class="input" aria-label="Footer right" value=${deck.footer.right} onInput=${(e) => up({ footer: { ...deck.footer, right: e.currentTarget.value } })} /><input class="input" aria-label="Footer small line" value=${deck.footer.sub} onInput=${(e) => up({ footer: { ...deck.footer, sub: e.currentTarget.value } })} /></div></div>`}
+        <span class="small muted">Header and footer stay the same on every slide, even when a slide uses another theme.</span>
       </div>
       <div class="col gap-12 rc">
         <div class="row between wrap gap-8"><b>Slide ${sel + 1} of ${n}</b><div class="row gap-4">
@@ -1114,6 +1119,7 @@ function CarouselBuilder({ close, postId }) {
           <button class="icon-btn" aria-label="Move slide right" onClick=${() => move(1)}><${Icon} n="right" s=${18} /></button>
           <button class="icon-btn" aria-label="Duplicate slide" onClick=${() => { setDeck((d) => { const a = [...d.slides]; a.splice(sel + 1, 0, { ...s, id: uid() }); return { ...d, slides: a }; }); setSel(sel + 1); }}><${Icon} n="copy" s=${18} /></button>
           <button class="icon-btn" aria-label="Delete slide" disabled=${n <= 1} onClick=${() => { setDeck((d) => ({ ...d, slides: d.slides.filter((_, j) => j !== sel) })); setSel(Math.max(0, sel - 1)); }}><${Icon} n="trash" s=${18} /></button></div></div>
+        <div class="field"><span class="lbl">Theme for this slide</span><div class="presets"><button class=${'chip' + (!s.style ? ' on' : '')} onClick=${() => upS({ style: null, pos: null, align: null })}>Same as main</button>${Object.entries(CAROUSEL_STYLES).map(([k, v]) => html`<button class=${'chip' + (s.style === k ? ' on' : '')} onClick=${() => upS({ style: k, pos: null, align: null })}>${v.name}</button>`)}</div></div>
         <div class="seg">${[['hook', 'Hook'], ['content', 'Content'], ['cta', 'CTA']].map(([k, l]) => html`<button class=${role === k ? 'on' : ''} onClick=${() => upS({ role: k })}>${l}</button>`)}</div>
         ${s.photo && html`<div class="banner small">Photo idea: ${s.photo}</div>`}
         ${R.kicker && html`<div class="field"><label for="cb-k">Small label</label><input class="input" id="cb-k" value=${s.kicker} onInput=${(e) => upS({ kicker: e.currentTarget.value })} /></div>`}
