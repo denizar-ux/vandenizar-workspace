@@ -236,6 +236,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .lctl { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
 .lctl label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
 .lnr { grid-template-columns: 1fr 150px 36px; }
+@media (max-width: 520px) { .lnr { grid-template-columns: 1fr 36px; } .lnr textarea { grid-column: 1 / -1; } }
 .lnr textarea.input { min-height: 42px; }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
 .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
@@ -457,48 +458,77 @@ const PRESETS = {
   movie: { name: 'Favorite Movie', align: 'center', y: 0.76, lines: [L('living in\nmy favorite', 'editors-regular', 120, { lh: 0.9 }), L('Movie', 'vivaldi', 190, { lh: 0.9 }), L('DIRECTED BY {presented}', 'avenir-bold', 18, { ls: 0.08 })] },
   diary: { name: 'A Day Diary', align: 'center', y: 0.55, lines: [L('A DAY DIARY', 'avenir-regular', 26, { ls: 0.3 }), L('a *peace*\nin my Mind', 'editors-regular', 130, { lh: 0.9 }), L('BELIEVE IN YOURSELF\nA LITTLE MORE.', 'avenir-bold', 17, { ls: 0.12 })] },
   shots: { name: '1 Scene 5 Shots', align: 'center', y: 0.2, lines: [L('1 SCENE\n5 SHOTS', 'pioggia', 170, { lh: 0.9 }), L('a shot is the moment the camera starts\nrolling until the moment it stops.', 'avenir-bold', 22)] },
+  magazine: { name: 'Magazine', grade: 0.3, blocks: [{ y: 0.07, align: 'center', w: 1 }, { y: 0.47, align: 'left', w: 0.42 }, { y: 0.86, align: 'left', w: 0.8 }], lines: [
+    L('{presented}', 'seasons-bold', 300, { upper: true, fit: true, lh: 0.82, ls: -0.01, b: 0 }), L('ISSUE 01   ·   {month}   ·   THE WORK ISSUE', 'avenir-bold', 17, { ls: 0.22, b: 0 }),
+    L('THE SHOT\nVS THE SETUP', 'garamond-regular', 62, { upper: true, hs: 0.86, lh: 0.9, b: 1 }), L('how one desk turns into a set', 'editors-italic', 34, { b: 1, gap: 46 }),
+    L('MY WORKING\nSETUP', 'garamond-regular', 62, { upper: true, hs: 0.86, lh: 0.9, b: 1 }), L('the gear I actually reach for', 'editors-italic', 34, { b: 1 }),
+    L('Quiet *Hours*', 'editors-regular', 150, { lh: 0.9, b: 2 }), L('A FASHION VIDEOGRAPHER, AFTER NINE TO FIVE', 'avenir-bold', 19, { ls: 0.14, b: 2 })] },
+  film: { name: 'Film poster', grade: 0.55, blocks: [{ y: 0.09, align: 'center', w: 1 }, { y: 0.8, align: 'center', w: 0.86 }], lines: [
+    L('{presented} PRESENTS', 'avenir-regular', 22, { ls: 0.34, b: 0 }), L('a small story about working late', 'editors-italic', 40, { b: 0 }),
+    L('AFTER\nHOURS', 'garamond-regular', 220, { upper: true, hs: 0.82, lh: 0.86, b: 1 }), L('A FILM BY {presented}', 'avenir-bold', 20, { ls: 0.3, b: 1 }),
+    L('DIRECTED BY {presented}   SHOT ON SONY A7C II   EDITED IN DAVINCI RESOLVE\nPRODUCED AT HOME IN BEKASI   A VANDENIZAR PRODUCTION   FROM 7 TO MIDNIGHT', 'helvetica-compressed', 22, { upper: true, ls: 0.03, lh: 1.15, b: 1 }),
+    L('IN YOUR FEED {date}', 'avenir-bold', 22, { ls: 0.26, b: 1 })] },
   city: { name: 'Mini Diary', align: 'left', y: 0.84, lines: [L('MINI DIARY', 'avenir-regular', 24, { ls: 0.3 }), L('BEKASI', 'editors-regular', 160, { upper: true }), L('A NORMAL WEEK, FILMED SLOWLY.', 'avenir-regular', 18, { ls: 0.04 })] },
 };
 const COLORS = ['#f4ecd8', '#ffffff', '#f2c75c', '#e9b98c', '#151513'];
-const coverSize = (fmt) => fmt === 'reels' ? [1080, 1920] : [1080, 1440];
-const gridCrop = (fmt) => fmt === 'reels' ? { top: 240 / 1920, h: 1440 / 1920 } : { top: 0, h: 1 };
-const presetLines = (k, title) => { const pres = settings().cover.presented || 'VANDENIZAR'; return PRESETS[k].lines.map((l) => ({ ...l, text: l.text.replace('{presented}', pres.toUpperCase()) })); };
-function defaultCover(p) { const pr = PRESETS.practical; return { preset: 'practical', align: pr.align, y: pr.y, color: settings().cover.color, shadow: true, grade: 0.35, zoom: 1, px: 0, py: 0, photoId: null, renderId: null, lines: presetLines('practical') }; }
+const RATIOS = { reels: { name: 'Reels 9:16', size: [1080, 1920] }, '3:4': { name: 'Feed 3:4', size: [1080, 1440] }, '4:5': { name: 'Feed 4:5', size: [1080, 1350] }, '1:1': { name: 'Square', size: [1080, 1080] } };
+const ratioOf = (r) => (RATIOS[r] ? r : r === 'carousel' || r === 'photo' ? '3:4' : 'reels');
+const coverSize = (r) => RATIOS[ratioOf(r)].size;
+const gridCrop = (r) => ratioOf(r) === 'reels' ? { top: 240 / 1920, h: 1440 / 1920 } : { top: 0, h: 1 };
+const presetBlocks = (k) => PRESETS[k].blocks || [{ y: PRESETS[k].y, align: PRESETS[k].align, w: 1 }];
+const presetLines = (k, p) => { const pres = (settings().cover.presented || 'VANDENIZAR').toUpperCase(); const d = p && p.date ? parse(p.date) : new Date();
+  const month = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'][d.getMonth()] + ' ' + d.getFullYear();
+  const date = d.getDate() + ' ' + month.split(' ')[0];
+  return PRESETS[k].lines.map((l) => ({ ...l, text: l.text.replace(/\{presented\}/g, pres).replace('{month}', month).replace('{date}', date) })); };
+function defaultCover(p) { return { preset: 'practical', ratio: ratioOf(p.format), blocks: presetBlocks('practical'), color: settings().cover.color, shadow: true, grade: 0.35, zoom: 1, px: 0, py: 0, photoId: null, renderId: null, lines: presetLines('practical', p) }; }
+const blocksOf = (cfg) => (cfg.blocks && cfg.blocks.length ? cfg.blocks : [{ y: cfg.y ?? 0.6, align: cfg.align || 'center', w: 1 }]);
 const loadFonts = (lines) => Promise.all([...new Set((lines || []).flatMap((l) => { const n = normLine(l); return [n.font, FONT_LIB[n.font] && FONT_LIB[n.font][2]].filter(Boolean); }))].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {})));
 const segsOf = (t) => String(t).split(/(\*[^*]+\*)/).filter(Boolean).map((s) => (s.startsWith('*') && s.endsWith('*') && s.length > 2 ? { t: s.slice(1, -1), it: true } : { t: s, it: false }));
-function drawCover(cv, cfg, img, fmt) {
-  const [W, H] = coverSize(fmt); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+function drawCover(cv, cfg, img, fmtArg) {
+  const fmt = cfg.ratio || fmtArg; const [W, H] = coverSize(fmt); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
   ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
   if (img) {
     const iw = img.videoWidth || img.naturalWidth || img.width, ih = img.videoHeight || img.naturalHeight || img.height;
     const sc = Math.max(W / iw, H / ih) * (cfg.zoom || 1); const dw = iw * sc, dh = ih * sc;
     ctx.drawImage(img, (W - dw) / 2 + (cfg.px || 0) * (dw - W) / 2, (H - dh) / 2 + (cfg.py || 0) * (dh - H) / 2, dw, dh);
   }
-  if (cfg.grade > 0) { const top = (cfg.y ?? 0.6) < 0.45; const g = ctx.createLinearGradient(0, top ? 0 : H * 0.3, 0, top ? H * 0.7 : H); g.addColorStop(top ? 1 : 0, 'rgba(10,8,6,0)'); g.addColorStop(top ? 0 : 1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-  const margin = 76, maxW = W - margin * 2; const align = cfg.align || 'center';
-  const crop = gridCrop(fmt); const safeTop = crop.top * H + 56, safeBot = (crop.top + crop.h) * H - 56;
+  const blocks = blocksOf(cfg);
+  if (cfg.grade > 0) {
+    if (blocks.some((b) => b.y >= 0.45)) { const g = ctx.createLinearGradient(0, H * 0.35, 0, H); g.addColorStop(0, 'rgba(10,8,6,0)'); g.addColorStop(1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    if (blocks.some((b) => b.y < 0.45)) { const g = ctx.createLinearGradient(0, 0, 0, H * 0.6); g.addColorStop(0, `rgba(10,8,6,${cfg.grade * 0.85})`); g.addColorStop(1, 'rgba(10,8,6,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  }
+  const margin = 76;
+  const crop = gridCrop(fmt); const safeTop = crop.top * H + 48, safeBot = (crop.top + crop.h) * H - 48;
   const setFont = (key, px, ls) => { ctx.font = `${px}px "${fam(key)}"`; try { ctx.letterSpacing = (ls || 0) * px + 'px'; } catch (e) {} };
-  const rows = [];
-  (cfg.lines || []).map(normLine).forEach((ln) => {
-    const hs = ln.hs || 1; const it = (FONT_LIB[ln.font] && FONT_LIB[ln.font][2]) || ln.font;
-    String(ln.text || '').split('\n').forEach((raw) => {
-      const segs = segsOf(ln.upper ? raw.toUpperCase() : raw);
-      let px = ln.size || 60, w = 0;
-      for (let k = 0; k < 30; k++) { w = 0; segs.forEach((s) => { setFont(s.it ? it : ln.font, px, ln.ls); s.w = ctx.measureText(s.t).width * hs; w += s.w; }); if (w <= maxW || px < 12) break; px *= 0.94; }
-      rows.push({ segs, px, w, hs, ls: ln.ls, font: ln.font, it, h: px * (ln.lh || (px > 70 ? 0.95 : 1.3)) });
-    });
-    if (rows.length) rows[rows.length - 1].gap = Math.max(10, (ln.size || 60) * 0.16);
-  });
-  if (rows.length) rows[rows.length - 1].gap = 0;
-  const total = rows.reduce((a, r) => a + r.h + (r.gap || 0), 0);
-  let y = Math.min(Math.max(H * (cfg.y ?? 0.6) - total / 2, safeTop), Math.max(safeTop, safeBot - total));
   ctx.fillStyle = cfg.color || '#f4ecd8'; ctx.textBaseline = 'alphabetic';
   if (cfg.shadow) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 2; }
-  rows.forEach((r) => {
-    let x = align === 'left' ? margin : align === 'right' ? W - margin - r.w : (W - r.w) / 2;
-    const base = y + r.h * 0.8;
-    r.segs.forEach((s) => { setFont(s.it ? r.it : r.font, r.px, r.ls); ctx.save(); ctx.translate(x, base); ctx.scale(r.hs, 1); ctx.fillText(s.t, 0, 0); ctx.restore(); x += s.w; });
-    y += r.h + (r.gap || 0);
+  const lines = (cfg.lines || []).map(normLine);
+  blocks.forEach((blk, bi) => {
+    const maxW = (W - margin * 2) * (blk.w || 1); const align = blk.align || 'center';
+    const rows = [];
+    lines.filter((l) => Math.min(l.b || 0, blocks.length - 1) === bi).forEach((ln) => {
+      const hs = ln.hs || 1; const it = (FONT_LIB[ln.font] && FONT_LIB[ln.font][2]) || ln.font;
+      String(ln.text || '').split('\n').forEach((raw) => {
+        const segs = segsOf(ln.upper ? raw.toUpperCase() : raw);
+        let px = ln.size || 60, w = 0;
+        const measure = () => { w = 0; segs.forEach((s) => { setFont(s.it ? it : ln.font, px, ln.ls); s.w = ctx.measureText(s.t).width * hs; w += s.w; }); };
+        measure();
+        if (ln.fit && w > 0) { px = px * maxW / w; measure(); }
+        for (let k = 0; k < 30 && w > maxW && px >= 12; k++) { px *= 0.94; measure(); }
+        rows.push({ segs, px, w, hs, ls: ln.ls, font: ln.font, it, h: px * (ln.lh || (px > 70 ? 0.95 : 1.3)) });
+      });
+      if (rows.length) rows[rows.length - 1].gap = ln.gap != null ? ln.gap : Math.max(10, (ln.size || 60) * 0.16);
+    });
+    if (!rows.length) return;
+    rows[rows.length - 1].gap = 0;
+    const total = rows.reduce((a, r) => a + r.h + (r.gap || 0), 0);
+    let y = Math.min(Math.max(H * (blk.y ?? 0.6) - total / 2, safeTop), Math.max(safeTop, safeBot - total));
+    rows.forEach((r) => {
+      let x = align === 'left' ? margin : align === 'right' ? W - margin - r.w : (W - r.w) / 2;
+      const base = y + r.h * 0.8;
+      r.segs.forEach((s) => { setFont(s.it ? r.it : r.font, r.px, r.ls); ctx.save(); ctx.translate(x, base); ctx.scale(r.hs, 1); ctx.fillText(s.t, 0, 0); ctx.restore(); x += s.w; });
+      y += r.h + (r.gap || 0);
+    });
   });
   ctx.shadowColor = 'transparent';
 }
@@ -755,8 +785,8 @@ function PostPage({ id }) {
     <div class="sec">
       <div class="sec-h"><h3>Cover</h3><button class="btn sm primary" onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)}><${Icon} n="image" s=${16} />${p.cover ? 'Edit cover' : 'Make a cover'}</button></div>
       <div class="row gap-16" style="align-items:flex-start">
-        <button class="cover-prev" style=${`aspect-ratio:${p.format === 'reels' ? '9/16' : '3/4'}`} onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)} aria-label="Edit cover">${src ? html`<img src=${src} alt="Cover" style="width:100%;height:100%;object-fit:cover" />` : html`<span class="col center muted small" style="height:100%;justify-content:center;align-items:center;padding:10px">No cover yet</span>`}</button>
-        <div class="col gap-8 small muted grow"><span>${p.format === 'reels' ? 'Reels cover 1080 × 1920. The profile grid shows the middle 3:4.' : 'Feed post 1080 × 1440 (3:4), same as the profile grid.'}</span>${p.cover && p.cover.renderId && downloads && html`<button class="btn sm" style="align-self:flex-start" onClick=${() => saveCoverFile(p)}><${Icon} n="download" s=${16} />Save image</button>`}</div>
+        <button class="cover-prev" style=${`aspect-ratio:${coverSize((p.cover && p.cover.ratio) || p.format).join('/')}`} onClick=${() => openOverlay((c) => html`<${CoverEditor} close=${c} postId=${p.id} />`)} aria-label="Edit cover">${src ? html`<img src=${src} alt="Cover" style="width:100%;height:100%;object-fit:cover" />` : html`<span class="col center muted small" style="height:100%;justify-content:center;align-items:center;padding:10px">No cover yet</span>`}</button>
+        <div class="col gap-8 small muted grow"><span>${RATIOS[ratioOf((p.cover && p.cover.ratio) || p.format)].name}, ${coverSize((p.cover && p.cover.ratio) || p.format).join(' × ')}.</span>${p.cover && p.cover.renderId && downloads && html`<button class="btn sm" style="align-self:flex-start" onClick=${() => saveCoverFile(p)}><${Icon} n="download" s=${16} />Save image</button>`}</div>
       </div>
     </div>
 
@@ -766,7 +796,7 @@ function PostPage({ id }) {
       ${(p.slides || []).length > 0 ? html`
         <div class="swipe">${p.cover && p.cover.renderId && html`<div style=${`background-image:url(${assetSrc(p.cover.renderId)})`}></div>`}${p.slides.map((s) => html`<div style=${`background-image:url(${assetSrc(s)})`}></div>`)}</div>
         <div class="slides">${p.slides.map((s, i) => html`<div class="slide" style=${`background-image:url(${assetSrc(s)})`}><div class="sx"><button aria-label="Move left" onClick=${() => moveSlide(i, -1)}><${Icon} n="left" s=${14} /></button><button aria-label="Remove slide" onClick=${() => set({ slides: p.slides.filter((_, j) => j !== i) }, 0)}><${Icon} n="x" s=${14} /></button><button aria-label="Move right" onClick=${() => moveSlide(i, 1)}><${Icon} n="right" s=${14} /></button></div></div>`)}</div>
-        <span class="small muted">Swipe the preview. The cover goes first.</span>` : html`<span class="muted small">Export the slides from your editor and add them here to preview the swipe.</span>`}
+        <div class="row gap-8 wrap"><span class="small muted grow">Swipe the preview. The cover goes first.</span>${downloads && html`<button class="btn sm" onClick=${() => exportSlides(p)}><${Icon} n="download" s=${16} />Export all slides</button>`}</div>` : html`<span class="muted small">Export the slides from your editor and add them here to preview the swipe.</span>`}
     </div>`}
 
     <div class="field"><label for="p-hook">Hook</label><input class="input" id="p-hook" value=${p.hook} placeholder="The first line or first 2 seconds" onInput=${(e) => set({ hook: e.currentTarget.value })} /></div>
@@ -776,6 +806,14 @@ function PostPage({ id }) {
     <${WriteWithClaude} p=${p} />
     <div class="field"><label for="p-notes">Notes and references</label><textarea class="input" id="p-notes" rows="4" value=${p.notes} placeholder="Ideas, shot references, links" onInput=${(e) => set({ notes: e.currentTarget.value })}></textarea></div>
   </div>`;
+}
+async function exportSlides(p) {
+  const ids = [...(p.cover && p.cover.renderId ? [p.cover.renderId] : []), ...(p.slides || [])];
+  const base = (p.title || 'carousel').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase();
+  for (let i = 0; i < ids.length; i++) {
+    try { const b = await (await fetch(assetSrc(ids[i]))).blob(); await downloads.save({ filename: `${base}-${String(i + 1).padStart(2, '0')}.jpg`, data: b }); }
+    catch (e) { if (e && e.code === 'declined') return; toast('Could not export slide ' + (i + 1)); return; }
+  }
 }
 async function saveCoverFile(p) {
   try { const r = await fetch(assetSrc(p.cover.renderId)); const b = await r.blob(); await downloads.save({ filename: (p.title || 'cover').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.jpg', data: b }); }
@@ -819,16 +857,33 @@ function WriteWithClaude({ p }) {
 /* ----- Cover editor ----- */
 function CoverEditor({ close, postId }) {
   const p = S.posts[postId];
-  const [cfg, setCfg] = useState(() => { const c = JSON.parse(JSON.stringify(p.cover || defaultCover(p))); c.lines = (c.lines || []).map(normLine); c.align = c.align || 'center'; return c; });
+  const [cfg, setCfg] = useState(() => { const c = JSON.parse(JSON.stringify(p.cover || defaultCover(p))); c.lines = (c.lines || []).map(normLine); c.blocks = blocksOf(c); c.ratio = c.ratio || ratioOf(p.format); return c; });
   const [img, setImg] = useState(null); const [video, setVideo] = useState(null); const [vt, setVt] = useState(0);
   const [busy, setBusy] = useState(false); const [guide, setGuide] = useState(true); const [ideas, setIdeas] = useState(null);
-  const cv = useRef(null); const vref = useRef(null); const fmt = p.format;
-  const [W, H] = coverSize(fmt); const crop = gridCrop(fmt);
+  const cv = useRef(null); const vref = useRef(null); const fmt = cfg.ratio;
+  const [W, H] = coverSize(fmt); const crop = gridCrop(fmt); const [busyX, setBusyX] = useState(null);
   useEffect(() => { loadImg(assetSrc(cfg.photoId)).then(setImg).catch(() => {}); }, []);
   useEffect(() => { let on = true; loadFonts(cfg.lines).then(() => { if (on && cv.current) drawCover(cv.current, cfg, img, fmt); }); return () => { on = false; }; }, [cfg, img]);
   const upd = (patch) => setCfg((c) => ({ ...c, ...patch }));
   const setLine = (i, patch) => setCfg((c) => ({ ...c, lines: c.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
-  const applyPreset = (k) => { const pr = PRESETS[k]; upd({ preset: k, y: pr.y, align: pr.align, lines: presetLines(k) }); };
+  const applyPreset = (k) => { const pr = PRESETS[k]; upd({ preset: k, blocks: presetBlocks(k), lines: presetLines(k, p), ...(pr.grade != null ? { grade: pr.grade } : {}) }); };
+  const setBlock = (i, patch) => setCfg((c) => ({ ...c, blocks: c.blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+  const render = async (type) => { await loadFonts(cfg.lines); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt); return new Promise((r) => out.toBlob(r, type, 0.92)); };
+  const fname = (ext) => (p.title || 'cover').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '-' + fmt.replace(':', 'x') + '.' + ext;
+  const exportAs = async (type) => {
+    if (!downloads) return toast('Downloading needs the page opened in Claude.');
+    setBusyX('export');
+    try { const blob = await render(type); await downloads.save({ filename: fname(type === 'image/png' ? 'png' : 'jpg'), data: blob }); }
+    catch (e) { if (!e || e.code !== 'declined') toast('Could not export the image.'); }
+    setBusyX(null);
+  };
+  const saveSlide = async () => {
+    if (!assets) return toast('Saving slides needs the page opened in Claude.');
+    setBusyX('slide');
+    try { const blob = await render('image/jpeg'); const r = await assets.upload(blob); const cur = S.posts[p.id]; savePost(p.id, { slides: [...(cur.slides || []), r.id] }, 0); toast('Added as slide ' + ((cur.slides || []).length + 1)); }
+    catch (e) { toast('Could not save the slide.'); }
+    setBusyX(null);
+  };
   const onFile = (f) => {
     if (!f) return;
     const url = URL.createObjectURL(f);
@@ -842,8 +897,7 @@ function CoverEditor({ close, postId }) {
     try {
       let photoId = cfg.photoId;
       if (img && img._file && !photoId) { const r = await assets.upload(img._file); photoId = r.id; }
-      await loadFonts(cfg.lines); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt);
-      const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.9));
+      const blob = await render('image/jpeg');
       const rr = await assets.upload(blob);
       const old = p.cover && p.cover.renderId;
       savePost(p.id, { cover: { ...cfg, photoId, renderId: rr.id } }, 0);
@@ -864,7 +918,11 @@ function CoverEditor({ close, postId }) {
   const lineOf = (l) => ({ ...(ROLE[l.role] || ROLE.title), text: String(l.text || '') });
   const useIdea = (lines) => { upd({ lines: lines.map(lineOf) }); setIdeas(null); };
   return html`<div class="sheet wide">
-    <div class="sheet-h"><h2>Cover</h2><div class="row gap-8"><button class="btn sm ghost" onClick=${close}>Cancel</button><button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save cover'}</button></div></div>
+    <div class="sheet-h wrap gap-8"><h2>Cover</h2><div class="row gap-6 wrap">
+      <button class="btn sm ghost" onClick=${close}>Close</button>
+      ${downloads && html`<button class="btn sm" disabled=${!!busyX} onClick=${(e) => openMenu(e, [{ label: 'JPG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/jpeg') }, { label: 'PNG, ' + W + ' × ' + H, icon: 'download', run: () => exportAs('image/png') }])}><${Icon} n="download" s=${16} />${busyX === 'export' ? 'Exporting…' : 'Export'}</button>`}
+      ${p.format === 'carousel' && html`<button class="btn sm" disabled=${!!busyX} onClick=${saveSlide}><${Icon} n="layers" s=${16} />${busyX === 'slide' ? 'Adding…' : 'Add as slide'}</button>`}
+      <button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save cover'}</button></div></div>
     <div class="ced">
       <div class="cstage" style=${`aspect-ratio:${W}/${H}`}>
         <canvas ref=${cv} width=${W} height=${H}></canvas>
@@ -879,6 +937,8 @@ function CoverEditor({ close, postId }) {
           <input type="file" id="cv-file" accept="image/*,video/*" hidden onChange=${(e) => { onFile(e.currentTarget.files[0]); e.currentTarget.value = ''; }} />
           ${fmt === 'reels' && html`<button class=${'chip' + (guide ? ' on' : '')} onClick=${() => setGuide(!guide)}>Grid guide</button>`}
         </div>
+        <div class="field"><span class="lbl">Size</span><div class="seg">${Object.entries(RATIOS).map(([k, r]) => html`<button class=${fmt === k ? 'on' : ''} onClick=${() => upd({ ratio: k })}>${r.name}</button>`)}</div>
+          <span class="small muted">${fmt === 'reels' ? 'The profile grid shows the middle 3:4.' : fmt === '3:4' ? 'Same shape as the profile grid.' : fmt === '4:5' ? 'Classic feed size. The grid trims a little off the sides.' : 'The grid trims the sides to 3:4.'}${p.format === 'carousel' ? ' Keep every slide in one size.' : ''}</span></div>
         ${img && html`<div class="grid2">
           <div class="field"><label for="cz">Zoom</label><input type="range" id="cz" min="1" max="2.5" step="0.01" value=${cfg.zoom || 1} onInput=${(e) => upd({ zoom: +e.currentTarget.value })} /></div>
           <div class="field"><label for="cg">Darken behind text</label><input type="range" id="cg" min="0" max="0.8" step="0.01" value=${cfg.grade} onInput=${(e) => upd({ grade: +e.currentTarget.value })} /></div>
@@ -905,12 +965,23 @@ function CoverEditor({ close, postId }) {
               <label>Width<input type="range" min="0.7" max="1" step="0.01" value=${l.hs || 1} aria-label=${'Width of line ' + (i + 1)} onInput=${(e) => setLine(i, { hs: +e.currentTarget.value })} /></label>
               <button class=${'chip' + (l.upper ? ' on' : '')} style="height:32px;padding:0 12px" onClick=${() => setLine(i, { upper: !l.upper })}>AA</button>
             </div>
+            <div class="row gap-6 wrap">
+              ${cfg.blocks.length > 1 && html`<select class="select input" style="width:auto;min-height:34px;padding:5px 34px 5px 12px;font-size:13px;background-position:calc(100% - 18px) 14px,calc(100% - 13px) 14px" aria-label=${'Group of line ' + (i + 1)} value=${Math.min(l.b || 0, cfg.blocks.length - 1)} onChange=${(e) => setLine(i, { b: +e.currentTarget.value })}>${cfg.blocks.map((_, j) => html`<option value=${j}>Group ${j + 1}</option>`)}</select>`}
+              <button class=${'chip' + (l.fit ? ' on' : '')} style="height:32px;padding:0 12px;font-size:13px" onClick=${() => setLine(i, { fit: !l.fit })}>Fill width</button>
+            </div>
           </div>`)}</div>
           <span class="small muted">Wrap a word in *stars* to set it in italic, like a *peace* in my Mind.</span>
-          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => upd({ lines: [...cfg.lines, { text: 'New line', font: 'editors-regular', size: 90 }] })}><${Icon} n="plus" s=${16} />Add line</button>
+          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => upd({ lines: [...cfg.lines, { text: 'New line', font: 'editors-regular', size: 90, b: cfg.blocks.length - 1 }] })}><${Icon} n="plus" s=${16} />Add line</button>
         </div>
-        <div class="field"><span class="lbl">Align</span><div class="seg">${['left', 'center', 'right'].map((a) => html`<button class=${cfg.align === a ? 'on' : ''} onClick=${() => upd({ align: a })}>${a[0].toUpperCase() + a.slice(1)}</button>`)}</div></div>
-        <div class="field"><label for="cy">Text position</label><input type="range" id="cy" min="0.05" max="0.95" step="0.01" value=${cfg.y} onInput=${(e) => upd({ y: +e.currentTarget.value })} /></div>
+        <div class="col gap-12">${cfg.blocks.map((blk, bi) => html`<div class="card col gap-8" style="padding:14px 16px;border-radius:16px">
+          <div class="row between"><b class="small">${cfg.blocks.length > 1 ? 'Group ' + (bi + 1) : 'Text placement'}</b>${cfg.blocks.length > 1 && html`<button class="icon-btn" style="width:30px;height:30px" aria-label=${'Remove group ' + (bi + 1)} onClick=${() => setCfg((c) => ({ ...c, blocks: c.blocks.filter((_, j) => j !== bi), lines: c.lines.filter((l) => (l.b || 0) !== bi).map((l) => ((l.b || 0) > bi ? { ...l, b: l.b - 1 } : l)) }))}><${Icon} n="x" s=${15} /></button>`}</div>
+          <div class="seg">${['left', 'center', 'right'].map((a) => html`<button class=${(blk.align || 'center') === a ? 'on' : ''} onClick=${() => setBlock(bi, { align: a })}>${a[0].toUpperCase() + a.slice(1)}</button>`)}</div>
+          <label class="lbl">Up / down<input type="range" min="0.03" max="0.97" step="0.01" value=${blk.y} aria-label=${'Position of group ' + (bi + 1)} onInput=${(e) => setBlock(bi, { y: +e.currentTarget.value })} /></label>
+          <label class="lbl">Text box width<input type="range" min="0.3" max="1" step="0.01" value=${blk.w || 1} aria-label=${'Width of group ' + (bi + 1)} onInput=${(e) => setBlock(bi, { w: +e.currentTarget.value })} /></label>
+        </div>`)}
+          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => setCfg((c) => ({ ...c, blocks: [...c.blocks, { y: 0.5, align: 'center', w: 1 }], lines: [...c.lines, { text: 'New text', font: 'editors-regular', size: 90, b: c.blocks.length }] }))}><${Icon} n="plus" s=${16} />Add text group</button>
+          <span class="small muted">Groups let text sit in different places, like a magazine masthead on top and cover lines on the side.</span>
+        </div>
         <div class="field"><span class="lbl">Text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (cfg.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => upd({ color: c })}></button>`)}<button class=${'chip' + (cfg.shadow ? ' on' : '')} onClick=${() => upd({ shadow: !cfg.shadow })}>Soft shadow</button></div></div>
       </div>
     </div>
