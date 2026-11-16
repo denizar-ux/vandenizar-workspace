@@ -333,7 +333,7 @@ function savePost(id, patch, delay) {
 function newPost(p = {}) {
   const pl = pillarOf(p.pillar);
   const post = { id: uid(), title: '', pillar: p.pillar || null, format: p.format || pl.format || 'reels', stage: 'idea', date: null, scriptDate: null, shootDate: null, editDate: null,
-    hook: '', script: '', caption: '', notes: '', cover: null, slides: [], postedAt: null, createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, ...p };
+    hook: '', script: '', caption: '', notes: '', story: '', refScript: '', cover: null, slides: [], postedAt: null, createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null, ...p };
   S.posts = { ...S.posts, [post.id]: post }; emit(); queueWrite('posts', post.id, post, 0); return post;
 }
 function saveThread(id, patch) { const cur = S.threads[id]; const next = { ...(cur || { id, createdAt: Date.now(), postedAt: null, deletedAt: null, date: null, text: '' }), ...patch, updatedAt: Date.now() }; S.threads = { ...S.threads, [id]: next }; emit(); queueWrite('threads', id, next); }
@@ -832,37 +832,90 @@ async function saveCoverFile(p) {
   catch (e) { if (e && e.code !== 'declined') toast('Could not save the image.'); }
 }
 
+// Storytelling method from Denizar's vandenizar-storytelling skill (anatta.ha method), condensed for Claude inside the page.
+const STORY_METHOD = `Storytelling method (follow it):
+1. He is the main character. The video is about WHY he does something, not WHAT he does. Test: could someone else post the exact same video? If yes, go one "why" deeper until only he could say it.
+2. Never invent his life. Use only events, feelings and details from his story notes, hook, notes or script below. Where a real personal detail is missing, write a placeholder in [square brackets] describing what to fill in. A made-up client, failure or feeling is never written as fact.
+3. Four beats, 45-60 seconds, about 100-150 Indonesian words, short spoken sentences:
+   - Ngaku (0-4 s): one first-person line with a feeling or a real moment. No topic announcement.
+   - Kenapa (4-25 s): three concrete, slightly embarrassing details only he has.
+   - Belokan (25-45 s): the turn ("Dari situ...", "Aku baru sadar..."). Any tutorial content lives here, framed by the story.
+   - Penutup jujur (45-55 s): short, honest, unfinished is fine. Light humour or a blooper is welcome. Never ask for follows.
+4. Hooks are confessions, never suspense. Patterns: "Aku [nggak suka/takut/malu] [hal spesifik]." / "Orang bilang aku [label]. Mungkin ada benernya." / "[X] tahun aku [kebiasaan], dan baru sekarang aku sadar..." / "Ada satu kalimat klien yang masih aku inget." / "Ini percobaan kedua aku [hal]."
+5. Voice: on camera he says "aku/kamu", casual spoken Indonesian (kalo, sampe, nggak). If a line sounds written, cut or split it.
+6. Visuals: show what the line says, plainly. Shot size follows emotion (uneasy = extreme close-ups, POV hands, black screen; relief = wide). A black card with one word before a heavy line. Old clips in a small window on black. One handmade recurring prop as an insert. End on a blooper or an awkward real moment. Prefer footage he likely has (desk, room, coffee shop, gym, laptop timeline, camera).
+7. On-screen text: every beat gets small captions of 2-4 words; mark 2-3 key lines as KUNCI (big text).`;
+const SCRIPT_FORMAT = `Output format, plain text (no markdown tables, no bold):
+HOOK: <the hook line>
+
+[0-4 dtk · Ngaku]
+VO: ...
+Visual: ...
+Teks: ...  (add "KUNCI" at the end if it is a big key line)
+
+[4-25 dtk · Kenapa]
+VO: ... (one VO line per sentence, each with its own Visual and Teks)
+
+... continue for Belokan and Penutup jujur.
+
+Then one line "Isi dulu:" listing the [placeholders] he must replace, or "Isi dulu: -" if none.`;
+const CHECKLIST = `Checklist: 3 detik pertama ada "aku" + perasaan atau momen nyata? Ada 3 detail yang cuma dia yang punya? Ada kalimat belokan? Penutup jujur, nggak menggurui, nggak nyuruh follow? Lolos tes "orang lain bisa posting video persis sama?" Tiap kalimat ada visualnya? 45-60 detik, ±100-150 kata, natural pas diomongin?`;
+
 function WriteWithClaude({ p }) {
-  const [busy, setBusy] = useState(null); const [out, setOut] = useState(''); const [target, setTarget] = useState(null); const [about, setAbout] = useState('');
+  const [busy, setBusy] = useState(null); const [out, setOut] = useState(''); const [target, setTarget] = useState(null);
+  const [showRef, setShowRef] = useState(!!p.refScript); const [take, setTake] = useState(['structure', 'hook']);
   const ctl = useRef(null);
   if (!sample) return html`<div class="ai"><b>Write with Claude</b><span class="small">Open this page in Claude to write hooks, scripts and captions here.</span></div>`;
+  const story = () => (p.story && p.story.trim() ? `\nHis real story and details (the only facts you may use about his life):\n${p.story.trim()}\n` : '\nHe has not written his story yet, so use [placeholders] for every personal detail.\n');
+  const isStory = p.format !== 'carousel' && p.format !== 'photo';
+  const lang = settings().lang === 'en' ? 'Write in natural spoken English.' : 'Write in casual spoken Indonesian with aku/kamu.';
+  const TAKES = { structure: 'the structure and pacing (beat order, where the turn sits)', hook: 'the hook pattern (rewrite it as his own confession)', angle: 'the angle or idea (retold through his own life)', visuals: 'the visual ideas and shot rhythm' };
+  const asks = {
+    hook: () => `Give 5 hook options for this post. Each is a first-person confession under 12 words, using the hook patterns. Number them 1-5, nothing else.`,
+    script: () => isStory ? `Write the storytelling script for this reel using the method.\n${SCRIPT_FORMAT}` : `Write the slide-by-slide text for this carousel (Slide 1, Slide 2, ..., 6-9 slides, one or two short lines each). Slide 1 is the hook as a confession, the middle slides carry the why and the turn, the last slide closes honestly. Keep the why-rule and never invent his life; use [placeholders].`,
+    why: () => `Before writing, ask him the why ladder for this post as exactly 3 short questions in casual Indonesian (gw/lu): 1) Kenapa lu bikin video ini? 2) Kenapa itu penting buat lu, momen nyatanya apa? 3) Kenapa itu masih nempel sampe sekarang, kebiasaan atau barang apa yang ketinggalan? Make each question specific to this post. Number them 1-3, nothing else.`,
+    review: () => `Review his current script against the checklist. ${CHECKLIST}\nFirst list only the checklist items it misses, one line each, in casual Indonesian (gw/lu). Then a line "---", then the script with only the failing beats rewritten, keeping his own wording everywhere else, in the same format.\n${SCRIPT_FORMAT}`,
+    rewrite: () => `Here is someone else's script as a reference:\n"""\n${(p.refScript || '').trim()}\n"""\nTake only ${take.map((k) => TAKES[k]).join(', ') || 'the structure'} from it. Do not copy its sentences, its facts or its life events. Retell it as his own story using the method, with his real details or [placeholders].\n${isStory ? SCRIPT_FORMAT : 'Write it as carousel slide text (Slide 1, Slide 2, ...).'}`,
+    caption: () => `Write one Instagram caption: 2-4 short lines in his voice that add something the video does not say, then a blank line and 3-5 relevant hashtags. No emoji spam, no asking for follows.`,
+  };
   const run = async (kind) => {
+    if (kind === 'rewrite' && !(p.refScript || '').trim()) return toast('Paste the reference script first.');
+    if (kind === 'review' && !(p.script || '').trim()) return toast('Write or paste your script first.');
     if (ctl.current) ctl.current.abort();
     const ac = new AbortController(); ctl.current = ac; setBusy(kind); setOut(''); setTarget(kind);
-    const extra = about.trim() ? `\nWhat he wants this post to say: ${about.trim()}\n` : '';
-    const asks = {
-      hook: `Give 5 hook options for this post (the first line or the first 2 seconds on screen). Each under 12 words, each a different angle. Number them 1-5, nothing else.`,
-      script: `Write the ${p.format === 'carousel' ? 'slide-by-slide text for the carousel (Slide 1, Slide 2, ... with one or two short lines each, 6-9 slides)' : 'voice-over script for a 30-60 second reel, with simple shot notes in [brackets]'}. Storytelling structure: start in the middle of a real moment, show a small change or realization, end on a quiet concrete image. Keep it personal and specific to his life. ${p.hook ? 'Start from this hook: ' + p.hook : ''}`,
-      caption: `Write one Instagram caption: 2-4 short lines, personal, specific, then a blank line and 3-5 relevant hashtags. No emoji spam.`,
-    };
-    try {
-      const res = await sample(`${postContext(p)}${extra}\n${asks[kind]}\n${langLine()}\n\n${STYLE_GUARD}`, { signal: ac.signal, onText: ({ text }) => setOut(text), cache: false });
-      setOut(res.text);
-    } catch (e) { if (e && e.name !== 'AbortError') setOut(e && e.code === 'rate_limited' ? 'Claude is busy. Try again in a minute.' : e && e.code === 'not_granted' ? 'Claude is not allowed on this page.' : 'Something went wrong. Try again.'); }
+    const prompt = `${postContext(p)}${story()}\n${STORY_METHOD}\n\n${STYLE_GUARD}\n\n${lang}\n\nTask: ${asks[kind]()}`;
+    try { const res = await sample(prompt, { signal: ac.signal, onText: ({ text }) => setOut(text), cache: false, modelTier: kind === 'hook' || kind === 'why' ? 'default' : 'complex' }); setOut(res.text); }
+    catch (e) { if (e && e.name !== 'AbortError') setOut(e && e.code === 'rate_limited' ? 'Claude is busy. Try again in a minute.' : e && e.code === 'not_granted' ? 'Claude is not allowed on this page.' : 'Something went wrong. Try again.'); }
     setBusy(null);
   };
-  const use = (mode) => { const field = target === 'hook' ? 'hook' : target; if (target === 'hook') { const first = (out.match(/^\s*1[.)]\s*(.+)$/m) || [])[1]; return savePost(p.id, { hook: (first || out).trim() }, 0); } savePost(p.id, { [field]: mode === 'append' && p[field] ? p[field] + '\n\n' + out : out }, 0); toast(field[0].toUpperCase() + field.slice(1) + ' updated'); };
+  const field = { hook: 'hook', script: 'script', review: 'script', rewrite: 'script', caption: 'caption' }[target];
+  const use = (mode) => {
+    if (target === 'hook') { const first = (out.match(/^\s*1[.)]\s*(.+)$/m) || [])[1]; savePost(p.id, { hook: (first || out).trim().replace(/^"|"$/g, '') }, 0); return toast('Hook updated'); }
+    if (target === 'why') { savePost(p.id, { story: ((p.story || '') + (p.story ? '\n\n' : '') + out.trim() + '\n\nJawaban gw:\n') }, 0); return toast('Questions added to your story. Answer them there.'); }
+    let text = out; if (target === 'review' && out.includes('---')) text = out.split('---').slice(1).join('---').trim();
+    const hook = (text.match(/^HOOK:\s*(.+)$/m) || [])[1];
+    savePost(p.id, { [field]: mode === 'append' && p[field] ? p[field] + '\n\n' + text : text, ...(hook && field === 'script' && !p.hook ? { hook: hook.trim() } : {}) }, 0);
+    toast(field[0].toUpperCase() + field.slice(1) + ' updated');
+  };
+  const B = (kind, label) => html`<button class="btn sm" disabled=${!!busy} onClick=${() => run(kind)}>${busy === kind ? 'Writing…' : label}</button>`;
   return html`<div class="ai">
-    <div class="row gap-8"><${Icon} n="spark" /><b>Write with Claude</b></div>
-    <input class="input" id="ai-about" placeholder="What's it really about? One or two lines helps a lot." value=${about} onInput=${(e) => setAbout(e.currentTarget.value)} />
-    <div class="row gap-6 wrap">
-      <button class="btn sm" disabled=${!!busy} onClick=${() => run('hook')}>${busy === 'hook' ? 'Writing…' : '5 hooks'}</button>
-      <button class="btn sm" disabled=${!!busy} onClick=${() => run('script')}>${busy === 'script' ? 'Writing…' : p.format === 'carousel' ? 'Slide text' : 'Script'}</button>
-      <button class="btn sm" disabled=${!!busy} onClick=${() => run('caption')}>${busy === 'caption' ? 'Writing…' : 'Caption'}</button>
-      ${busy && html`<button class="btn sm ghost" onClick=${() => ctl.current && ctl.current.abort()}>Stop</button>`}
-    </div>
+    <div class="row gap-8"><${Icon} n="spark" /><b>Write with Claude</b><span class="small muted" style="margin-left:auto">Storytelling method</span></div>
+    <div class="field"><label for="ai-story">Your real story</label>
+      <textarea class="input" id="ai-story" rows="4" placeholder="What actually happened, how it felt, details only you have. Claude only uses what you write here. Missing parts become [placeholders]." value=${p.story || ''} onInput=${(e) => savePost(p.id, { story: e.currentTarget.value })}></textarea></div>
+    <div class="row gap-6 wrap">${B('why', '3 why questions')}${B('hook', '5 hooks')}${B('script', isStory ? 'Script' : 'Slide text')}${B('review', 'Check my script')}${B('caption', 'Caption')}
+      ${busy && html`<button class="btn sm ghost" onClick=${() => ctl.current && ctl.current.abort()}>Stop</button>`}</div>
+    <button class="row gap-6 small" style="font-weight:650;align-self:flex-start" onClick=${() => setShowRef(!showRef)} aria-expanded=${showRef}><${Icon} n=${showRef ? 'down' : 'right'} s=${15} />Rewrite from someone else's script</button>
+    ${showRef && html`<div class="col gap-8">
+      <textarea class="input" id="ai-ref" rows="5" placeholder="Paste the reference script or transcript here" value=${p.refScript || ''} onInput=${(e) => savePost(p.id, { refScript: e.currentTarget.value })}></textarea>
+      <div class="row gap-6 wrap"><span class="small muted">Take from it:</span>${Object.entries({ structure: 'Structure', hook: 'Hook pattern', angle: 'Angle', visuals: 'Visuals' }).map(([k, n]) => html`<button class=${'chip' + (take.includes(k) ? ' on' : '')} style="height:32px;padding:0 12px;font-size:13px" onClick=${() => setTake(take.includes(k) ? take.filter((x) => x !== k) : [...take, k])}>${n}</button>`)}</div>
+      <div>${B('rewrite', 'Rewrite as my story')}</div>
+      <span class="small muted">Claude keeps only what you pick and retells it with your own story. It won't copy their lines.</span>
+    </div>`}
     ${out && html`<div class="out">${out}</div>`}
-    ${out && !busy && html`<div class="row gap-6 wrap"><button class="btn sm primary" onClick=${() => use('replace')}>${target === 'hook' ? 'Use hook 1' : 'Use this'}</button>${target !== 'hook' && html`<button class="btn sm" onClick=${() => use('append')}>Add below mine</button>`}<button class="btn sm ghost" onClick=${() => navigator.clipboard.writeText(out).then(() => toast('Copied'), () => {})}>Copy</button></div>`}
+    ${out && !busy && html`<div class="row gap-6 wrap">
+      ${target === 'why' ? html`<button class="btn sm primary" onClick=${() => use('replace')}>Add to my story</button>` : html`<button class="btn sm primary" onClick=${() => use('replace')}>${target === 'hook' ? 'Use hook 1' : target === 'review' ? 'Use fixed script' : 'Use this'}</button>`}
+      ${target !== 'hook' && target !== 'why' && html`<button class="btn sm" onClick=${() => use('append')}>Add below mine</button>`}
+      <button class="btn sm ghost" onClick=${() => navigator.clipboard.writeText(out).then(() => toast('Copied'), () => {})}>Copy</button></div>`}
   </div>`;
 }
 
