@@ -6,7 +6,7 @@
 <title>Vandenizar Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..800&family=Playfair+Display:ital,wght@1,400..800&family=Pinyon+Script&family=Anton&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap" rel="stylesheet">
 <style>
 /* Studio follows the Work app: warm-white canvas, oversized light Manrope titles, flat pastel blocks,
    black primary controls. Layout: sidebar on desktop, dock + floating add on phones. */
@@ -233,6 +233,9 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .lines { display: flex; flex-direction: column; gap: 10px; }
 .lnr { display: grid; grid-template-columns: 1fr 112px 36px; gap: 8px; align-items: center; }
 .lnr .input { min-height: 42px; padding: 9px 12px; }
+.lctl { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+.lctl label { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.lnr { grid-template-columns: 1fr 150px 36px; }
 .lnr textarea.input { min-height: 42px; }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
 .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
@@ -423,67 +426,79 @@ function postContext(p) {
 const langLine = () => settings().lang === 'en' ? 'Write in natural English.' : 'Write in casual Indonesian (gw/lu is fine for voice-over, keep it natural, mix English terms only where people really say them).';
 
 /* ---------- cover rendering ---------- */
-const FONTS = {
-  caps: { font: (px) => `500 ${px}px "Bodoni Moda"`, upper: true, hs: 0.8, lh: 0.92, ls: 0.01 },
-  italic: { font: (px) => `italic 500 ${px}px "Playfair Display"`, upper: false, hs: 1, lh: 0.98, ls: 0 },
-  script: { font: (px) => `400 ${px}px "Pinyon Script"`, upper: false, hs: 1, lh: 1.12, ls: 0 },
-  bold: { font: (px) => `400 ${px}px "Anton"`, upper: true, hs: 1, lh: 1.0, ls: 0.01 },
-  label: { font: (px) => `700 ${px}px Manrope`, upper: true, hs: 1, lh: 1.35, ls: 0.16 },
-  small: { font: (px) => `500 ${px}px "Bodoni Moda"`, upper: true, hs: 1, lh: 1.3, ls: 0.05 },
+// Denizar's own fonts ship with the page (fonts/*.woff2). key -> family, group, italic partner for *word* markup.
+const FONT_LIB = {
+  'editors-regular': ["Editor's Note", 'Serif titles', 'editors-italic'], 'editors-light': ["Editor's Note Light", 'Serif titles', 'editors-lightitalic'], 'editors-bold': ["Editor's Note Bold", 'Serif titles', 'editors-italic'],
+  'editors-italic': ["Editor's Note Italic", 'Serif titles'], 'editors-lightitalic': ["Editor's Note Light Italic", 'Serif titles'],
+  'garamond-regular': ['Apple Garamond', 'Serif titles', 'garamond-italic'], 'garamond-light': ['Apple Garamond Light', 'Serif titles', 'garamond-lightitalic'], 'garamond-bold': ['Apple Garamond Bold', 'Serif titles', 'garamond-italic'],
+  'garamond-italic': ['Apple Garamond Italic', 'Serif titles'], 'garamond-lightitalic': ['Apple Garamond Light Italic', 'Serif titles'],
+  'seasons-regular': ['The Seasons', 'Serif titles', 'seasons-italic'], 'seasons-light': ['The Seasons Light', 'Serif titles', 'seasons-italic'], 'seasons-bold': ['The Seasons Bold', 'Serif titles', 'seasons-italic'], 'seasons-italic': ['The Seasons Italic', 'Serif titles'],
+  'moneta-light': ['Moneta Light', 'Serif titles'], 'moneta-regular': ['Moneta', 'Serif titles'], 'moneta-bold': ['Moneta Bold', 'Serif titles'],
+  'frunchy-regular': ['Frunchy Serif', 'Serif titles', 'frunchy-italic'], 'frunchy-light': ['Frunchy Serif Light', 'Serif titles', 'frunchy-lightitalic'], 'frunchy-italic': ['Frunchy Serif Italic', 'Serif titles'], 'frunchy-lightitalic': ['Frunchy Serif Light Italic', 'Serif titles'],
+  'pioggia': ['Pioggia', 'Serif titles'], 'branch': ['Branch', 'Serif titles'], 'sacredvalley': ['Sacred Valley', 'Serif titles'], 'lejour': ['Le Jour Serif', 'Serif titles'], 'ballpark-serif': ['Georgia Ballpark Serif', 'Serif titles'],
+  'tokyodreams': ['Tokyo Dreams', 'Display'], 'blosta': ['Blosta', 'Display'], 'laobrige': ['La Obrige', 'Display'], 'gyahegi': ['Gyahegi', 'Display'], 'sundaymasthead': ['Sunday Masthead', 'Display'], 'mogula': ['Mogula', 'Display'], 'moresugar': ['More Sugar', 'Display'],
+  'vivaldi': ['Vivaldi', 'Script'], 'blosta-script': ['Blosta Script', 'Script'], 'ballpark-script': ['Georgia Ballpark Script', 'Script'], 'infamous': ['Infamous', 'Script'],
+  'avenir-regular': ['Avenir Next', 'Sans', 'avenir-italic'], 'avenir-bold': ['Avenir Next Bold', 'Sans', 'avenir-italic'], 'avenir-italic': ['Avenir Next Italic', 'Sans'],
+  'altehaas-regular': ['Alte Haas Grotesk', 'Sans'], 'altehaas-bold': ['Alte Haas Grotesk Bold', 'Sans'],
+  'helvetica-regular': ['Helvetica', 'Sans'], 'helvetica-light': ['Helvetica Light', 'Sans'], 'helvetica-bold': ['Helvetica Bold', 'Sans'], 'helvetica-compressed': ['Helvetica Compressed', 'Sans'],
 };
-const STYLE_NAMES = { caps: 'Serif caps', italic: 'Italic', script: 'Script', bold: 'Bold sans', label: 'Label', small: 'Small text' };
+const fam = (k) => 'dz-' + (FONT_LIB[k] ? k : 'editors-regular');
+(() => { const st = document.createElement('style'); st.textContent = Object.keys(FONT_LIB).map((k) => `@font-face{font-family:"dz-${k}";src:url("fonts/${k}.woff2") format("woff2");font-display:block}`).join('\n'); document.head.appendChild(st); })();
+const FONT_GROUPS = ['Serif titles', 'Display', 'Script', 'Sans'];
+// Older covers used named styles; map them onto the font library.
+const LEGACY = { caps: { font: 'garamond-regular', upper: true, hs: 0.86 }, italic: { font: 'editors-italic' }, script: { font: 'vivaldi' }, bold: { font: 'sundaymasthead', upper: true }, label: { font: 'avenir-bold', upper: true, ls: 0.16 }, small: { font: 'avenir-regular', upper: true, ls: 0.04 } };
+const normLine = (l) => (l.font ? l : { ...(LEGACY[l.style] || LEGACY.caps), text: l.text, size: l.size });
+const L = (text, font, size, o = {}) => ({ text, font, size, ...o });
 const PRESETS = {
-  movie: { name: 'Movie poster', y: 0.66, lines: [
-    { text: 'HOW I SHOOT', style: 'caps', size: 72 }, { text: 'Work From Home', style: 'script', size: 190 }, { text: 'EDITION', style: 'caps', size: 110 },
-    { text: 'ONE DESK, ONE LIGHT, A FULL CAMPAIGN\nSHOT WITHOUT LEAVING THE ROOM', style: 'small', size: 22 }, { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: '{presented}', style: 'label', size: 24 } ] },
-  story: { name: 'Little story', y: 0.64, lines: [
-    { text: 'LITTLE STORY', style: 'caps', size: 120 }, { text: 'of a quiet evening', style: 'italic', size: 60 }, { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: '{presented}', style: 'italic', size: 40 } ] },
-  script: { name: 'Script title', y: 0.72, lines: [{ text: 'the Wanderer', style: 'script', size: 170 }, { text: 'IN A CITY THAT NEVER SLOWS DOWN', style: 'small', size: 20 }] },
-  bold: { name: 'Bold', y: 0.3, lines: [{ text: "I'M A", style: 'bold', size: 80 }, { text: '9 TO 5', style: 'bold', size: 160 }, { text: 'VIDEOGRAPHER', style: 'bold', size: 80 }] },
-  minimal: { name: 'Minimal', y: 0.82, lines: [{ text: 'MY WORKING SETUP', style: 'caps', size: 78 }, { text: '{presented}', style: 'label', size: 18 }] },
+  practical: { name: 'Practical Light', align: 'center', y: 0.7, lines: [L('A MAGIC OF', 'avenir-bold', 34, { ls: 0.12 }), L('Practical\nLight', 'editors-regular', 190, { lh: 0.86 }), L('ANY LIGHT YOU CAN SEE IN THE FRAME\nTHAT ALSO LIGHTS THE SCENE', 'avenir-regular', 19, { upper: true, ls: 0.03 })] },
+  postcard: { name: 'Moving Postcard', align: 'center', y: 0.2, lines: [L('HOW TO CREATE', 'avenir-bold', 28, { ls: 0.22 }), L('MOVING\nPOSTCARD', 'garamond-regular', 170, { upper: true, hs: 0.84, lh: 0.88 }), L('My Little Journey', 'avenir-bold', 26), L('Every small trip, kept in one frame.', 'avenir-regular', 22)] },
+  healing: { name: 'Healing Journey', align: 'right', y: 0.2, lines: [L('Healing\nJourney', 'editors-regular', 175, { lh: 0.84 }), L('RECHARGE BY\nCHANGING YOUR ROUTINE.', 'avenir-bold', 28, { lh: 1.1 }), L('A SHORT NOTE ON WHY I LEFT\nTHE DESK FOR A WEEK.', 'avenir-regular', 18, { upper: true })] },
+  lower: { name: 'camera creator', align: 'center', y: 0.5, lines: [L('camera\ncontent\ncreator', 'editors-regular', 200, { lh: 0.8 }), L('My Working Setup', 'avenir-regular', 30, { ls: 0.08 })] },
+  movie: { name: 'Favorite Movie', align: 'center', y: 0.76, lines: [L('living in\nmy favorite', 'editors-regular', 120, { lh: 0.9 }), L('Movie', 'vivaldi', 190, { lh: 0.9 }), L('DIRECTED BY {presented}', 'avenir-bold', 18, { ls: 0.08 })] },
+  diary: { name: 'A Day Diary', align: 'center', y: 0.55, lines: [L('A DAY DIARY', 'avenir-regular', 26, { ls: 0.3 }), L('a *peace*\nin my Mind', 'editors-regular', 130, { lh: 0.9 }), L('BELIEVE IN YOURSELF\nA LITTLE MORE.', 'avenir-bold', 17, { ls: 0.12 })] },
+  shots: { name: '1 Scene 5 Shots', align: 'center', y: 0.2, lines: [L('1 SCENE\n5 SHOTS', 'pioggia', 170, { lh: 0.9 }), L('a shot is the moment the camera starts\nrolling until the moment it stops.', 'avenir-bold', 22)] },
+  city: { name: 'Mini Diary', align: 'left', y: 0.84, lines: [L('MINI DIARY', 'avenir-regular', 24, { ls: 0.3 }), L('BEKASI', 'editors-regular', 160, { upper: true }), L('A NORMAL WEEK, FILMED SLOWLY.', 'avenir-regular', 18, { ls: 0.04 })] },
 };
 const COLORS = ['#f4ecd8', '#ffffff', '#f2c75c', '#e9b98c', '#151513'];
 const coverSize = (fmt) => fmt === 'reels' ? [1080, 1920] : [1080, 1440];
 const gridCrop = (fmt) => fmt === 'reels' ? { top: 240 / 1920, h: 1440 / 1920 } : { top: 0, h: 1 };
-function defaultCover(p) {
-  const pr = PRESETS.movie; const pres = settings().cover.presented;
-  return { preset: 'movie', y: pr.y, color: settings().cover.color, shadow: true, grade: 0.35, zoom: 1, px: 0, py: 0, photoId: null, renderId: null,
-    lines: pr.lines.map((l, i) => ({ ...l, text: i === 1 && p.title ? p.title : l.text.replace('{presented}', pres) })) };
-}
-let fontsReady = null;
-const loadFonts = () => fontsReady || (fontsReady = Promise.all(['500 60px "Bodoni Moda"', 'italic 500 60px "Playfair Display"', '400 60px "Pinyon Script"', '400 60px Anton', '700 30px Manrope'].map((f) => document.fonts.load(f).catch(() => {}))));
+const presetLines = (k, title) => { const pres = settings().cover.presented || 'VANDENIZAR'; return PRESETS[k].lines.map((l) => ({ ...l, text: l.text.replace('{presented}', pres.toUpperCase()) })); };
+function defaultCover(p) { const pr = PRESETS.practical; return { preset: 'practical', align: pr.align, y: pr.y, color: settings().cover.color, shadow: true, grade: 0.35, zoom: 1, px: 0, py: 0, photoId: null, renderId: null, lines: presetLines('practical') }; }
+const loadFonts = (lines) => Promise.all([...new Set((lines || []).flatMap((l) => { const n = normLine(l); return [n.font, FONT_LIB[n.font] && FONT_LIB[n.font][2]].filter(Boolean); }))].map((k) => document.fonts.load(`60px "${fam(k)}"`).catch(() => {})));
+const segsOf = (t) => String(t).split(/(\*[^*]+\*)/).filter(Boolean).map((s) => (s.startsWith('*') && s.endsWith('*') && s.length > 2 ? { t: s.slice(1, -1), it: true } : { t: s, it: false }));
 function drawCover(cv, cfg, img, fmt) {
   const [W, H] = coverSize(fmt); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
   ctx.fillStyle = '#1b1a17'; ctx.fillRect(0, 0, W, H);
   if (img) {
     const iw = img.videoWidth || img.naturalWidth || img.width, ih = img.videoHeight || img.naturalHeight || img.height;
     const sc = Math.max(W / iw, H / ih) * (cfg.zoom || 1); const dw = iw * sc, dh = ih * sc;
-    const dx = (W - dw) / 2 + (cfg.px || 0) * (dw - W) / 2, dy = (H - dh) / 2 + (cfg.py || 0) * (dh - H) / 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.drawImage(img, (W - dw) / 2 + (cfg.px || 0) * (dw - W) / 2, (H - dh) / 2 + (cfg.py || 0) * (dh - H) / 2, dw, dh);
   }
-  if (cfg.grade > 0) { const g = ctx.createLinearGradient(0, H * 0.3, 0, H); g.addColorStop(0, 'rgba(10,8,6,0)'); g.addColorStop(1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
-  const margin = 80, maxW = W - margin * 2;
-  const crop = gridCrop(fmt); const safeTop = crop.top * H + 60, safeBot = (crop.top + crop.h) * H - 60;
-  // measure lines
+  if (cfg.grade > 0) { const top = (cfg.y ?? 0.6) < 0.45; const g = ctx.createLinearGradient(0, top ? 0 : H * 0.3, 0, top ? H * 0.7 : H); g.addColorStop(top ? 1 : 0, 'rgba(10,8,6,0)'); g.addColorStop(top ? 0 : 1, `rgba(10,8,6,${cfg.grade})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+  const margin = 76, maxW = W - margin * 2; const align = cfg.align || 'center';
+  const crop = gridCrop(fmt); const safeTop = crop.top * H + 56, safeBot = (crop.top + crop.h) * H - 56;
+  const setFont = (key, px, ls) => { ctx.font = `${px}px "${fam(key)}"`; try { ctx.letterSpacing = (ls || 0) * px + 'px'; } catch (e) {} };
   const rows = [];
-  (cfg.lines || []).forEach((ln) => {
-    const f = FONTS[ln.style] || FONTS.caps; const parts = String(ln.text || '').split('\n');
-    parts.forEach((t) => {
-      let px = ln.size || 60; const txt = f.upper ? t.toUpperCase() : t;
-      let w; for (let k = 0; k < 30; k++) { ctx.font = f.font(px); try { ctx.letterSpacing = (f.ls * px) + 'px'; } catch (e) {} w = ctx.measureText(txt).width * f.hs; if (w <= maxW || px < 12) break; px *= 0.94; }
-      rows.push({ txt, px, w, f, h: px * f.lh });
+  (cfg.lines || []).map(normLine).forEach((ln) => {
+    const hs = ln.hs || 1; const it = (FONT_LIB[ln.font] && FONT_LIB[ln.font][2]) || ln.font;
+    String(ln.text || '').split('\n').forEach((raw) => {
+      const segs = segsOf(ln.upper ? raw.toUpperCase() : raw);
+      let px = ln.size || 60, w = 0;
+      for (let k = 0; k < 30; k++) { w = 0; segs.forEach((s) => { setFont(s.it ? it : ln.font, px, ln.ls); s.w = ctx.measureText(s.t).width * hs; w += s.w; }); if (w <= maxW || px < 12) break; px *= 0.94; }
+      rows.push({ segs, px, w, hs, ls: ln.ls, font: ln.font, it, h: px * (ln.lh || (px > 70 ? 0.95 : 1.3)) });
     });
-    if (rows.length) rows[rows.length - 1].gapAfter = (ln.size || 60) * 0.14;
+    if (rows.length) rows[rows.length - 1].gap = Math.max(10, (ln.size || 60) * 0.16);
   });
-  const total = rows.reduce((a, r) => a + r.h + (r.gapAfter || 0), 0);
-  let y = Math.min(Math.max(H * (cfg.y ?? 0.65) - total / 2, safeTop), Math.max(safeTop, safeBot - total));
+  if (rows.length) rows[rows.length - 1].gap = 0;
+  const total = rows.reduce((a, r) => a + r.h + (r.gap || 0), 0);
+  let y = Math.min(Math.max(H * (cfg.y ?? 0.6) - total / 2, safeTop), Math.max(safeTop, safeBot - total));
   ctx.fillStyle = cfg.color || '#f4ecd8'; ctx.textBaseline = 'alphabetic';
   if (cfg.shadow) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 2; }
   rows.forEach((r) => {
-    ctx.font = r.f.font(r.px); try { ctx.letterSpacing = (r.f.ls * r.px) + 'px'; } catch (e) {}
-    const base = y + r.h * 0.8; const x = (W - r.w) / 2;
-    ctx.save(); ctx.translate(x, base); ctx.scale(r.f.hs, 1); ctx.fillText(r.txt, 0, 0); ctx.restore();
-    y += r.h + (r.gapAfter || 0);
+    let x = align === 'left' ? margin : align === 'right' ? W - margin - r.w : (W - r.w) / 2;
+    const base = y + r.h * 0.8;
+    r.segs.forEach((s) => { setFont(s.it ? r.it : r.font, r.px, r.ls); ctx.save(); ctx.translate(x, base); ctx.scale(r.hs, 1); ctx.fillText(s.t, 0, 0); ctx.restore(); x += s.w; });
+    y += r.h + (r.gap || 0);
   });
   ctx.shadowColor = 'transparent';
 }
@@ -804,16 +819,16 @@ function WriteWithClaude({ p }) {
 /* ----- Cover editor ----- */
 function CoverEditor({ close, postId }) {
   const p = S.posts[postId];
-  const [cfg, setCfg] = useState(() => JSON.parse(JSON.stringify(p.cover || defaultCover(p))));
+  const [cfg, setCfg] = useState(() => { const c = JSON.parse(JSON.stringify(p.cover || defaultCover(p))); c.lines = (c.lines || []).map(normLine); c.align = c.align || 'center'; return c; });
   const [img, setImg] = useState(null); const [video, setVideo] = useState(null); const [vt, setVt] = useState(0);
   const [busy, setBusy] = useState(false); const [guide, setGuide] = useState(true); const [ideas, setIdeas] = useState(null);
   const cv = useRef(null); const vref = useRef(null); const fmt = p.format;
   const [W, H] = coverSize(fmt); const crop = gridCrop(fmt);
   useEffect(() => { loadImg(assetSrc(cfg.photoId)).then(setImg).catch(() => {}); }, []);
-  useEffect(() => { let on = true; loadFonts().then(() => { if (on && cv.current) drawCover(cv.current, cfg, img, fmt); }); return () => { on = false; }; }, [cfg, img]);
+  useEffect(() => { let on = true; loadFonts(cfg.lines).then(() => { if (on && cv.current) drawCover(cv.current, cfg, img, fmt); }); return () => { on = false; }; }, [cfg, img]);
   const upd = (patch) => setCfg((c) => ({ ...c, ...patch }));
   const setLine = (i, patch) => setCfg((c) => ({ ...c, lines: c.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
-  const applyPreset = (k) => { const pr = PRESETS[k]; const pres = settings().cover.presented; upd({ preset: k, y: pr.y, lines: pr.lines.map((l) => ({ ...l, text: l.text.replace('{presented}', pres) })) }); };
+  const applyPreset = (k) => { const pr = PRESETS[k]; upd({ preset: k, y: pr.y, align: pr.align, lines: presetLines(k) }); };
   const onFile = (f) => {
     if (!f) return;
     const url = URL.createObjectURL(f);
@@ -827,7 +842,7 @@ function CoverEditor({ close, postId }) {
     try {
       let photoId = cfg.photoId;
       if (img && img._file && !photoId) { const r = await assets.upload(img._file); photoId = r.id; }
-      await loadFonts(); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt);
+      await loadFonts(cfg.lines); const out = document.createElement('canvas'); drawCover(out, cfg, img, fmt);
       const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.9));
       const rr = await assets.upload(blob);
       const old = p.cover && p.cover.renderId;
@@ -841,12 +856,13 @@ function CoverEditor({ close, postId }) {
     if (!sample) return;
     setIdeas('loading');
     try {
-      const v = await sample.json(`${postContext(p)}\nWrite cover text for this post in a cinematic movie-poster style: a stacked, centered title like "HOW TO DO YOUR / Cover Image / LIKE A MOVIE", or "LITTLE STORY / of a little girl". Give 3 options. Each option is an array of lines; each line has "text" and "style", where style is one of: caps (thin serif capitals), script (elegant script for the one key phrase), italic, bold (condensed bold sans), small (a one or two line tagline in small caps), label (tiny spaced capitals like PRESENTED BY). Keep the main title short (2-5 words). English. Return JSON: {"options": [[{"text":"","style":""}]]}.`, { modelTier: 'quick' });
+      const v = await sample.json(`${postContext(p)}\nWrite cover text for this post in the style of cinematic lifestyle covers (examples: "A MAGIC OF / Practical Light", "HOW TO CREATE / MOVING POSTCARD / My Little Journey", "Healing Journey / RECHARGE BY CHANGING YOUR ROUTINE.", "A DAY DIARY / a *peace* in my Mind", "1 SCENE 5 SHOTS / a shot is the moment the camera starts rolling"). Give 3 options. Each option is an array of 2-4 lines; each line has "text" and "role": label (a short spaced-caps kicker above the title), title (2-4 words, mixed case serif; wrap one word in *asterisks* to set it in italic), caps (the title in condensed serif capitals instead), script (one word in script), small (a one or two line tagline). Use \n inside a title to break it into two lines. English. Return JSON: {"options": [[{"text":"","role":""}]]}.`, { modelTier: 'quick' });
       setIdeas((v && v.options) || []);
     } catch (e) { setIdeas(null); toast('Claude could not answer. Try again.'); }
   };
-  const SIZES = { caps: 110, script: 200, italic: 90, bold: 150, small: 24, label: 16 };
-  const useIdea = (lines) => { const pres = settings().cover.presented; upd({ lines: [...lines.map((l) => ({ text: l.text, style: FONTS[l.style] ? l.style : 'caps', size: SIZES[l.style] || 80 })), { text: 'PRESENTED BY', style: 'label', size: 15 }, { text: pres, style: 'label', size: 24 }] }); setIdeas(null); };
+  const ROLE = { label: { font: 'avenir-bold', size: 30, ls: 0.16 }, title: { font: 'editors-regular', size: 170, lh: 0.86 }, caps: { font: 'garamond-regular', size: 160, upper: true, hs: 0.84, lh: 0.88 }, script: { font: 'vivaldi', size: 180, lh: 0.9 }, small: { font: 'avenir-regular', size: 20, upper: true, ls: 0.04 } };
+  const lineOf = (l) => ({ ...(ROLE[l.role] || ROLE.title), text: String(l.text || '') });
+  const useIdea = (lines) => { upd({ lines: lines.map(lineOf) }); setIdeas(null); };
   return html`<div class="sheet wide">
     <div class="sheet-h"><h2>Cover</h2><div class="row gap-8"><button class="btn sm ghost" onClick=${close}>Cancel</button><button class="btn sm primary" disabled=${busy} onClick=${save}>${busy ? 'Saving…' : 'Save cover'}</button></div></div>
     <div class="ced">
@@ -865,7 +881,7 @@ function CoverEditor({ close, postId }) {
         </div>
         ${img && html`<div class="grid2">
           <div class="field"><label for="cz">Zoom</label><input type="range" id="cz" min="1" max="2.5" step="0.01" value=${cfg.zoom || 1} onInput=${(e) => upd({ zoom: +e.currentTarget.value })} /></div>
-          <div class="field"><label for="cg">Darken bottom</label><input type="range" id="cg" min="0" max="0.8" step="0.01" value=${cfg.grade} onInput=${(e) => upd({ grade: +e.currentTarget.value })} /></div>
+          <div class="field"><label for="cg">Darken behind text</label><input type="range" id="cg" min="0" max="0.8" step="0.01" value=${cfg.grade} onInput=${(e) => upd({ grade: +e.currentTarget.value })} /></div>
           <div class="field"><label for="cpx">Photo left / right</label><input type="range" id="cpx" min="-1" max="1" step="0.01" value=${cfg.px || 0} onInput=${(e) => upd({ px: +e.currentTarget.value })} /></div>
           <div class="field"><label for="cpy">Photo up / down</label><input type="range" id="cpy" min="-1" max="1" step="0.01" value=${cfg.py || 0} onInput=${(e) => upd({ py: +e.currentTarget.value })} /></div>
         </div>`}
@@ -874,20 +890,27 @@ function CoverEditor({ close, postId }) {
         <div class="field"><span class="lbl">Layout</span><div class="presets">${Object.entries(PRESETS).map(([k, pr]) => html`<button class=${'chip' + (cfg.preset === k ? ' on' : '')} onClick=${() => applyPreset(k)}>${pr.name}</button>`)}</div></div>
         ${sample && html`<div class="col gap-8">
           <button class="btn sm" style="align-self:flex-start" disabled=${ideas === 'loading'} onClick=${askIdeas}><${Icon} n="spark" s=${16} />${ideas === 'loading' ? 'Thinking…' : 'Cover text ideas'}</button>
-          ${Array.isArray(ideas) && ideas.map((op) => html`<button class="card" style="padding:12px 14px;text-align:left;border-radius:14px" onClick=${() => useIdea(op)}>${op.map((l) => html`<div style=${`font-family:${l.style === 'script' ? 'Pinyon Script' : l.style === 'italic' ? 'Playfair Display' : l.style === 'bold' ? 'Anton' : 'Bodoni Moda'};font-style:${l.style === 'italic' ? 'italic' : 'normal'};font-size:${l.style === 'small' || l.style === 'label' ? 11 : 18}px;text-transform:${['caps', 'bold', 'small', 'label'].includes(l.style) ? 'uppercase' : 'none'}`}>${l.text}</div>`)}</button>`)}
+          ${Array.isArray(ideas) && ideas.map((op) => html`<button class="card" style="padding:12px 14px;text-align:center;border-radius:14px" onClick=${() => useIdea(op)}>${op.map((l) => { const n = lineOf(l); return html`<div style=${`font-family:"${fam(n.font)}";font-size:${n.size > 60 ? 22 : 11}px;line-height:1.1;letter-spacing:${(n.ls || 0)}em;white-space:pre-line;text-transform:${n.upper ? 'uppercase' : 'none'}`}>${n.text.replace(/\*/g, '')}</div>`; })}</button>`)}
         </div>`}
         <div class="field"><span class="lbl">Text lines</span>
           <div class="lines">${cfg.lines.map((l, i) => html`<div class="col gap-6">
             <div class="lnr">
-              <textarea class="input" rows=${String(l.text).includes('\n') ? 2 : 1} aria-label=${'Line ' + (i + 1)} value=${l.text} onInput=${(e) => setLine(i, { text: e.currentTarget.value })}></textarea>
-              <select class="select input" aria-label=${'Style of line ' + (i + 1)} value=${l.style} onChange=${(e) => setLine(i, { style: e.currentTarget.value })}>${Object.entries(STYLE_NAMES).map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select>
+              <textarea class="input" rows=${String(l.text).includes('\n') ? 2 : 1} aria-label=${'Line ' + (i + 1)} value=${l.text} onInput=${(e) => setLine(i, { text: e.currentTarget.value })} style=${`font-family:"${fam(l.font)}";font-size:17px`}></textarea>
+              <select class="select input" aria-label=${'Font of line ' + (i + 1)} value=${l.font} onChange=${(e) => setLine(i, { font: e.currentTarget.value })}>${FONT_GROUPS.map((g) => html`<optgroup label=${g}>${Object.entries(FONT_LIB).filter(([, v]) => v[1] === g).map(([k, v]) => html`<option value=${k}>${v[0]}</option>`)}</optgroup>`)}</select>
               <button class="icon-btn" aria-label=${'Remove line ' + (i + 1)} onClick=${() => upd({ lines: cfg.lines.filter((_, j) => j !== i) })}><${Icon} n="x" s=${17} /></button>
             </div>
-            <input type="range" min="12" max="220" value=${l.size} aria-label=${'Size of line ' + (i + 1)} onInput=${(e) => setLine(i, { size: +e.currentTarget.value })} />
+            <div class="lctl">
+              <label>Size<input type="range" min="12" max="240" value=${l.size} aria-label=${'Size of line ' + (i + 1)} onInput=${(e) => setLine(i, { size: +e.currentTarget.value })} /></label>
+              <label>Spacing<input type="range" min="0" max="0.4" step="0.01" value=${l.ls || 0} aria-label=${'Letter spacing of line ' + (i + 1)} onInput=${(e) => setLine(i, { ls: +e.currentTarget.value })} /></label>
+              <label>Width<input type="range" min="0.7" max="1" step="0.01" value=${l.hs || 1} aria-label=${'Width of line ' + (i + 1)} onInput=${(e) => setLine(i, { hs: +e.currentTarget.value })} /></label>
+              <button class=${'chip' + (l.upper ? ' on' : '')} style="height:32px;padding:0 12px" onClick=${() => setLine(i, { upper: !l.upper })}>AA</button>
+            </div>
           </div>`)}</div>
-          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => upd({ lines: [...cfg.lines, { text: 'NEW LINE', style: 'caps', size: 70 }] })}><${Icon} n="plus" s=${16} />Add line</button>
+          <span class="small muted">Wrap a word in *stars* to set it in italic, like a *peace* in my Mind.</span>
+          <button class="btn sm ghost" style="align-self:flex-start" onClick=${() => upd({ lines: [...cfg.lines, { text: 'New line', font: 'editors-regular', size: 90 }] })}><${Icon} n="plus" s=${16} />Add line</button>
         </div>
-        <div class="field"><label for="cy">Text position</label><input type="range" id="cy" min="0.15" max="0.9" step="0.01" value=${cfg.y} onInput=${(e) => upd({ y: +e.currentTarget.value })} /></div>
+        <div class="field"><span class="lbl">Align</span><div class="seg">${['left', 'center', 'right'].map((a) => html`<button class=${cfg.align === a ? 'on' : ''} onClick=${() => upd({ align: a })}>${a[0].toUpperCase() + a.slice(1)}</button>`)}</div></div>
+        <div class="field"><label for="cy">Text position</label><input type="range" id="cy" min="0.05" max="0.95" step="0.01" value=${cfg.y} onInput=${(e) => upd({ y: +e.currentTarget.value })} /></div>
         <div class="field"><span class="lbl">Text color</span><div class="row gap-8">${COLORS.map((c) => html`<button class=${'swatch' + (cfg.color === c ? ' on' : '')} style=${`background:${c}`} aria-label=${'Color ' + c} onClick=${() => upd({ color: c })}></button>`)}<button class=${'chip' + (cfg.shadow ? ' on' : '')} onClick=${() => upd({ shadow: !cfg.shadow })}>Soft shadow</button></div></div>
       </div>
     </div>
