@@ -44,7 +44,7 @@ export function TodayPage() {
     { id: 'today-scheduled', title: 'Scheduled', items: agenda.scheduled },
     { id: 'today-anytime', title: 'Anytime today', items: agenda.anytime },
   ].filter((g) => g.items.length);
-  const empty = !groups.length && !agenda.late.length && !agenda.inbox.length;
+  const empty = !groups.length && !agenda.late.length;
 
   const replan = () => runReplan(filter, t0);
 
@@ -94,7 +94,6 @@ export function TodayPage() {
               {g.items.map((i) => <AgendaRow key={i.key} item={i} />)}
             </div>
           ))}
-          <InboxGroup items={agenda.inbox} />
           {empty && <EmptyDay />}
         </section>
         <div class="stack today-side">
