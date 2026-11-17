@@ -12,6 +12,7 @@ import { today, fmtShort, isoOf, relDay, fmtFull } from '../lib/date.js';
 import { fmtMoney } from '../lib/money.js';
 import * as M from '../lib/model.js';
 import { ProgressRow } from '../ui/polish.jsx';
+import { ProjectBoard } from '../ui/board.jsx';
 import { openQuickAdd } from '../App.jsx';
 import { openClientSheet } from './clients.jsx';
 import { createInvoiceAndOpen } from './invoices.jsx';
@@ -24,6 +25,8 @@ export function ProjectsPage({ query = {}, embedded }) {
   useStore();
   const [tab, setTab] = useState(loadPref('projTab', 'active'));
   const [cat, setCat] = useState(loadPref('projCat', 'all'));
+  const [mode, setMode] = useState(loadPref('projMode', 'board'));
+  useEffect(() => savePref('projMode', mode), [mode]);
   useEffect(() => savePref('projTab', tab), [tab]);
   useEffect(() => savePref('projCat', cat), [cat]);
   let base = M.liveProjects();
@@ -41,12 +44,14 @@ export function ProjectsPage({ query = {}, embedded }) {
   return (
     <div class="page">
       {!embedded && <PageHeader title="Projects." actions={<div class="row gap-8"><button class="icon-btn ghost" aria-label="Search" onClick={() => openSearch()}><Icon name="search" size={22} /></button><AddBtn label="New project" onClick={() => openProjectSheet()} /></div>} />}
-      <div class="row gap-8 wrap"><button class="dropdown-pill" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, cat, setCat)}>{cat !== 'all' && <span class={'cat-dot t-' + M.categoryOf(cat).color} aria-hidden="true" />}{catName}<Icon name="chevronDown" size={15} /></button>{query.stage && <button class="chip on sm" aria-label={'Clear ' + M.stageOf(query.stage).label + ' filter'} onClick={() => navigate('/work/projects')}>{M.stageOf(query.stage).label}<Icon name="x" size={13} /></button>}</div>
+      <div class="row gap-8 wrap"><button class="dropdown-pill" aria-haspopup="menu" onClick={(e) => categoryFilterMenu(e, cat, setCat)}>{cat !== 'all' && <span class={'cat-dot t-' + M.categoryOf(cat).color} aria-hidden="true" />}{catName}<Icon name="chevronDown" size={15} /></button>{query.stage && <button class="chip on sm" aria-label={'Clear ' + M.stageOf(query.stage).label + ' filter'} onClick={() => navigate('/work/projects')}>{M.stageOf(query.stage).label}<Icon name="x" size={13} /></button>}<span class="grow" /><Segmented options={[{ id: 'board', label: 'Board' }, { id: 'list', label: 'List' }]} value={mode} onChange={setMode} /></div>
+      {mode === 'board' ? <ProjectBoard projects={base} onNew={() => openProjectSheet(cat !== 'all' ? { categoryId: cat } : {})} /> : (<>
       <Segmented class="full" options={[{ id: 'active', label: 'Active', count: groups.active.length }, { id: 'completed', label: 'Completed', count: groups.completed.length || undefined }, { id: 'archived', label: 'Archived', count: groups.archived.length || undefined }]} value={tab} onChange={setTab} />
       {tab === 'completed' && list.length > 0 && <div class="muted" style={{ fontSize: 13 }}>Completed projects move to Archived after {M.AUTO_ARCHIVE_DAYS} days.</div>}
       {tab === 'archived' && list.length > 0 && <button class="btn danger-soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => deleteAllArchived(list)}><Icon name="trash" size={15} />Delete all{cat !== 'all' ? ' in ' + catName : ''}</button>}
       {list.length ? <div class="prog-list">{list.map((p) => <ProgressRow project={p} />)}</div>
         : <Empty icon="folder" title={tab === 'active' ? 'No active projects' : tab === 'completed' ? 'Nothing completed yet' : 'No archived projects'} action={tab === 'active' && <button class="btn primary sm" onClick={() => openProjectSheet(cat !== 'all' ? { categoryId: cat } : {})}><Icon name="plus" size={15} />New project</button>}>{tab === 'active' ? 'One project per job, campaign or personal goal.' : null}</Empty>}
+      </>)}
     </div>
   );
 }
