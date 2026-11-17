@@ -15,6 +15,15 @@ import { openProjectSheet } from './projects.jsx';
 const CUR_OPTS = Object.keys(CURRENCIES);
 
 // A new invoice starts as a form. The draft (and its number) is only created on "Create draft".
+// Every open project can be invoiced. The client's own projects come first, then projects with no client,
+// then the rest. Konten projects are left out (they never get billed).
+function invoiceProjects(clientId, currentId) {
+  const rank = (p) => (clientId && p.clientId === clientId ? 0 : !p.clientId ? 1 : 2);
+  return M.liveProjects()
+    .filter((p) => p.id === currentId || (!p.archived && p.categoryId !== 'konten' && !['completed'].includes(p.stage)))
+    .sort((a, b) => rank(a) - rank(b) || (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+const projLabel = (p) => { const c = p.clientId && get('clients', p.clientId); return c ? p.name + ' · ' + c.name : p.name; };
 export function createInvoiceAndOpen(preset = {}) { openOverlay((close) => <NewInvoiceSheet preset={preset} close={close} />, { kind: 'sheet' }); }
 export const invoiceMissing = (inv) => {
   const out = [];
@@ -32,7 +41,7 @@ function NewInvoiceSheet({ preset, close }) {
   const set = (ch) => setF({ ...f, ...ch });
   const setItem = (iid, ch) => set({ items: f.items.map((it) => (it.id === iid ? { ...it, ...ch } : it)) });
   const clients = M.liveClients().filter((c) => !c.archived).sort((a, b) => a.name.localeCompare(b.name));
-  const projects = M.liveProjects().filter((p) => !p.archived && M.projectBilling(p) && (!f.clientId || !p.clientId || p.clientId === f.clientId));
+  const projects = invoiceProjects(f.clientId, f.projectId);
   const total = f.items.reduce((n, it) => n + Math.round((+it.qty || 0) * (+it.rate || 0)), 0);
   const create = () => {
     if (!f.clientId) return toast('Pick the client first.', { tone: 'warn' });
@@ -57,7 +66,7 @@ function NewInvoiceSheet({ preset, close }) {
         </Field>
         <Field label="Project (optional)" htmlFor="ni-proj">
           <div class="row gap-6">
-            <div class="grow"><Select id="ni-proj" value={f.projectId} onChange={(v) => { const pr = get('pmProjects', v); set({ projectId: v, ...(pr?.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects yet'} options={projects.map((p) => ({ id: p.id, label: p.name }))} /></div>
+            <div class="grow"><Select id="ni-proj" value={f.projectId} onChange={(v) => { const pr = get('pmProjects', v); set({ projectId: v, ...(pr?.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects yet'} options={projects.map((p) => ({ id: p.id, label: projLabel(p) }))} /></div>
             <button class="btn outline" onClick={() => openProjectSheet({ clientId: f.clientId || '', categoryId: 'freelance', onCreated: (pr) => set({ projectId: pr.id, ...(pr.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }) })}><Icon name="plus" size={15} />New</button>
           </div>
         </Field>
@@ -187,7 +196,7 @@ export function InvoiceEditor({ id }) {
   const setItem = (iid, ch) => set({ items: inv.items.map((it) => (it.id === iid ? { ...it, ...ch } : it)) });
   const project = get('pmProjects', inv.projectId);
   const clients = M.liveClients().filter((x) => !x.archived || x.id === inv.clientId);
-  const projects = M.liveProjects().filter((p) => (!p.archived || p.id === inv.projectId) && (!inv.clientId || p.clientId === inv.clientId || p.id === inv.projectId));
+  const projects = invoiceProjects(inv.clientId, inv.projectId);
   const payments = all('payments').filter((p) => p.invoiceId === id).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const commitNumber = () => {
     const n = numDraft.trim();
@@ -246,11 +255,11 @@ export function InvoiceEditor({ id }) {
                 </div>
               </Field>
               <div class="form-row">
-                <Field label="Client" htmlFor="inv-client"><Select id="inv-client" value={inv.clientId} onChange={(v) => set({ clientId: v, projectId: get('pmProjects', inv.projectId)?.clientId === v ? inv.projectId : '' })} placeholder="Choose client" options={clients.map((x) => ({ id: x.id, label: x.name }))} /></Field>
+                <Field label="Client" htmlFor="inv-client"><Select id="inv-client" value={inv.clientId} onChange={(v) => set({ clientId: v, projectId: !get('pmProjects', inv.projectId)?.clientId || get('pmProjects', inv.projectId)?.clientId === v ? inv.projectId : '' })} placeholder="Choose client" options={clients.map((x) => ({ id: x.id, label: x.name }))} /></Field>
                 </div>
               <Field label="Project (optional)" htmlFor="inv-project">
                 <div class="row gap-6">
-                  <div class="grow"><Select id="inv-project" value={inv.projectId} onChange={(v) => { const p = get('pmProjects', v); set({ projectId: v, ...(p && !inv.clientId && p.clientId ? { clientId: p.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects for this client'} options={projects.map((p) => ({ id: p.id, label: p.name }))} /></div>
+                  <div class="grow"><Select id="inv-project" value={inv.projectId} onChange={(v) => { const p = get('pmProjects', v); set({ projectId: v, ...(p && !inv.clientId && p.clientId ? { clientId: p.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects yet'} options={projects.map((p) => ({ id: p.id, label: projLabel(p) }))} /></div>
                   {!locked && <button class="btn outline" onClick={() => openProjectSheet({ clientId: inv.clientId || '', categoryId: 'freelance', onCreated: (pr) => set({ projectId: pr.id, projectSnapshot: { name: pr.name }, ...(pr.clientId && !inv.clientId ? { clientId: pr.clientId } : {}) }) })}><Icon name="plus" size={15} />New</button>}
                 </div>
               </Field>
