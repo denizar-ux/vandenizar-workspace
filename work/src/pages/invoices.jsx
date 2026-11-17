@@ -112,10 +112,10 @@ export function InvoicesPage({ query }) {
     <div class="page">
       <PageHeader title="Invoices." actions={<AddBtn label="New invoice" onClick={() => createInvoiceAndOpen({})} />} />
       <div class="sum-grid four">
-        <div><span>Invoiced</span><b class="tnum">{fmtMoney(f.invoiced, cur, { compact: true })}</b></div>
-        <div><span>Received</span><b class="tnum">{fmtMoney(f.received, cur, { compact: true })}</b></div>
-        <div><span>Outstanding</span><b class="tnum">{fmtMoney(f.outstanding, cur, { compact: true })}</b></div>
-        <div class={f.overdue ? 'bad' : ''}><span>Overdue</span><b class="tnum">{fmtMoney(f.overdue, cur, { compact: true })}</b></div>
+        <div><span>Invoiced</span><b class="tnum">{fmtMoney(f.invoiced, cur)}</b></div>
+        <div><span>Received</span><b class="tnum">{fmtMoney(f.received, cur)}</b></div>
+        <div><span>Outstanding</span><b class="tnum">{fmtMoney(f.outstanding, cur)}</b></div>
+        <div class={f.overdue ? 'bad' : ''}><span>Overdue</span><b class="tnum">{fmtMoney(f.overdue, cur)}</b></div>
       </div>
       <div class="chips scroll">
         {[['all', 'All'], ['draft', 'Draft'], ['sent', 'Sent'], ['partial', 'Partial'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['open', 'Unpaid']].map(([id, label]) => <button class={'chip ' + (filter === id ? 'on' : '')} onClick={() => setFilter(id)}>{label}{id !== 'all' && count(id) > 0 && <span class="chip-count">{count(id)}</span>}</button>)}
@@ -138,7 +138,7 @@ export function InvoicesPage({ query }) {
         <section class="sheet-surface"><div class="list">{list.map(({ i, c }) => (
           <a class="list-row clickable" href={'#/invoices/' + i.id}>
             <div class="row-main"><div class="row-title tnum">{i.number}</div><div class="row-meta">{M.clientName(i.clientId)} · due {fmtShort(i.dueDate)}</div></div>
-            <div class="col" style={{ alignItems: 'flex-end', gap: 4 }}><span class="tnum strong">{fmtMoney(c.status === 'draft' || c.status === 'paid' ? c.total : c.balance, i.currency, { compact: true })}</span><InvoicePill status={c.status} /></div>
+            <div class="col" style={{ alignItems: 'flex-end', gap: 4 }}><span class="tnum strong">{fmtMoney(c.status === 'draft' || c.status === 'paid' ? c.total : c.balance, i.currency)}</span><InvoicePill status={c.status} /></div>
           </a>))}</div></section>
       )}
     </div>
