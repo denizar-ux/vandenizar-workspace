@@ -107,12 +107,17 @@ export function TodayPage() {
 
 function SummaryCards({ everything }) {
   const t0 = today(), now = nowTime();
+  // Agenda: what is on today, timed first (upcoming before past), then anytime items.
   const timed = everything.scheduled.filter((i) => i.time);
-  const upcoming = timed.filter((i) => i.time >= now);
-  const nextThree = (upcoming.length ? upcoming : timed).slice(0, 3);
-  const notEvent = (i) => i.kind !== 'event';
-  const todo = everything.scheduled.filter(notEvent).length + everything.anytime.filter(notEvent).length + everything.late.filter(notEvent).length;
-  const waiting = M.liveProjects().filter((p) => !p.archived && p.stage === 'client_review').length;
+  const items = [...timed.filter((i) => i.time >= now), ...timed.filter((i) => i.time < now), ...everything.anytime, ...everything.scheduled.filter((i) => !i.time)];
+  const shown = items.slice(0, 5);
+  const weekEnd = addDays(t0, 7);
+  const open = M.liveTasks().filter(M.isOpen);
+  const liveP = M.liveProjects().filter((p) => !p.archived && !['delivered', 'completed'].includes(p.stage));
+  // Deadline: due today up to 7 days ahead, not yet late. Overdue: deadline already passed.
+  const deadline = open.filter((t) => t.deadlineDate && t.deadlineDate >= t0 && t.deadlineDate <= weekEnd && !M.isOverdue(t)).length
+    + liveP.filter((p) => p.deadlineDate && p.deadlineDate >= t0 && p.deadlineDate <= weekEnd).length;
+  const overdue = open.filter(M.isOverdue).length + liveP.filter((p) => p.deadlineDate && p.deadlineDate < t0).length;
   const toSched = () => {
     const el = document.getElementById('today-scheduled') || document.querySelector('.agenda-panel');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -120,16 +125,17 @@ function SummaryCards({ everything }) {
   return (
     <div class="today-bento">
       <div class="tb-today">
-        <BentoCard tint="butter" icon="calendar" label="Today" onClick={toSched}>
-          {nextThree.length ? (
+        <BentoCard tint="butter" icon="calendar" label="Agenda" onClick={toSched}>
+          {shown.length ? (
             <span class="bento-list">
-              {nextThree.map((i) => <span key={i.key} class="bento-line"><b class="tnum">{i.time}</b> {i.title}</span>)}
+              {shown.map((i) => <span key={i.key} class="bento-line">{i.time && <b class="tnum">{i.time}</b>} {i.title}</span>)}
+              {items.length > shown.length && <span class="bento-more">+{items.length - shown.length} lagi</span>}
             </span>
-          ) : <span class="bento-empty">Nothing timed</span>}
+          ) : <span class="bento-empty">Kosong hari ini</span>}
         </BentoCard>
       </div>
-      <BentoCard tint="cyan" icon="tasks" label="To do" value={todo} href="#/work/tasks?view=today" />
-      <BentoCard tint="lavender" icon="clock" label="Waiting" value={waiting} href="#/work/projects?stage=client_review" />
+      <BentoCard tint="cyan" icon="flag" label="Deadline" value={deadline} href="#/work/tasks?view=upcoming" />
+      <BentoCard tint={overdue ? 'peach' : 'lavender'} icon="clock" label="Overdue" value={overdue} href="#/work/tasks?view=overdue" />
     </div>
   );
 }
