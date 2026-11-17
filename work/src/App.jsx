@@ -178,6 +178,7 @@ const ADD_ITEMS = [
   { id: 'event', label: 'Event', icon: 'calendar', run: () => openEventSheet(null, {}) },
   { id: 'project', label: 'Project', icon: 'folder', run: () => openProjectSheet() },
   { id: 'konten', label: 'Konten', icon: 'image', run: () => openKontenSheet() },
+  { id: 'invoice', label: 'Invoice', icon: 'file', run: () => createInvoiceAndOpen({}) },
 ];
 const LAST_ADD = 'vzw:lastAdd';
 const lastAdd = () => { try { return localStorage.getItem(LAST_ADD) || ''; } catch { return ''; } };

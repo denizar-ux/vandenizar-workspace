@@ -10,6 +10,7 @@ import { fmtMoney, CURRENCIES } from '../lib/money.js';
 import { saveFile, saveMessage, loadJsPdf } from '../lib/files.js';
 import * as M from '../lib/model.js';
 import { openClientSheet } from './clients.jsx';
+import { openProjectSheet } from './projects.jsx';
 
 const CUR_OPTS = Object.keys(CURRENCIES);
 
@@ -54,7 +55,12 @@ function NewInvoiceSheet({ preset, close }) {
             <button class="btn outline" onClick={() => openClientSheet(null, (c) => set({ clientId: c.id }))}><Icon name="plus" size={15} />New</button>
           </div>
         </Field>
-        <Field label="Project (optional)" htmlFor="ni-proj"><Select id="ni-proj" value={f.projectId} onChange={(v) => { const pr = get('pmProjects', v); set({ projectId: v, ...(pr?.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }); }} placeholder="None" options={projects.map((p) => ({ id: p.id, label: p.name }))} /></Field>
+        <Field label="Project (optional)" htmlFor="ni-proj">
+          <div class="row gap-6">
+            <div class="grow"><Select id="ni-proj" value={f.projectId} onChange={(v) => { const pr = get('pmProjects', v); set({ projectId: v, ...(pr?.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects yet'} options={projects.map((p) => ({ id: p.id, label: p.name }))} /></div>
+            <button class="btn outline" onClick={() => openProjectSheet({ clientId: f.clientId || '', categoryId: 'freelance', onCreated: (pr) => set({ projectId: pr.id, ...(pr.clientId && !f.clientId ? { clientId: pr.clientId } : {}) }) })}><Icon name="plus" size={15} />New</button>
+          </div>
+        </Field>
         <div class="form-row">
           <Field label="Invoice date" htmlFor="ni-date"><DateInput id="ni-date" value={f.date} clearable={false} onChange={(v) => set({ date: v })} /></Field>
           <Field label="Due date" htmlFor="ni-due"><DateInput id="ni-due" value={f.dueDate} clearable={false} onChange={(v) => set({ dueDate: v })} /></Field>
@@ -241,8 +247,13 @@ export function InvoiceEditor({ id }) {
               </Field>
               <div class="form-row">
                 <Field label="Client" htmlFor="inv-client"><Select id="inv-client" value={inv.clientId} onChange={(v) => set({ clientId: v, projectId: get('pmProjects', inv.projectId)?.clientId === v ? inv.projectId : '' })} placeholder="Choose client" options={clients.map((x) => ({ id: x.id, label: x.name }))} /></Field>
-                <Field label="Project (optional)" htmlFor="inv-project"><Select id="inv-project" value={inv.projectId} onChange={(v) => { const p = get('pmProjects', v); set({ projectId: v, ...(p && !inv.clientId && p.clientId ? { clientId: p.clientId } : {}) }); }} placeholder="None" options={projects.map((p) => ({ id: p.id, label: p.name }))} /></Field>
-              </div>
+                </div>
+              <Field label="Project (optional)" htmlFor="inv-project">
+                <div class="row gap-6">
+                  <div class="grow"><Select id="inv-project" value={inv.projectId} onChange={(v) => { const p = get('pmProjects', v); set({ projectId: v, ...(p && !inv.clientId && p.clientId ? { clientId: p.clientId } : {}) }); }} placeholder={projects.length ? 'None' : 'No projects for this client'} options={projects.map((p) => ({ id: p.id, label: p.name }))} /></div>
+                  {!locked && <button class="btn outline" onClick={() => openProjectSheet({ clientId: inv.clientId || '', categoryId: 'freelance', onCreated: (pr) => set({ projectId: pr.id, projectSnapshot: { name: pr.name }, ...(pr.clientId && !inv.clientId ? { clientId: pr.clientId } : {}) }) })}><Icon name="plus" size={15} />New</button>}
+                </div>
+              </Field>
               {locked && <div class="field-hint">Sent {fmtShort(isoOf(inv.sentAt))}. The PDF keeps the recipient as it was then: {M.invoiceRecipient(inv)?.name || '—'}.</div>}
               <div class="form-row three">
                 <Field label="Invoice date" htmlFor="inv-date"><DateInput id="inv-date" value={inv.date} clearable={false} onChange={(v) => set({ date: v, dueDate: addDays(v, +inv.termsDays || 0) })} /></Field>

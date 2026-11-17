@@ -81,7 +81,9 @@ function ProjectSheet({ preset, close }) {
     const pr = M.newProject({ name: p.name.trim(), categoryId: p.categoryId, workflow: p.workflow, billing: p.billing, clientId: p.clientId || null, stage: 'planned', deadlineDate: p.deadlineDate || null, shootDate: p.shootDate || null, deliverables: [] });
     toast('Project created');
     close();
-    navigate('/projects/' + pr.id);
+    // Opened from another form (e.g. an invoice): hand the project back instead of leaving the page.
+    if (preset.onCreated) preset.onCreated(pr);
+    else navigate('/projects/' + pr.id);
   };
   return (
     <>
